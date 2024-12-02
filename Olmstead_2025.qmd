@@ -3,5 +3,4 @@ title: "Olmstead et al. 2025"
 author: "Jack Olmstead"
 ---
 
-Use ``knitr::spin`` to call other Quarto documents in this doc.
-
+Use ``knitr::spin`` to call other Quarto documents in this doc. E.g. knitr::spin("06-reports/figure1.qmd")
