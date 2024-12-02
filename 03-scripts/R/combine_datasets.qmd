@@ -1,0 +1,294 @@
+---
+title: "Merge all seq data"
+author: "jack olmstead"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+I want to merge all my sequencing data into a single Seurat object and perform all the same processing steps on it.
+
+```{r}
+library(tidyverse)
+library(Seurat)
+library(plotly)
+library(readxl)
+```
+
+```{r create Seurats}
+# get main folders for each experiment
+dir_merge <- "/Volumes/jack/seq/analysis_merge/combined/0_all-sample/DGE_filtered/"
+dir_May2024 <- "/Volumes/jack/seq/analysis_May2024/combined/0_all-sample/DGE_filtered/"
+
+# read in matricies from each seq experiment
+mat_merge <- ReadParseBio(dir_merge)
+mat_May2024 <- ReadParseBio(dir_May2024)
+
+# make Seurat objects for each
+nuclei_merge <- CreateSeuratObject(mat_merge)
+nuclei_May2024 <- CreateSeuratObject(mat_May2024)
+
+# add new columns to seurat objects
+nuclei_merge$experiment <- 'merge'
+nuclei_May2024$experiment <- 'May2024'
+
+nuclei_merge$zt <- 4
+nuclei_May2024$zt <- 12
+
+nuclei_merge
+nuclei_May2024
+```
+
+```{r ReadMeta()}
+# define a function to read in metadata for each dataset
+ReadMeta <- function(data_dir, seurat_obj){
+  cell_meta <- read.delim(paste0(data_dir, "cell_metadata.csv"),
+                      stringsAsFactor = FALSE, sep = ",")
+
+  # for allen metadata, find the csv inside a subfolder that starts with 'adata_lean'
+  allen_meta_folder <- list.files(data_dir, pattern = 'adata_lean', full.names = TRUE)
+  allen_meta_folder <- allen_meta_folder[file.info(allen_meta_folder)$isdir]
+  allen_meta_csv <- list.files(allen_meta_folder, pattern = '.csv', full.names = TRUE)
+  
+  allen_meta <- read.csv(allen_meta_csv, stringsAsFactor = FALSE, sep = ",", skip = 4)
+  
+  meta <- merge(cell_meta, allen_meta, by.x = 'bc_wells', by.y = 'cell_id')
+  
+  # add condition and sublibrary metadata
+  meta <- meta |> 
+    mutate(condition = substr(sample, 1, nchar(sample)-1)) |> 
+    mutate(sublibrary = factor(substr(bc_wells, nchar(bc_wells), nchar(bc_wells))))
+  
+  # rename condition from 'dSE' to 'SE' for consistency
+  if (seurat_obj$experiment[1] == 'May2024') {
+    meta$condition <- gsub('dSE', 'SE', meta$condition)
+    meta$condition <- gsub('d6h', '6h', meta$condition)
+    meta$condition <- gsub('d30m', '30m', meta$condition)
+    # relevel condition
+    meta$condition <- factor(meta$condition, levels = c('SE', '30m', '6h', 'KA'))
+  } else {
+    meta$condition <- factor(meta$condition, levels = c('SE', '1h', '6h'))
+  }
+  
+  # reorder metadata according to Seurat object
+  seurat_obj <- subset(seurat_obj, cells = meta$bc_wells)
+  meta <- meta |> arrange(match(bc_wells, rownames(seurat_obj@meta.data)))
+  
+  # add metadata to seurat object
+  seurat_obj_with_meta <- seurat_obj |> AddMetaData(meta)
+  
+  return(seurat_obj_with_meta)
+}
+```
+
+```{r add metadata to Seurats}
+nuclei_merge <- ReadMeta(dir_merge, nuclei_merge)
+nuclei_May2024 <- ReadMeta(dir_May2024, nuclei_May2024)
+
+nuclei_merge
+nuclei_May2024
+```
+
+```{r normalize Seurats}
+# calculate percent mt for each dataset
+nuclei_merge$percent.mt <- PercentageFeatureSet(nuclei_merge, pattern = "^mt-")
+nuclei_May2024$percent.mt <- PercentageFeatureSet(nuclei_May2024, pattern = "^mt-")
+
+# normalize data
+nuclei_merge <- SCTransform(nuclei_merge, vars.to.regress = 'percent.mt')
+nuclei_May2024 <- SCTransform(nuclei_May2024, vars.to.regress = 'percent.mt')
+```
+
+```{r merge Seurats}
+# merge all seurat objects
+nuclei <- merge(nuclei_merge, nuclei_May2024, 
+                add.cell.ids = c('merge','May2024'),
+                merge.data = TRUE
+                )
+```
+
+```{r relevel metadata in merged Seurat}
+# relevel condition
+nuclei$condition <- factor(nuclei$condition, levels = c('SE', '30m', '1h', '6h', 'KA'))
+nuclei$zt <- factor(nuclei$zt, levels = c(4, 12))
+```
+
+```{r PCA and UMAP}
+# get variable features for the merged dataset via the intersection of vfs from each dataset
+vf_merge <- as_tibble(VariableFeatures(nuclei_merge))
+vf_May2024 <- as_tibble(VariableFeatures(nuclei_May2024))
+vf <- inner_join(vf_merge, vf_May2024)
+VariableFeatures(nuclei) <- vf$value
+
+nuclei <- nuclei |> 
+  RunPCA() |>
+  FindNeighbors(dims = 1:41) |>
+  FindClusters(resolution = 0.8) |>
+  BuildClusterTree(reorder = TRUE, reorder.numeric = "TRUE") |>
+  RunUMAP(dims = 1:41, n.components = 3)
+```
+
+```{r 3-D UMAP}
+# nuclei |> 
+#   plot_ly(
+#     x = ~`umap_1`,
+#     y = ~`umap_2`,
+#     z = ~`umap_3`,
+#     color = ~zt
+#   )
+```
+
+```{r}
+nuclei <- PrepSCTFindMarkers(nuclei, verbose = T)
+```
+
+```{r}
+deg_zt4 <- nuclei |> 
+  subset(subclass_name == '016 CA1-ProS Glut') |> 
+  subset(zt == '4') |> 
+  FindMarkers(group.by = 'condition', ident.1 = '1h', ident.2 = 'SE') |> 
+  rownames_to_column(var = 'gene') |>
+  # filter(p_val_adj < 0.05) |> 
+  # filter(abs(avg_log2FC) > 0.5) |> 
+  arrange(desc(avg_log2FC))
+
+deg_zt12 <- nuclei |>
+  subset(subclass_name == '016 CA1-ProS Glut') |>
+  subset(zt == '12') |>
+  FindMarkers(group.by = 'condition', ident.1 = '30m', ident.2 = 'SE') |>
+  rownames_to_column(var = 'gene') |>
+  # filter(p_val_adj < 0.05) |>
+  # filter(abs(avg_log2FC) > 0.5) |>
+  arrange(desc(avg_log2FC))
+
+deg <- left_join(deg_zt4, deg_zt12, by = 'gene', suffix = c('_zt4', '_zt12'))
+```
+
+```{r define IEGs}
+iegs <- c(
+'Egr2',
+'Homer1',
+'Egr3',
+'Map2',
+'Dusp5',
+'Per2',
+'Dusp6',
+'Per1',
+'Arc',
+'Rhoq'
+)
+```
+
+```{r define seizure genes}
+# read in seizure genes
+library(readxl)
+seizure_genes <- read_excel("/Volumes/jack/seq/analysis_May2024/combined/0_all-sample/DGE_filtered/DEGs/SCT_normalized/016 CA1-ProS Glut_dSE_KA_SIGNIF.xlsx")
+```
+
+```{r plot ZT4 vs ZT12}
+p1 <- deg |>
+  filter(!(gene %in% seizure_genes$gene)) |> 
+  ggplot() +
+  geom_point(aes(x = pct.2_zt4, y = pct.2_zt12)) +
+  geom_abline(slope = 1) +
+  coord_fixed(ratio = 1) +
+  labs(title = 'Ratio of percent of SE cells expressing IEGs',
+       x = 'ZT4',
+       y = 'ZT12')
+
+p2 <- deg |>
+  filter(!(gene %in% seizure_genes$gene)) |> 
+  ggplot() +
+  geom_point(aes(x = pct.1_zt4, y = pct.1_zt12)) +
+  geom_abline(slope = 1) +
+  coord_fixed(ratio = 1) +
+  labs(title = 'Ratio of percent of EE cells expressing IEGs',
+       x = 'ZT4',
+       y = 'ZT12')
+
+p3 <- deg |> 
+  filter(!(gene %in% seizure_genes$gene)) |> 
+  ggplot() +
+  geom_point(aes(x = avg_log2FC_zt4, y = avg_log2FC_zt12)) +
+  coord_fixed(xlim = c(-3,3), ylim = c(-3,3)) +
+  geom_abline(slope = 1) +
+  labs(title = 'Ratio of log2FC between SE vs EE',
+       x = 'ZT4',
+       y = 'ZT12')
+
+p1 + p2
+```
+
+Alright, this is beginning to be concerning. I'm  seeing that almost all genes are systematically upregulated in ZT12 compared to ZT4. This pattern holds for genes that are selected to *not* be in seizure genes, i.e. those that we would not expect to be related to activity. This is a large blow against the hypothesis that IEGs are expressed in a circadian manner.
+
+Another note: I should separately just calculate the DEGs between ZT4 and ZT12 for SE and EE, respectively.
+
+```{r}
+deg_se <- nuclei |>
+  subset(subclass_name == '016 CA1-ProS Glut') |>
+  subset(condition == 'SE') |> 
+  FindMarkers(group.by = 'zt', ident.1 = '4', ident.2 = '12', recorrect_umi = F) |>
+  rownames_to_column(var = 'gene') |>
+  arrange(desc(avg_log2FC))
+  
+deg_ee <- nuclei |>
+  subset(subclass_name == '016 CA1-ProS Glut') |>
+  subset(condition == '30m' | condition == '1h') |> 
+  FindMarkers(group.by = 'zt', ident.1 = '4', ident.2 = '12', recorrect_umi = F) |>
+  rownames_to_column(var = 'gene') |>
+  arrange(desc(avg_log2FC))
+```
+
+```{r}
+p1 <- deg_se |>
+  ggplot() +
+  geom_point(aes(x = pct.1, y = pct.2)) +
+  geom_abline(slope = 1, color = 'red') +
+  coord_fixed(ratio = 1) +
+  labs(title = 'Ratio of percent expression by ZT in SE conditions',
+       x = 'ZT4',
+       y = 'ZT12')
+
+p2 <- deg_ee |>
+  ggplot() +
+  geom_point(aes(x = pct.1, y = pct.2)) +
+  geom_abline(slope = 1, color = 'red') +
+  coord_fixed(ratio = 1) +
+  labs(title = 'Ratio of percent expression by ZT in EE conditions',
+       x = 'ZT4',
+       y = 'ZT12')
+
+p1 + p2
+```
+
+```{r}
+p1 <- plot_ly(
+  data = deg_se,
+  x = ~pct.1,
+  y = ~pct.2,
+  type = 'scatter',
+  mode = 'markers',
+  marker = list(opacity = 0.3),
+  text = ~gene
+) |> 
+  add_segments(x = 0, xend = 1, y = 0, yend = 1, line = list(color = 'red'))
+
+p2 <- plot_ly(
+  data = deg_ee,
+  x = ~pct.1,
+  y = ~pct.2,
+  type = 'scatter',
+  mode = 'markers',
+  marker = list(opacity = 0.3),
+  text = ~gene
+) |> 
+  add_segments(x = 0, xend = 1, y = 0, yend = 1, line = list(color = 'red'))
+
+subplot(p1, p2) |> 
+  layout(
+    xaxis = list(title = 'ZT4'),
+    yaxis = list(title = 'ZT12'),
+    title = 'Ratio of percent expression in SE and EE conditions by ZT'
+  )
+```
+

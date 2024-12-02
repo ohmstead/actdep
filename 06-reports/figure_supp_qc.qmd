@@ -1,0 +1,322 @@
+---
+title: "supp figure analysis"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup}
+SAVE_PLOTS = TRUE
+```
+
+```{r}
+getwd()
+source("~/projects/actdep/03-scripts/R/seq_functions.R")
+
+library(tidyverse)
+
+library(ggplot2)
+library(patchwork)
+library(paletteer)
+
+library(Seurat)
+library(SeuratDisk)
+```
+
+```{r load colors}
+condition_colors <- LoadConditionColors('May2024')
+sex_colors <- LoadSexColors()
+```
+
+```{r load nuclei}
+nuclei <- LoadDataset("May2024")
+```
+
+```{r plot Xist expression}
+# let's ascertain the sex of biological samples based on Xist expression
+nuclei <- nuclei |> 
+  AddMetaData(metadata = nuclei@assays$SCT$counts['Xist',], col = 'Xist')
+
+meta <- nuclei@meta.data
+
+# plot Xist expression in each sample
+ggplot(meta) +
+  geom_histogram(aes(x = Xist)) +
+  labs(title = 'Xist expression') +
+  facet_wrap(~sample, nrow = 4)
+
+# hard-code new df with sex of sample
+sample_sexes <- data.frame(sample = c('d30m1',  'd30m2',  'd30m3',
+                                      'd6h1',   'd6h2',   'd6h3',
+                                      'dSE1',   'dSE2',   'dSE3',
+                                      'KA1',    'KA2',    'KA3'),
+                           
+                           sex =    c('female', 'female', 'female',
+                                      'male',   'female', 'female',
+                                      'female', 'male',   'male',
+                                      'male',   'male',   'female'))
+```
+
+```{r relevel, filter subclasses}
+meta <- nuclei@meta.data
+sample_levels <- c('KA3', "KA2", "KA1",
+                   'd6h3', 'd6h2', 'd6h1',
+                   'd30m3', 'd30m2', 'd30m1',
+                   'dSE3', 'dSE2', 'dSE1')
+meta <- meta |> 
+  filter(n() >= 100, .by = 'subclass_name') |> 
+  mutate(count = n(), .by = subclass_name) |>
+  mutate(subclass_name = fct_reorder(subclass_name, count, .desc = FALSE)) |> 
+  mutate(condition = factor(condition, levels = c('KA','d6h','d30m','dSE'))) |> 
+  mutate(sample = factor(sample, levels = sample_levels)) |> 
+  select(-count)
+
+subclasses_to_use <- LoadSubclassesToUse(nuclei)
+```
+
+# plot by subclass
+
+```{r}
+my_theme <- theme(
+  # text = element_text(family = 'Mono'),
+  legend.position = 'none',
+  plot.margin = margin(0, 0, 0, 0),
+  panel.background = element_blank(),
+  panel.grid.major.x = element_line(color = 'gray90'),
+  panel.grid.minor.x = element_line(color = 'gray93'),
+  panel.spacing = unit(0, "lines"),
+)
+
+# num cells
+p1 <- ggplot(meta) +
+  aes(y = subclass_name) +
+  geom_bar(fill = 'gray50') + 
+  scale_x_continuous(breaks = c(100, 1000, 2000), position = 'top') +
+  labs(x = 'cells', y = '') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+  )
+
+# condition ratios
+p3 <- meta |> 
+  group_by(subclass_name, condition) |>
+  summarise(n = n()) |> 
+  ggplot() +
+    aes(y = subclass_name, x = n, fill = condition) +
+    geom_bar(stat = 'identity', position = 'fill') +
+    scale_fill_manual(values = condition_colors) +
+    scale_x_continuous(breaks = NULL, position = 'top') +
+    labs(y = '', x = 'condition') +
+    my_theme +
+    theme(
+      axis.text.y = element_blank(),
+      axis.text.x = element_text(angle = 270, hjust = 1),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+    )
+
+# sex ratios
+p4 <- meta |> 
+  group_by(subclass_name, sex) |>
+  summarise(n = n()) |> 
+  ggplot() +
+    aes(y = subclass_name, x = n, fill = sex) +
+    geom_bar(stat = 'identity', position = 'fill') +
+    scale_x_continuous(breaks = NULL, position = 'top') +
+    scale_fill_manual(values = sex_colors) +
+    labs(y = '', x = 'sex') +
+    my_theme +
+    theme(
+      axis.text.y = element_blank(),
+      axis.text.x = element_text(angle = 270, hjust = 1),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+    )
+
+# sublibrary ratio
+p7 <- meta |> 
+  group_by(subclass_name, sublibrary) |>
+  summarise(n = n()) |> 
+  ggplot() +
+    aes(y = subclass_name, x = n, fill = sublibrary) +
+    geom_bar(stat = 'identity', position = 'fill') +
+    scale_x_continuous(breaks = NULL, position = 'top') +
+    scale_fill_paletteer_d("nbapalettes::bucks") + 
+    labs(y = '', x = 'sublib') +
+    my_theme +
+    theme(
+      axis.text.y = element_blank(),
+      axis.text.x = element_text(angle = 270, hjust = 1),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+    )
+
+# UMI plot
+p2 <- ggplot(meta) +
+  aes(y = subclass_name, x = tscp_count) +
+  geom_violin(fill = 'gray50', width = 2) +
+  geom_boxplot(fill = 'gray80', width = 0.3, outliers = FALSE) +
+  scale_x_log10(position = 'top') +
+  labs(y = '', x = 'UMI count') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+  )
+
+# mread plot
+p5 <- ggplot(meta) +
+  aes(y = subclass_name, x = mread_count) +
+  geom_violin(fill = 'gray50', width = 2) +
+  geom_boxplot(fill = 'gray80', width = 0.3, outliers = FALSE) +
+  scale_x_log10(position = 'top') +
+  labs(y = '', x = 'read count') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+  )
+
+# gene plot
+p6 <- ggplot(meta) +
+  aes(y = subclass_name, x = gene_count) +
+  geom_violin(fill = 'gray50', width = 2) +
+  geom_boxplot(fill = 'gray80', width = 0.3, outliers = FALSE) +
+  scale_x_continuous(position = 'top') +
+  labs(y = '', x = 'gene count') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+  )
+
+# pct.mt plot
+p8 <- ggplot(meta) +
+  aes(y = subclass_name, x = percent.mt) +
+  geom_violin(fill = 'gray50', width = 2) +
+  geom_boxplot(fill = 'gray80', width = 0.3, outliers = FALSE) +
+  scale_x_continuous(position = 'top') +
+  labs(y = '', x = '% mt reads') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+  )
+
+p1 + p3 + p4 + p7 + p5 + p2 + p6 + p8 + plot_layout(widths = c(5, 3, 3, 3, 25, 25, 25, 25))
+
+# ggsave('quality_by_subclass.pdf', path = "~/Dropbox/manuscripts/seq_paper/figure_supp/raw_R_plots", width = 27, height = 9, dpi = 600)
+```
+
+# plot by sample
+
+```{r}
+my_theme <- theme(
+  legend.position = 'none',
+  plot.margin = margin(0, 0, 0, 0),
+  panel.background = element_blank(),
+  panel.grid.major.x = element_line(color = 'gray90'),
+  panel.grid.minor.x = element_line(color = 'gray93'),
+  panel.spacing = unit(0, "lines"),
+  axis.title.x = element_text(size = 25),
+  axis.text.y = element_text(size = 18),
+)
+
+# num cells
+p1 <- ggplot(meta) +
+  aes(y = sample, fill = condition) +
+  geom_bar() + 
+  scale_fill_manual(values = condition_colors) +
+  scale_x_continuous(breaks = c(100, 500, 1000), position = 'top') +
+  labs(x = 'cells', y = '') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+  )
+
+# sex ratios
+p5 <- meta |> 
+  group_by(sample, sex) |>
+  summarise(n = n()) |> 
+  ggplot() +
+    aes(y = sample, x = n, fill = sex) +
+    geom_bar(stat = 'identity', position = 'fill') +
+    scale_fill_manual(values = sex_colors) +
+    scale_x_continuous(breaks = NULL, position = 'top') +
+    labs(y = '', x = 'sex') +
+    my_theme +
+    theme(
+      axis.text.y = element_blank(),
+      axis.text.x = element_text(angle = 270, hjust = 1),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank(),
+    )
+
+# mread plot
+p2 <- ggplot(meta) +
+  aes(y = sample, x = mread_count, fill = condition) +
+  geom_violin(width = 2) +
+  geom_boxplot(width = 0.2, outliers = FALSE) +
+  scale_fill_manual(values = condition_colors) +
+  scale_x_log10(position = 'top') +
+  labs(y = '', x = 'read count') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+  )
+
+# UMI plot
+p3 <- ggplot(meta) +
+  aes(y = sample, x = tscp_count, fill = condition) +
+  geom_violin(width = 2) +
+  geom_boxplot(width = 0.2, outliers = FALSE) +
+  scale_fill_manual(values = condition_colors) +
+  scale_x_log10(position = 'top') +
+  labs(y = '', x = 'UMI count') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+  )
+
+# gene plot
+p4 <- ggplot(meta) +
+  aes(y = sample, x = gene_count, fill = condition) +
+  geom_violin(width = 2) +
+  geom_boxplot(width = 0.2, outliers = FALSE) +
+  scale_fill_manual(values = condition_colors) +
+  scale_x_log10(position = 'top') +
+  labs(y = '', x = 'gene count') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+  )
+
+# pct.mt plot
+p6 <- ggplot(meta) +
+  aes(y = sample, x = percent.mt, fill = condition) +
+  geom_violin(width = 2) +
+  geom_boxplot(width = 0.2, outliers = FALSE) +
+  scale_fill_manual(values = condition_colors) +
+  scale_x_continuous(position = 'top') +
+  labs(y = '', x = '% mt reads') +
+  my_theme +
+  theme(
+    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+  )
+
+p1 + p5 +  p2 + p3 + p4 + p6 + plot_layout(widths = c(5, 3, 25, 25, 25, 25), nrow = 1)
+
+# ggsave('quality_by_sample.pdf', path = "~/Dropbox/manuscripts/seq_paper/figure_supp/raw_R_plots", width = 16, height = 7)
+```

@@ -1,0 +1,222 @@
+---
+title: "investigating sex-linked genes"
+author: "jack"
+format: 
+  html:
+    toc: true
+    toc_float: true
+    code-fold: true
+    code-tools: true
+    code-line-numbers: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(readr)
+library(dplyr)
+library(tidyr)
+
+library(ggplot2)
+library(patchwork)
+library(gt)
+
+source("~/R/seq/manuscript/seq_functions.R")
+
+sex_colors <- LoadSexColors()
+```
+
+```{r load in sex-specific genes}
+parent_dir <- "/Volumes/jack/yao2023/DGE/"
+subclass_regexp <- "^\\d{3}.*\\.csv$" # starts with 3 ints, ends w/ .csv
+csvs <- dir(parent_dir)[grepl(subclass_regexp, dir(parent_dir))]
+
+# from figure_supp_qc.qmd
+subclasses_to_use <- read_csv("/Volumes/jack/yao2023/subclasses_to_use.csv") |> 
+  pull(subclass_name)
+
+# this table will be used to rename subclasses (shortened because of csv fnames)
+subclass_query <- subclasses_to_use |> 
+  tibble() |> 
+  rename(subclass = subclasses_to_use) |>
+  mutate(subclass_num = substr(subclass, 1, 3)) |> 
+  arrange(subclass_num)
+
+DEG_master <- tibble()
+
+for (csv in csvs) {
+  # replace subclass_fname with the actual subclass name
+  subclass_fname = substr(csv, 1, nchar(csv)-9)
+  subclass_name = subclass_query$subclass[
+    match(substr(subclass_fname, 1, 3), subclass_query$subclass_num)]
+  
+  subclass_DEGs <- read_csv(paste0(parent_dir, csv)) |> 
+    mutate(subclass = subclass_name)
+
+  DEG_master <- rbind(DEG_master, subclass_DEGs)
+}
+```
+
+```{r plot sex-specific genes by subclasses}
+# how many sex-specific DEGs does each subclass have?
+p1 <- DEG_master |> 
+  summarise(n = n(), .by = subclass) |> 
+  filter(subclass != 'NA') |>
+  arrange(n) |> 
+  mutate(subclass = factor(subclass, levels = subclass)) |> 
+  ggplot() +
+    aes(x = subclass, y = n) +
+    geom_bar(stat = "identity") +
+    labs(y = "Number of sexually dimorphic genes") +
+    scale_y_log10()
+    coord_cartesian(expand = FALSE) +
+    theme_bw() +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 15),
+      axis.text.x = element_text(angle = 90, size = 12, hjust = 1, vjust = 0.5),
+    )
+
+p2 <- DEG_master |> 
+  summarise(n = n(), .by = subclass) |> 
+  filter(subclass != 'NA') |>
+  filter(subclass != '019 L2/3 IT PPP Glut') |>
+  arrange(n) |> 
+  mutate(subclass = factor(subclass, levels = subclass)) |> 
+  ggplot() +
+    aes(x = subclass, y = n) +
+    geom_bar(stat = "identity") +
+    coord_cartesian(expand = FALSE) +
+    labs(title = "019 L2/3 IT PPP Glut not plotted",
+         y = "Num. dimorphic genes") +
+    theme_bw() +
+    theme(
+      axis.title.x = element_blank(),
+      axis.title.y = element_text(size = 8),
+      plot.title = element_text(size = 10),
+      axis.text.x = element_text(angle = 90, size = 12, hjust = 1, vjust = 0.5),
+    )
+
+p1 + inset_element(p2, 0.1, 0.3, 0.8, 0.9)
+# p1 + facet_zoom(x = subclass != "019 L2/3 IT PPP Glut")
+
+# ggsave("~/Dropbox/manuscripts/seq_paper/figure_supp_sex/n_DEGs.png", width = 17, height = 6, units = 'in')
+```
+
+# tile plot of sex genes
+```{r make tile plot of sex-specific genes}
+DEGs <- DEG_master |> 
+  # filter out subclasses by subclass number
+  filter(substr(subclass, 1, 3) %in% substr(subclasses_to_use, 1, 3)) |> 
+  filter(subclass != "019 L2/3 IT PPP Glut") |> 
+  filter(subclass != "037 DG Glut") |>
+  filter(subclass != "334 Microglia NN")
+
+# create a matrix with all possible gene x subclass combos
+all_combinations <- expand_grid(
+  gene = unique(DEGs$gene),
+  subclass = unique(DEGs$subclass)
+)
+
+# mark gene x subclass combos appearing in DEG_master
+all_combinations <- all_combinations %>%
+  mutate(present = paste(gene, subclass) %in% paste(DEGs$gene, DEGs$subclass)) |> 
+  # make color "male" if log2FC in DEG_master is negative, and "female" if positive
+  left_join(DEGs) |> 
+  mutate(color = ifelse(avg_log2FC < 0, "male", "female")) |>
+  mutate(color = ifelse(is.na(color), "neither", color))
+
+# refactor all_combinations so that genes are more sorted
+gene_levels <- DEGs |> 
+  summarise(n = n(), .by = gene) |> 
+  arrange(desc(n)) |> 
+  pull(gene)
+
+all_combinations <- all_combinations |>
+  mutate(gene = factor(gene, levels = gene_levels))
+
+sex_colors <- LoadSexColors()
+sex_colors <- c(sex_colors, "neither" = "white")
+
+# plot
+ggplot(all_combinations, aes(x = gene, y = subclass, fill = color)) +
+  geom_tile(color = 'gray80') +
+  scale_fill_manual(values = sex_colors) +
+  labs(title = "Sexually dimorphic genes by cell type") +
+  theme_bw() +
+  theme(
+    legend.position = 'inside',
+    legend.position.inside = c(0.9, 0.5),
+    legend.background = element_rect(fill = "grey"),
+    legend.title = element_blank(),
+    axis.ticks  = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    plot.title = element_text(size = 30),
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 5.5),
+    )
+```
+
+# table for subclasses with more sex-specific DEGs
+```{r}
+subclass_name <- "016 CA1-ProS Glut"
+subclass_name <- "019 L2/3 IT PPP Glut"
+
+DEG_master |> 
+  filter(subclass == subclass_name) |> 
+  select(-c(p_val, subclass)) |>
+  arrange(desc(abs(avg_log2FC))) |>
+  mutate(gene = paste0("_", gene, "_")) |>  # Add markdown for italics
+  gt() |> 
+    tab_header(
+      title = md("**Sex-specific genes by subclass**"),
+      subtitle = subclass_name
+    ) |> 
+    tab_spanner(
+      label = '% cells expressing',
+      columns = c(pct.1, pct.2)
+    ) |> 
+    cols_label(
+      gene = md("**Gene**"),
+      avg_log2FC = md("**Avg log~2~(FC)**"),
+      pct.1 = md("**Female**"),
+      pct.2 = md("**Male**"),
+      p_val_adj = md("**FDR**")
+    ) |> 
+    fmt_markdown(columns = gene) |> 
+    fmt_number(columns = avg_log2FC, decimals = 2) |>
+    fmt_percent(columns = c(pct.1, pct.2), decimals = 1) |>
+    fmt_scientific(columns = p_val_adj, decimals = 1)
+```
+
+# microglia
+Just out of curiosity, I'd like to plot the sex-specific genes for microglia...
+```{r}
+microglia <- DEG_master |> 
+  filter(subclass == "334 Microglia NN")
+
+plot_ly(microglia, x = ~avg_log2FC, y = ~-log10(p_val_adj), text = ~gene) |> 
+  # red if abs(avg_log2FC) > 0.25, grey otherwise
+  add_markers(color = ~p_val_adj < 0.05, colors = c("grey", "red"))
+```
+
+```{r}
+library(Seurat)
+yao <- readRDS("/Volumes/jack/yao/yao_seurat.rds")
+
+microglia <- yao |> 
+  subset(subclass == "334 Microglia NN") |> 
+  NormalizeData()
+
+Idents(microglia) <- microglia$donor_sex
+```
+
+```{r}
+genes <- rownames(microglia@assays$RNA$counts)
+genes_to_plot <- genes[grepl("^mt", genes)]
+genes_to_plot <- DEG_master |> 
+  filter(subclass == "334 Microglia NN") |> 
+  pull(gene)
+
+VlnPlot(microglia, features = genes_to_plot[1:5])
+```

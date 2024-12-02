@@ -1,0 +1,240 @@
+---
+title: "Compare flattop Seurat"
+---
+
+Compare flattop Seurat to normal Seurat with flattop reads still in there. Perform the following specific analyses:
+
+1.  Side-by-side comparison of UMAPs
+
+2.  Basic comparisons:
+
+    1.  Scatterplots:
+
+        1.  Transcript count filtered vs. transcript count unfiltered
+
+        2.  Gene count filtered vs. gene count unfiltered
+
+```{r}
+#| message: false
+
+library(Seurat)
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(glue)
+library(patchwork)
+
+# source("seq_functions.R")
+source("03-scripts/R/seq_functions.R")
+
+condition_colors <- LoadConditionColors("May2024")
+subclass_colors <- LoadAllenColors()
+```
+
+# Data prep
+
+The Seurat object for the library with all flattop reads filtered out will be called `nuclei_filtered`, and the other one will be called `nuclei_unfiltered`.
+
+```{r load Seurat objects}
+nuclei_filtered <- LoadSeuratRds("~/projects/flattop/02-data/raw_data/cutoff80_parse_outputs/all-sample/DGE_filtered/seurat.Rds")
+nuclei_unfiltered <- LoadDataset("May2024")
+```
+
+```{r merge metadatas}
+# take the sublibrary tag off of barcodes for unfiltered lib
+nuclei_unfiltered$bc_wells <- str_sub(nuclei_unfiltered$bc_wells, 1, 8)
+
+# filtered nuclei have x columns, unfiltered have x columns
+meta <- nuclei_unfiltered@meta.data |> 
+  left_join(nuclei_filtered@meta.data, by = "bc_wells")
+```
+
+There are many cells in nuclei_unfiltered that got removed from nuclei_filtered. Let's make a Seurat for these cells specifically.
+
+```{r nuclei_lost}
+lost_cell_bc <- meta |> 
+  filter(is.na(gene_count.y)) |> 
+  pull(bc_wells)
+
+nuclei_lost <- subset(nuclei_unfiltered, bc_wells %in% lost_cell_bc)
+nuclei_lost
+```
+
+Remove all lost cells from meta, since it doesn't have info for both filtered and unfiltered
+
+```{r}
+meta <- meta |> 
+  filter(!bc_wells %in% nuclei_lost$bc_wells)
+
+meta_s1 <- meta |> filter(sublibrary == 1)
+meta_s2 <- meta |> filter(sublibrary == 2)
+```
+
+# UMAPs
+
+```{r}
+umap_theme <- theme(
+  panel.grid = element_blank(),
+    axis.text = element_blank(),
+    legend.text = element_text(size = 12),
+    legend.position = 'none',
+  panel.border = element_rect(fill=NA),
+  plot.title = element_text(size = 25)
+)
+# condition plots
+p1 <- DimPlot(nuclei_unfiltered, reduction = "umap", group.by = "condition", pt.size = 1, shuffle = TRUE, seed = 17) +
+  scale_color_manual(values = condition_colors) +
+  theme_minimal() +
+  labs(title = 'Unfiltered', x = '', y = '') +
+  umap_theme
+
+p2 <- DimPlot(nuclei_filtered, reduction = "umap", group.by = "condition", pt.size = 1, shuffle = TRUE, seed = 17) +
+  scale_color_manual(values = condition_colors) +
+  theme_minimal() +
+  labs(title = 'Filtered', x = '', y = '') +
+  umap_theme
+
+# subclass plots
+p3 <- DimPlot(nuclei_unfiltered, reduction = "umap", group.by = "subclass_name", pt.size = 1, shuffle = TRUE, seed = 17) +
+  scale_color_manual(values = subclass_colors) +
+  theme_minimal() +
+  labs(title = 'Unfiltered', x = '', y = '') +
+  umap_theme
+
+p4 <- DimPlot(nuclei_filtered, reduction = "umap", group.by = "subclass_name", pt.size = 1, shuffle = TRUE, seed = 17) +
+  scale_color_manual(values = subclass_colors) +
+  theme_minimal() +
+  labs(title = 'Filtered', x = '', y = '') +
+  umap_theme
+
+(p1 + p2) / (p3 + p4)
+```
+
+# Transcript/gene correlation
+
+```{r}
+corr_theme <- theme(
+  legend.position = 'none',
+  plot.title = element_text(size = 20),
+  axis.title.x = element_text(size = 20),
+  axis.title.y = element_text(size = 20),
+  axis.text.x = element_text(size = 15),
+  axis.text.y = element_text(size = 15),
+)
+
+plot_transcripts <- ggplot(meta) +
+  aes(x = tscp_count.x, y = tscp_count.y) +
+  geom_density_2d_filled() +
+  geom_point(color = 'white', size = 3, alpha = 0.5) +
+  theme_minimal() +
+  labs(
+    title = 'Transcripts',
+    x = 'Before',
+    y = 'After',
+  ) +
+  corr_theme
+
+plot_genes <- ggplot(meta) +
+  aes(x = gene_count.x, y = gene_count.y) +
+  geom_density_2d_filled() +
+  geom_point(color = 'white', size = 3, alpha = 0.5) +
+  theme_minimal() +
+  labs(
+    title = 'Genes',
+    x = 'Before',
+    y = 'After',
+  ) +
+  corr_theme
+
+plot_transcripts + plot_genes + plot_annotation(
+  title = "Comparison of transcripts and genes per cell before/after flattop read removal",
+  caption = "Each point is a cell, plotted as number of detected transcripts/reads after vs. before flattop read removal.",
+  theme = theme(
+    plot.title = element_text(size = 30),
+    plot.caption = element_text(size = 15)
+    )
+  )
+```
+
+Make the exact same plot; just color the points by sublibrary.
+
+```{r sublib coloring}
+corr_theme <- theme(
+  legend.position = 'none',
+  plot.title = element_text(size = 20),
+  axis.title.x = element_text(size = 20),
+  axis.title.y = element_text(size = 20),
+  axis.text.x = element_text(size = 15),
+  axis.text.y = element_text(size = 15),
+)
+sublib_colors <- setNames(c("white", "red"), c(1,2))
+
+plot_transcripts <- ggplot(meta) +
+  aes(x = tscp_count.x, y = tscp_count.y) +
+  geom_density_2d_filled() +
+  geom_point(aes(color = sublibrary), size = 3, alpha = 0.5) +
+  scale_color_manual(values = sublib_colors) +
+  theme_minimal() +
+  labs(
+    title = 'Transcripts',
+    x = 'Before',
+    y = 'After',
+  ) +
+  corr_theme
+
+plot_genes <- ggplot(meta) +
+  aes(x = gene_count.x, y = gene_count.y) +
+  geom_density_2d_filled() +
+  geom_point(aes(color = sublibrary), size = 3, alpha = 0.5) +
+  scale_color_manual(values = sublib_colors) +
+  theme_minimal() +
+  labs(
+    title = 'Genes',
+    x = 'Before',
+    y = 'After',
+  ) +
+  corr_theme
+
+plot_transcripts + plot_genes + plot_annotation(
+  title = "Comparison of transcripts and genes per cell before/after flattop read removal",
+  caption = "Each point is a cell, plotted as number of detected transcripts/reads after vs. before flattop read removal. Red points = sublibrary 2; White points = sublibrary 1.",
+  theme = theme(
+    plot.title = element_text(size = 30),
+    plot.caption = element_text(size = 15)
+    )
+  )
+```
+
+# Correlations
+
+Let's find the correlations between detected transcript and gene count before/after filtering out flattop reads.
+
+```{r}
+# both sublibraries R2
+r2_tscp <- cor(meta$tscp_count.x, meta$tscp_count.y)^2
+r2_gene <- cor(meta$gene_count.x, meta$gene_count.y)^2
+
+print(glue("Combined sublibrary transcript count correlation R-sq: {r2_tscp}"))
+print(glue("Combined sublibrary gene count correlation R-sq: {r2_gene}"))
+
+# sublib 1 R2
+r2_tscp <- cor(meta_s1$tscp_count.x, meta_s1$tscp_count.y)^2
+r2_gene <- cor(meta_s1$gene_count.x, meta_s1$gene_count.y)^2
+
+print(glue("Sublibrary 1 transcript count correlation R-sq: {r2_tscp}"))
+print(glue("Sublibrary 1 gene count correlation R-sq: {r2_gene}"))
+
+# sublib 2 R2
+r2_tscp <- cor(meta_s2$tscp_count.x, meta_s2$tscp_count.y)^2
+r2_gene <- cor(meta_s2$gene_count.x, meta_s2$gene_count.y)^2
+
+print(glue("Sublibrary 1 transcript count correlation R-sq: {r2_tscp}"))
+print(glue("Sublibrary 1 gene count correlation R-sq: {r2_gene}"))
+
+# sublib distributions
+print("original sublib distribution:")
+table(nuclei_unfiltered$sublibrary)
+
+print("filtered sublib distribution:")
+table(meta$sublibrary)
+```

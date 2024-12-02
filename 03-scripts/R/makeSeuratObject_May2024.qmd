@@ -1,0 +1,182 @@
+---
+title: "Create Seurat object for May2024 dataset"
+---
+
+This script contains all pre- and intermediate processing of the snRNA-seq data after it comes out of the Parse pipeline. In other words, it takes the digital cell-gene expression matrix produced by the Parse pipeline and turns it into a Seurat object for secondary analyses.
+
+Any other analyses in the paper should use the Seurat object created in this file, unless otherwise specified.
+
+***Data preprocessing and quality control:***
+
+Libraries were sequenced on an Illumina NovaSeq X Plus using paired-end 100-bp reads. Sequencing was targeted at 60,000 reads per nucleus. FASTQ files were created using Illumina's bcl2fastq. Raw cell x gene count matricies from demultiplexed samples were generated from the FASTQ files using Parse Bioscience's `split-pipe` pipeline, version 1.1.2. The count matrix was loaded into R and associated with experimental metadata such as sample, sex, and condition. Percent of reads mapping to mitochondrial reads was calculated for each nucleus. Parse Bioscience's `split-pipe` pipeline uses a barcode-rank algorithm to threshold-out nuclei below a certain number of assigned transcripts, which was first used to filter out low-quality nuclei. In addition to this, nuclei had to have an assigned transcript count in between 1500 - 100000; a gene count in between 1500 and 8000; and percent-mitochondrial-read count below 1%. All other nuclei were excluded.
+
+***Intermediate data processing:***
+
+### from Pollina 2023 methods, to use as a template
+
+**snRNA-seq analysis.** FASTQ files were created using the standard bcl2fastq pipeline from Illumina. Gene expression tables for each nuclear barcode were generated using the CellRanger 3.0.0 pipeline as designed by 10x Genomics. Samples were demultiplexed, and all Npas4fl/fl or Tip60fl/fl samples were merged using the CellRanger aggr function using default parameters. The datasets were loaded into R and analysed using the Seurat (v.3)66 and Monocle367 packages. Nuclei were removed from the dataset if they contained fewer than 500 detected genes, displayed more than 5% of reads mapping to mitochondrial genes or had RNA counts detected at a level greater than 2 standard deviations higher than the average value in their assigned cell type (which probably reflect doublets and multiplets). To remove potential doublets from the datasets in a more stringent manner, we used the DoubletFinder package in R, which assesses which barcodes in a dataset are most likely to be doublets based on transcriptional similarity to distinct clusters68. We used default parameters and an estimated doublet rate of 7% based on guidance from 10x Genomics Chromium Single Cell 3′ Reagent kits v3 User Guide and the number of nuclei run in each reaction lane.
+
+All nuclei in either Npas4fl/fl or Tip60fl/fl samples were considered together for clustering and dimensionality reduction. The 2,000 top variable genes across nuclei were identified using Seurat’s (v.3) FindVariableFeatures function, which were used to perform PCA using the RunPCA function (both using default parameters). A shared nearest neighbour graph was constructed using the FindNeighbors function (considering the top 30 principal components), and clustering was assigned using the FindClusters function (resolution n = 0.02). The following marker genes were used to assign cell type to the principal ten clusters identified: pan-neuronal (Rbfox3); pan-excitatory neurons (Slc17a7); pan-inhibitory neurons (Gad2); excitatory dentate gyrus neurons (Prox1 and C1ql2); excitatory CA3 neurons (Cpne4 and Spock1); excitatory CA1 neurons (Mpped1); excitatory subiculum neurons (Tshz2); oligodendrocytes (Mog and Mag); oligodendrocyte precursor cells (Pdgfra); astrocytes (Gfap); microglia (Cx3cr1 and C1qc); and endothelial cells (Cldn5) (Extended Data Fig. 4). To assign infection status to each nucleus, we set a threshold of detecting more than eight mCherry or GFP transcripts in a given nucleus, which represented an inflection point above the background rate of detection for the distribution of these transcripts per nucleus, and reflected the expected infection patterns based on the known tropism of the AAV2/9 virus used in these experiments. Differential gene expression analysis between Cre and ΔCre-infected cells within each cluster was conducted using Wilcoxon rank-sum test using the FindMarkers function (logfc. threshold = 0.25), and significant genes were defined as those with an adjusted P \< 0.01. Heatmaps were generated using custom functions written in R. Violin plots were generated using Seurat VlnPlot function with default parameters.
+
+We observed that in both datasets, within each neuronal cluster, the cells subclustered according to infection status (Cre versus ΔCre), and this effect was not driven by expression of viral transcripts, as all viral features were removed from the gene expression matrix. This subclustering probably reflects the inability of Cre-infected cells to fully induce activity-dependent genes following depletion of either Npas4 or Tip60. At 6 h after stimulation, these activity-induced genes were among the most highly expressed genes and differed across neuronal cell types, and therefore contributed significantly to the principal components used in dimensionality reduction for cell-type clustering. We used two independent analysis packages, Seurat (v.3) and Monocle3, to call differentially expressed genes and only considered significant genes (adjusted P \< 0.01) from both analyses. Although we identified genes that are both upregulated and downregulated after acute Npas4 or Tip60 depletion, we focused our downstream analysis on downregulated genes that are more likely to be directly activated by this complex. To ensure our observed downregulation of putative target genes was not simply due to higher expression or detection of genes in the ΔCre-infected tissue, we randomly sampled from the top 10% of most highly expressed genes (to account for the target genes being highly expressed overall) and calculated the ΔCre – Cre difference for the set of randomly selected genes. We performed 10,000 iterations of this analysis to generate a distribution of sample differences using randomly selected genes. The actual observed differences (using the NPAS4–NuA4 target genes identified in each neuronal subtype) lay far outside this distribution (Extended Data Fig. 5c).
+
+In general, NPAS4 induces a diverse set of pan-neuronal and celltype-specific effector genes. Many targets were found to be common among 2 or 3 cell types, and about 10% of targets were specific to one cell class. Broadly, the set of all NPAS4 target genes were enriched for genes with functions in cell–cell adhesion, intercellular signalling and axon guidance, as well as a diverse set of metabotropic and ionotropic neurotransmitter receptor subunits. In addition to capturing known NPAS4 target genes such as Nptx2, Plk2 and Bdnf, we identified 1,766 potentially new targets of NPAS4 in the hippocampus by this analysis (Supplementary Table 3).
+
+```{r setup}
+SAVE_PLOTS = FALSE
+```
+
+```{r load libs and functions}
+#| message: false
+
+library(Seurat)
+library(SeuratDisk)
+library(tidyverse)
+
+source("03-scripts/R/seq_functions.R")
+```
+
+```{r create basic Seurat obj}
+#| cache: true
+
+dataset <- 'May2024'
+sublibrary <- 'combined'
+SAVE_NEW_SEURAT_OBJECT <- TRUE
+
+data_dir <- paste0("/Volumes/jack/seq/analysis_", dataset, "/", sublibrary, "/0_all-sample/DGE_filtered/")
+save_dir <- glue("04-analysis/Seurats/{dataset}/")
+
+# data_dir <- "~/projects/flattop/02-data/raw_data/cutoff80_parse_outputs/all-sample/DGE_filtered/"
+# save_dir <- data_dir
+
+mat <- ReadParseBio(data_dir)
+cell_meta <- readr::read_csv(paste0(data_dir, "cell_metadata.csv"))
+
+nuclei <- CreateSeuratObject(mat)
+nuclei <- AddMetaData(nuclei, cell_meta)
+```
+
+```{r QC filter cells}
+nuclei$percent.mt <- PercentageFeatureSet(nuclei, pattern = "^mt-")
+cell_meta <- nuclei@meta.data
+
+nuclei <- nuclei |> 
+  subset(
+    tscp_count >= 1500 & tscp_count <= 100000 &
+    gene_count >= 1500 & gene_count <= 8000  &
+    percent.mt <= 1
+  )
+```
+
+```{r convert Seurat to anndata, MapMyCells}
+path_for_h5Seurat <- paste0(save_dir, "nuclei_MapMyCells.h5Seurat")
+SaveH5SeuratObject(nuclei, path_for_h5Seurat)
+Convert(path_for_h5Seurat, dest = paste0(save_dir, "nuclei_MapMyCells.h5ad"), assay = "RNA.tmp", overwrite = TRUE)
+```
+
+At this point, upload the h5ad object to [MapMyCells](https://knowledge.brain-map.org/mapmycells/process/) and run the Hierarchical Clustering algorithm for 10X whole-brain mouse. Download the results folder and put inside 04-analysis/seurats/May2024/.
+
+```{r merge and add metadata}
+allen_meta_path = "04-analysis/Seurats/May2024/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1732080825686/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1732080825686.csv"
+allen_meta <- read_csv(allen_meta_path, skip = 4)
+
+meta <- merge(cell_meta, allen_meta, by.x = 'bc_wells', by.y = 'cell_id')
+
+# add condition and sublibrary metadata
+meta <- meta |> 
+  mutate(condition = str_sub(sample, 1, -2)) |> 
+  mutate(sublibrary = factor(str_sub(bc_wells, -1)))
+
+meta$condition <- factor(meta$condition, levels = c('dSE', 'd30m', 'd6h', 'KA'))
+
+# set levels for sample
+sample_levels <- c('dSE1', 'dSE2', 'dSE3',
+                   'd30m1', 'd30m2', 'd30m3',
+                   'd6h1', 'd6h2', 'd6h3',
+                   'KA1', 'KA2', 'KA3')
+
+meta$sample <- factor(meta$sample, levels = sample_levels)
+
+
+# hard-code sex of sample
+sample_sexes <- data.frame(sample = c('d30m1',  'd30m2',  'd30m3',
+                                      'd6h1',   'd6h2',   'd6h3',
+                                      'dSE1',   'dSE2',   'dSE3',
+                                      'KA1',    'KA2',    'KA3'),
+                           
+                           sex =    c('female', 'female', 'female',
+                                      'male',   'female', 'female',
+                                      'female', 'male',   'male',
+                                      'male',   'male',   'female')
+                           )
+# add new info, re-order cols, remove useless cols
+meta <- meta |> 
+  left_join(sample_sexes) |> 
+  relocate(sublibrary, sample, condition, sex, .after = bc_wells) |>
+  relocate(sample, condition, sex, .after = bc_wells) |> 
+  relocate(ends_with("_name"), .after = mread_count) |> 
+  select(-c(species, ends_with("_well"), ends_with("wind"))) |> 
+  # THIS LINE IS VERY IMPORTANT SO CELLS GET RIGHT METADATA
+  arrange(match(bc_wells, rownames(nuclei@meta.data)))
+
+nuclei <- AddMetaData(nuclei, meta)
+```
+
+Finally, filter out sublibrary 2 cells, because they are low-quality. See `/actdep/03-scripts/R/compare_flattop_Seurat_May2024.qmd` for more information if you're curious.
+
+```{r}
+nuclei <- subset(nuclei, sublibrary == 1)
+```
+
+# Intermediate processing
+
+Normalize data using SCTransform, build UMAP embedding.
+
+```{r process dataset with Seurat}
+options(future.globals.maxSize = 14000 * 1024^2) # allow variables to be 14 GB large
+
+nuclei <- nuclei |> 
+  SCTransform(vars.to.regress = 'percent.mt', return.only.var.genes = FALSE) |>
+  RunPCA() |>
+  FindNeighbors(dims = 1:41) |>
+  FindClusters(resolution = 0.8) |>
+  BuildClusterTree(reorder = TRUE, reorder.numeric = "TRUE") |>
+  RunUMAP(dims = 1:41)
+
+# make cell identities default to subclass_name
+Idents(nuclei) <- nuclei$subclass_name
+rownames(nuclei@meta.data) <- Cells(nuclei)
+```
+
+```{r visualize variable genes}
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(nuclei), 50)
+p1 <- VariableFeaturePlot(nuclei)
+LabelPoints(p1, points = top10, repel = TRUE)
+HoverLocator(p1)
+```
+
+```{r visualize PCs}
+VizDimLoadings(nuclei, dims = 1:5, reduction = "pca")
+DimPlot(nuclei, reduction = "pca", group.by = "class_name")
+DimHeatmap(nuclei, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
+ElbowPlot(nuclei,ndims = 50)
+```
+
+```{r visualize UMAP}
+condition_colors <- LoadConditionColors("May2024")
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "condition") +
+  scale_color_manual(values = condition_colors)
+HoverLocator(p1, information = nuclei@meta.data)
+```
+
+```{r save Seurat object}
+if (SAVE_NEW_SEURAT_OBJECT) {
+  print('Saving Seurat object...')
+  
+  SaveSeuratRds(nuclei, file = paste0(data_dir, "seurat.Rds")) # portable SSD
+  SaveSeuratRds(nuclei, file = paste0(save_dir, "seurat.Rds")) # local
+  
+  print('Done!')
+}
+```

@@ -1,0 +1,37 @@
+# project-specific
+02-data/
+04-analysis/
+03-scripts/junk_drawer/
+
+# tool-specific
+.quarto/
+.Rhistory
+.Rproj.user/
+*_files/
+
+# OS-created
+*.DS_STORE
+*.DS_STORE?
+*._
+
+# common formats
+*.pptx
+*.pyo
+*.pyc
+*~
+
+*.bam
+*.sam.gz
+*.sam
+*.fastq.gz
+*.fq.gz
+*.fastq
+*.fq
+*.fasta.gz
+*.fna.gz
+*.ffn.gz
+*.fa.gz
+*.fasta
+*.fna
+*.ffn
+*fa

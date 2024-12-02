@@ -1,0 +1,273 @@
+---
+title: "Advancement meeting code"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+library(Seurat)
+library(tidyverse)
+
+source("03-scripts/R/seq_functions.R")
+```
+
+```{r}
+nuclei <- LoadDataset("May2024")
+```
+
+# 6h analysis
+
+Let's first perform DGE among active vs inactive cells compared to:
+
+-   SE
+
+-   Each other
+
+```{r}
+IEG_symbols <- c(
+  'Arc',
+  'Btg2',
+  'Dusp1',
+  'Dusp5',
+  'Egr1',
+  'Egr2',
+  'Egr3',
+  'Egr4',
+  'Fos',
+  'Fosb',
+  'Fosl2',
+  'Junb',
+  'Npas4',
+  'Nr4a1',
+  'Nr4a3'
+)
+
+# get active and inactive cells
+active_cells <- FindActiveCells(nuclei, IEG_symbols, 3)
+df_active <- active_cells$df_active_cells |> 
+  mutate(cell = str_sub(cell, 1, 8))
+
+# put df_active info in Seurat metadata
+meta <- nuclei@meta.data |> 
+  mutate(cell = str_sub(bc_wells, 1, 8)) |> 
+  relocate(cell)
+meta <- meta |> 
+  left_join(df_active)
+
+nuclei <- AddMetaData(nuclei, meta)
+sixhr <- nuclei |> 
+  subset(subclass_name == '016 CA1-ProS Glut') |> 
+  subset(condition == 'd6h')
+Idents(sixhr) <- sixhr$active_binary
+
+deg_within6h <- FindMarkers(
+  sixhr, 
+  logfc.threshold = 0.25,
+    test.use = 'MAST',
+    ident.1 = TRUE, ident.2 = FALSE,
+    latent.vars = c('percent.mt'),
+  ) |> 
+    filter(p_val_adj < 0.05) |> 
+    rownames_to_column(var = 'gene')
+```
+
+Sweet. Now let's find the DEGs between 6h vs SE for both active and inactive cells
+
+```{r}
+barcodes_6h_active <- nuclei@meta.data |> 
+  filter(subclass_name == '016 CA1-ProS Glut') |> 
+  filter(condition == 'd6h') |> 
+  filter(active_binary == TRUE) |> 
+  pull(cell) |> print()
+
+barcodes_6h_inactive <- nuclei@meta.data |> 
+  filter(subclass_name == '016 CA1-ProS Glut') |> 
+  filter(condition == 'd6h') |> 
+  filter(active_binary == FALSE) |> 
+  pull(cell)
+
+barcodes_missing_inactive <- nuclei@meta.data |> 
+  filter(!cell %in% barcodes_6h_inactive) |> 
+  pull(cell)
+
+barcodes_missing_active <- nuclei@meta.data |> 
+  filter(!cell %in% barcodes_6h_active) |> 
+  pull(cell)
+
+nuclei_missing_active <- nuclei |> 
+  subset(cell %in% barcodes_missing_active) |> 
+  subset(subclass_name == '016 CA1-ProS Glut')
+nuclei_missing_inactive <- nuclei |> 
+  subset(cell %in% barcodes_missing_inactive) |> 
+  subset(subclass_name == '016 CA1-ProS Glut')
+
+Idents(nuclei_missing_active) <- nuclei_missing_active$condition
+Idents(nuclei_missing_inactive) <- nuclei_missing_inactive$condition
+
+DEGs_inactive_vs_SE <- FindMarkers(
+  nuclei_missing_active, 
+  logfc.threshold = 0.25,
+    test.use = 'MAST',
+    ident.1 = 'd6h', ident.2 = 'dSE',
+    latent.vars = c('percent.mt'),
+  ) |> 
+    filter(p_val_adj < 0.05) |> 
+    rownames_to_column(var = 'gene')
+
+DEGs_active_vs_SE <- FindMarkers(
+  nuclei_missing_inactive, 
+  logfc.threshold = 0.25,
+    test.use = 'MAST',
+    ident.1 = 'd6h', ident.2 = 'dSE',
+    latent.vars = c('percent.mt'),
+  ) |> 
+    filter(p_val_adj < 0.05) |> 
+    rownames_to_column(var = 'gene')
+```
+
+Let's do some GSEA for these genes
+
+```{r}
+library(clusterProfiler)
+library(org.Mm.eg.db)
+
+# turn gene and avg_log2FC into a named vector
+gene_list <- DEGs_active_vs_SE$avg_log2FC
+names(gene_list) <- DEGs_active_vs_SE$gene
+gene_list <- sort(gene_list, decreasing = TRUE)
+
+gso_inactive_vs_SE <- enrichGO(
+  gene     = DEGs_inactive_vs_SE$gene,
+  OrgDb    = org.Mm.eg.db,
+  keyType = "SYMBOL",
+  ont      = "CC"
+)
+
+gso_active_vs_SE <- enrichGO(
+  gene     = DEGs_active_vs_SE$gene,
+  pvalueCutoff = 1,
+  OrgDb    = org.Mm.eg.db,
+  keyType = "SYMBOL",
+  ont      = "CC"
+)
+df <- gso_active_vs_SE@result
+```
+
+```{r}
+performGSEA <- function(dge_df, contrast_name) {
+  library(clusterProfiler)
+  library(org.Mm.eg.db)
+  library(enrichplot)
+  
+  # do GO analysis
+  go_results <- enrichGO(
+  gene     = dge_df$gene,
+  pvalueCutoff = 1,
+  qvalueCutoff = 1,
+  OrgDb    = org.Mm.eg.db,
+  keyType = "SYMBOL",
+  ont      = "CC"
+  )
+  
+  df <- go_results@result
+  df$contrast <- contrast_name
+  
+  return(df)
+}
+```
+
+# plotting GO terms across several conditions
+
+To create a plot matching the carpet-heatmap format of DGE for all classes, I should make a geom_tile with X being the conditions and y being the GO terms themselves. I want to color the tiles by z-score of the GO term. I suppose this could also be a geom_point.
+
+**Pseudocode:**
+
+1.  Load in DEGs for all contrasts involving dSE.
+2.  Perform enrichGO on all contrasts.
+3.  Assemble all GO terms into one df, denoting which contrast they came from.
+4.  Create a geom_point. Aes:
+    1.  x = contrast
+    2.  y = GO term
+    3.  size = zScore
+    4.  color = p.adjust
+
+```{r steps 1-3}
+DEGs_30m_vs_SE <- read_csv("04-analysis/DEGs/condition/016_CA1-ProS_Glut_d30m_vs_dSE.csv")
+DEGs_6h_vs_SE <- read_csv("04-analysis/DEGs/condition/016_CA1-ProS_Glut_d6h_vs_dSE.csv")
+DEGs_KA_vs_SE <- read_csv("04-analysis/DEGs/condition/016_CA1-ProS_Glut_KA_vs_dSE.csv")
+
+results_30m_vs_SE <- performGSEA(DEGs_30m_vs_SE, "d30m")
+results_6h_vs_SE <- performGSEA(DEGs_6h_vs_SE, "d6h")
+results_KA_vs_SE <- performGSEA(DEGs_KA_vs_SE, "KA")
+
+df_go_terms <- bind_rows(results_30m_vs_SE, results_6h_vs_SE, results_KA_vs_SE)
+
+significant_terms <- df_go_terms |> 
+  filter((contrast == "d30m" & qvalue < 0.05) |
+         (contrast == "d6h" & qvalue < 0.05))  |> 
+  pull(ID)
+
+term_levels <- df_go_terms |> 
+  filter(ID %in% significant_terms) |> 
+  filter(contrast != 'KA') |> 
+  group_by(ID) |> 
+  slice_max(order_by = zScore, n = 1)  |> 
+  ungroup()  |> 
+  arrange(contrast) |> 
+  pull(ID)
+  
+  
+# add levels to df_go_terms
+df_go_terms <- df_go_terms |> 
+  filter(ID %in% term_levels) |> 
+  print()
+```
+
+```{r plotting}
+ggplot(df_go_terms, aes(x = contrast, y = Description)) +
+  geom_tile(aes(fill = zScore)) +
+  scale_color_gradient(low = "blue", high = "red", name = "-log10(q)") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Contrast", y = "GO Term",
+       size = "Count", # Change this to z-score if available
+       title = "GO Term Enrichment Across Contrasts")
+```
+
+# co-expression
+
+```{r}
+# filter nuclei for each condition, and then within condition pick out active cells
+AddMetaData(nuclei, df_active_cells_IEGs)
+ca1 <- nuclei |> subset(subclass_name == '016 CA1-ProS Glut')
+
+# add binary metadata
+meta <- ca1@meta.data
+meta <- meta |> 
+  left_join(df_active_cells_IEGs, by = c('bc_wells' = 'cell'))
+ca1 <- AddMetaData(ca1, meta)
+ca1_active <- ca1 |> subset(active_binary == TRUE)
+```
+
+
+```{r}
+corr_SE_all <- GetCorrData(ca1, 'dSE', IEG_symbols)
+corr_SE_active <- GetCorrData(ca1_active, 'dSE', IEG_symbols)
+PlotComplexHeatmap(corr_SE_all, plot_title = 'dSE all')
+PlotComplexHeatmap(corr_SE_active, plot_title = 'dSE active')
+
+corr_30m_all <- GetCorrData(ca1, 'd30m', IEG_symbols)
+corr_30m_active <- GetCorrData(ca1_active, 'd30m', IEG_symbols)
+PlotComplexHeatmap(corr_30m, plot_title = 'd30m all')
+PlotComplexHeatmap(corr_30m_active, plot_title = 'd30m active')
+
+corr_6h_all <- GetCorrData(ca1, 'd6h', IEG_symbols)
+corr_6h_active <- GetCorrData(ca1_active, 'd6h', IEG_symbols)
+PlotComplexHeatmap(corr_6h_all, plot_title = 'd6h all')
+PlotComplexHeatmap(corr_6h_active, plot_title = 'd6h active')
+
+corr_KA_all <- GetCorrData(ca1, 'KA', IEG_symbols)
+corr_KA_active <- GetCorrData(ca1_active, 'KA', IEG_symbols)
+PlotComplexHeatmap(corr_KA_all, plot_title = 'KA all')
+PlotComplexHeatmap(corr_KA_active, plot_title = 'KA active')
+```

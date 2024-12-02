@@ -1,0 +1,19 @@
+project:
+  title: "actdep"
+
+author: "jack olmstead"
+format: 
+  html:
+    toc: true
+    toc_float: true
+    code-fold: true
+    code-tools: true
+    code-line-numbers: true
+    embed-resources: true
+editor_options: 
+  chunk_output_type: inline
+knitr:
+  opts_knit:
+    root.dir: "/Users/jack/projects/actdep"
+execute:
+  message: false

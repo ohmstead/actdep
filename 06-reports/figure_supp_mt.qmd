@@ -1,0 +1,395 @@
+---
+title: "investigating mt reads"
+author: "jack"
+format: 
+  html:
+    toc: true
+    toc_float: true
+    code-fold: true
+    code-tools: true
+    code-line-numbers: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+source("~/R/seq/manuscript/seq_functions.R")
+
+library(tidyverse)
+
+library(ggplot2)
+library(patchwork)
+library(ggvenn)
+library(hues)
+
+library(Seurat)
+library(SeuratDisk)
+```
+
+```{r}
+# nuclei <- LoadSeuratRds("~/R/seq/data/seurat.Rds")
+nuclei <- LoadDataset("May2024", "combined")
+condition_colors <- LoadConditionColors("May2024")
+
+# # scale percent.mt by 100
+# nuclei$percent.mt <- nuclei$percent.mt * 100
+```
+
+# calc quartiles for percent.mt
+```{r}
+# Calculate quantiles of percent.mt
+mt_quartiles <- quantile(nuclei$percent.mt, probs = seq(0, 1, 0.25))
+
+# Assign cells to quantiles
+nuclei$percent.mt_quartiles <- cut(nuclei$percent.mt, 
+                                  breaks = mt_quartiles, 
+                                  labels = FALSE, 
+                                  include.lowest = TRUE)
+
+# Ensure the new column is added to the meta.data
+nuclei@meta.data$percent.mt_quartiles <- as.factor(nuclei$percent.mt_quartiles)
+
+print(table(nuclei$percent.mt_quartiles))
+print(mt_quartiles)
+```
+
+# overall expression of mt genes
+```{r}
+# get all genes that start with 'mt-'
+mt_genes <- rownames(nuclei)[grepl("^mt-", rownames(nuclei))]
+
+# add mt_genes as columns in metadata
+for (g in mt_genes) {
+  nuclei <- AddMetaData(nuclei, nuclei@assays$SCT@counts[g,], col.name = g)
+}
+
+meta <- nuclei@meta.data
+```
+
+```{r}
+# plot overall expression of mt_genes
+meta |> 
+  pivot_longer(cols = starts_with('mt-'), names_to = 'mt_gene', values_to = 'count') |>
+  ggplot() +
+    aes(x = count) +
+    geom_histogram() +
+    facet_wrap(~mt_gene)
+```
+
+# correlation between mt percent and gene count
+```{r}
+my_theme <- theme_minimal() + theme(legend.position = 'none')
+
+ggplot(meta) +
+  aes(x = percent.mt, y = mread_count) +
+  geom_point(shape = 21, alpha = 0.2, fill = 'white') +
+  geom_density_2d_filled() +
+  geom_smooth() +
+  labs(title = 'read count vs pct.mt reads') + 
+  my_theme +
+  
+ggplot(meta) +
+  aes(x = percent.mt, y = tscp_count) +
+  geom_point(shape = 21, alpha = 0.2, fill = 'white') +
+  geom_density_2d_filled() +
+  geom_smooth() +
+  labs(title = 'UMI count vs pct.mt reads') + 
+  my_theme +
+  
+ggplot(meta) +
+  aes(x = percent.mt, y = gene_count) +
+  geom_point(shape = 21, alpha = 0.2, fill = 'white') +
+  geom_density_2d_filled() +
+  geom_smooth() +
+  labs(title = 'gene count vs pct.mt reads') + 
+  my_theme
+```
+
+This seems to falsify the hypothesis that the increase in gene counts that I see in the May2024 dataset compared to the Dec2023 dataset is due to an increase in overall cytoplasmic reads. Otherwise, we would expect to see a trend where as mt reads increase, the number of genes detected also increases.
+
+# DGE based on percent.mt quartiles
+I want to assess how stable the DGE list is between the percent.mt quartiles.
+
+```{r}
+# Filter for CA1-ProS Glut cells
+ca1 <- subset(nuclei, subclass_name == "016 CA1-ProS Glut")
+
+# Re-calculate percent.mt quartiles for just CA1-ProS Glut cells
+quartile_names <- c("Q1", "Q2", "Q3", "Q4")
+ca1$percent.mt_quartile <- as.factor(cut(ca1$percent.mt, 
+                                     breaks = quantile(ca1$percent.mt, probs = seq(0, 1, 0.25)),
+                                     labels = quartile_names,
+                                     include.lowest = TRUE))
+
+# Print the distribution of cells across quartiles
+print('CA1-ProS Glut cells distributed across percent.mt quartiles:')
+print(table(ca1$percent.mt_quartile))
+```
+
+```{r}
+# Visualize the condition distribution among each quartile
+ggplot(ca1@meta.data) +
+  aes(x = percent.mt_quartile, fill = condition) +
+  geom_bar(position = 'fill') +
+  scale_fill_manual(values = condition_colors) +
+  labs(title = 'condition distribution among percent.mt quartiles')
+```
+
+```{r}
+# First, calculate overall DGE between dSE and d30m
+Idents(ca1) <- ca1$condition
+dge_all <- FindMarkers(ca1, 
+                       ident.1 = "dSE", 
+                       ident.2 = "d30m", 
+                       test.use = 'wilcox', 
+                       only.pos = FALSE, 
+                       logfc.threshold = 0.25) |> 
+  filter(p_val_adj < 0.05) |>
+  arrange(desc(avg_log2FC)) |> 
+  rownames_to_column(var = 'gene') |> 
+  relocate(gene)
+
+# Perform DGE for each percent.mt quartile
+dge_quartiles <- data.frame()
+
+for (q in quartile_names) {
+  q_cells <- subset(ca1, percent.mt_quartile == q)
+  Idents(q_cells) <- q_cells$condition
+  dge_quartiles <- FindMarkers(q_cells, 
+                                  ident.1 = "dSE", 
+                                  ident.2 = "d30m",
+                                  test.use = 'wilcox',
+                                  only.pos = FALSE, 
+                                  logfc.threshold = 0.25) |> 
+    filter(p_val_adj < 0.05) |>
+    arrange(desc(avg_log2FC)) |> 
+    rownames_to_column(var = 'gene') |> 
+    mutate(mt_quartile = q) |> 
+    relocate(gene, mt_quartile) |>
+    bind_rows(dge_quartiles)
+}
+
+# find common genes across all quartiles in dge_quartiles
+common_genes <- dge_quartiles |> 
+  group_by(gene) |> 
+  filter(n_distinct(mt_quartile) == length(quartile_names)) |> 
+  pull(gene) |> 
+  unique() |> print()
+```
+
+```{r}
+# Create sets for Venn diagram
+quartile_sets <- list(
+  Q1 = dge_quartiles$gene[dge_quartiles$mt_quartile == quartile_names[1]],
+  Q2 = dge_quartiles$gene[dge_quartiles$mt_quartile == quartile_names[2]],
+  Q3 = dge_quartiles$gene[dge_quartiles$mt_quartile == quartile_names[3]],
+  Q4 = dge_quartiles$gene[dge_quartiles$mt_quartile == quartile_names[4]]
+)
+
+# Plot Venn diagram
+ggvenn(
+  quartile_sets,
+  fill_color = c("#0073C2FF", "#EFC000FF", "#868686FF", "#CD534CFF", "#7AA6DCFF"),
+  stroke_size = 0.5,
+  set_name_size = 4
+) +
+  labs(title = "DGEs shared between percent.mt quartiles",
+       caption = 'Cells were stratified by quartiles of percent.mt reads (Q1-Q4). Within each quartile, dSE vs d30m DGE was assessed.') +
+  theme(plot.caption = element_text(size = 6))
+```
+
+```{r}
+# Calculate and print the number of genes in the intersection of all quartiles
+intersection_genes <- Reduce(intersect, quartile_sets)
+print('genes common to all within-quartile DGE analyses:')
+print(intersection_genes)
+```
+
+# Genes shared between overall DGE and within-quartile DGE
+Let's turn these into tables.
+```{r}
+# Genes exclusive to overall DGE analysis
+overall_exclusive_genes <- dge_all |> 
+  filter(!(gene %in% dge_quartiles$gene)) |> 
+  pull(gene)
+
+# Genes from within-quartile DGE analysis
+within_quartile_genes <- dge_quartiles |>
+  pull(gene) |> 
+  unique()
+
+# Create a data frame for overall exclusive genes
+df_overall_exclusive <- data.frame(
+  Gene = overall_exclusive_genes,
+  Analysis = "Overall DGE Exclusive"
+)
+
+# Create a data frame for within-quartile DEGs
+df_within_quartile <- data.frame(
+  Gene = within_quartile_genes,
+  Analysis = "Within-quartile DGE"
+)
+
+# Create a dataframe for within-quartile exclusive genes
+df_within_quartile_exclusive <- data.frame(
+  Gene = setdiff(within_quartile_genes, dge_all$gene),
+  Analysis = "Within-quartile DGE Exclusive"
+)
+
+# Create a dataframe for shared genes between the two analyses
+shared_genes <- intersect(dge_all$gene, within_quartile_genes)
+df_shared <- data.frame(
+  Gene = shared_genes,
+  Analysis = "Shared between overall and within-quartile DGE"
+)
+
+# Combine the data frames
+df_combined <- rbind(df_overall_exclusive, df_within_quartile_exclusive, df_shared)
+
+# Create a formatted table using kable
+library(kableExtra)
+
+kable(df_combined, format = "html", caption = "DGE Analysis Results") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) |>
+  column_spec(1, width = "15em") |>
+  column_spec(2, width = "15em") |>
+  scroll_box(width = "100%", height = "400px")
+```
+
+So if I use the full cohort of CA1 cells, I get 332 DGEs. If I stratify by percent.mt quartiles, I get 106 DGEs.
+
+# compare Q1+Q2 vs overall DGE expression
+From the Q1-Q4 venn diagram, it looks like almost all the genes that are captured through the within-quartile analyses are captured in the bottom 2 quartiles of percent.mt. What happens if I compare DGE in the bottom 2 quartiles versus overall DGE?
+
+```{r}
+# DGE for top 2 quartiles
+ca1_top2 <- subset(ca1, percent.mt_quartile %in% c("Q1", "Q2"))
+Idents(ca1_top2) <- ca1_top2$condition
+dge_top2 <- FindMarkers(ca1_top2, 
+                        ident.1 = "dSE", 
+                        ident.2 = "d30m",
+                        test.use = 'wilcox',
+                        only.pos = FALSE, 
+                        logfc.threshold = 0.25) |> 
+  filter(p_val_adj < 0.05) |>
+  arrange(desc(avg_log2FC)) |> 
+  rownames_to_column(var = 'gene') |> 
+  relocate(gene)
+
+# Compare DEGs
+overall_genes <- dge_all$gene
+top2_genes <- dge_top2$gene
+
+# Create sets for Venn diagram
+dge_sets <- list(
+  Overall = overall_genes,
+  Top2Quartiles = top2_genes
+)
+
+# Plot Venn diagram
+ggvenn(
+  dge_sets,
+  fill_color = c("#0073C2FF", "#EFC000FF"),
+  stroke_size = 0.5,
+  set_name_size = 4
+) +
+  labs(title = "DEGs: Overall vs Bottom 2 Quartiles of percent.mt",
+       caption = 'Comparison of DGEs between overall analysis and analysis of Q1+Q2 of percent.mt') +
+  theme(plot.caption = element_text(size = 8))
+```
+
+```{r}
+# Genes exclusive to overall DGE analysis
+overall_exclusive_genes <- setdiff(overall_genes, top2_genes)
+
+# Genes exclusive to top 2 quartiles DGE analysis
+top2_exclusive_genes <- setdiff(top2_genes, overall_genes)
+
+# Shared genes between the two analyses
+shared_genes <- intersect(overall_genes, top2_genes)
+
+# Create data frames for each category
+df_overall_exclusive <- data.frame(
+  Gene = overall_exclusive_genes,
+  Analysis = "Overall DGE Exclusive"
+)
+
+df_top2_exclusive <- data.frame(
+  Gene = top2_exclusive_genes,
+  Analysis = "Top 2 Quartiles DGE Exclusive"
+)
+
+df_shared <- data.frame(
+  Gene = shared_genes,
+  Analysis = "Shared between overall and top 2 quartiles DGE"
+)
+
+# Combine the data frames
+df_combined <- rbind(df_overall_exclusive, df_top2_exclusive, df_shared)
+
+# Create a formatted table using kable
+library(kableExtra)
+
+kable(df_combined, format = "html", caption = "DGE Analysis Results: Overall vs Top 2 Quartiles") |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) |>
+  column_spec(1, width = "15em") |>
+  column_spec(2, width = "15em") |>
+  scroll_box(width = "100%", height = "400px")
+```
+
+# number of "active" cells based on percent.mt quartiles
+With so many mt reads in this single-nucleus dataset, one possibility for this could be that there is incomplete membrane lysis and so packets of cytoplasm remain attached after the nuclear isolation. If this is the case, then one issue for analyzing IEG expression could be cytoplasmic reads that become attached to the nuclear membrane and sequenced.
+
+If this is the case, then one would expect that the number of "active cells" might increase with higher percent.mt, because the cytoplasmic mt reads sticking to the nucleus also give the opportunity for cytoplasmic IEGs to be captured. Let's take a look at this.
+
+```{r}
+source("~/R/seq/manuscript/seq_functions.R")
+# get active cells among entire dataset
+df_active_cells <- FindActiveCells(nuclei) |>
+  left_join(meta, by = c('cell' = 'bc_wells'))
+
+# make a table of active cells stratified by percent.mt quartiles
+ggplot(df_active_cells) + 
+  aes(x = percent.mt_quartile, fill = active_binary) +
+  geom_bar(position = 'fill') +
+  scale_fill_manual(values = c('TRUE' = 'grey30', 'FALSE' = 'grey60')) +
+  theme_bw() +
+  labs(title = 'proportion of active cells stratified by percent.mt quartiles',
+       y = 'proportion of cells') +
+  facet_wrap(~condition.x)
+```
+
+# UMAPs colored by percent.mt
+```{r}
+p1 <- FeaturePlot(nuclei, features = 'percent.mt', pt.size = 0.1) +
+  theme_void() +
+  labs(title = 'percent.mt')
+
+p2 <- DimPlot(nuclei, reduction = "umap", group.by = "condition", pt.size = 0.1, shuffle = TRUE, seed = 17) +
+  scale_color_manual(values = condition_colors) +
+  theme_minimal() +
+  labs(title = 'condition', x = '', y = '') +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    legend.text = element_text(size = 12),
+    legend.position = 'none'
+  )
+
+p3 <- DimPlot(nuclei, reduction = "umap", group.by = "subclass_name", pt.size = 0.1, shuffle = TRUE, seed = 17) +
+  scale_color_iwanthue(lmin = 30, random = FALSE) +
+  theme_minimal() +
+  labs(title = 'cell type', x = '', y = '') +
+  theme(
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    legend.text = element_text(size = 12),
+    legend.position = 'none'
+  )
+
+p1 + p2 + p3 + plot_layout(ncol = 3)
+
+ggsave(path = '~/Dropbox/manuscripts/seq_paper/figure_mt/raw_R_plots/', filename = 'UMAP_percent.mt.png', plot = p1 + p2 + p3 + plot_layout(ncol = 3), width = 9, height = 3, dpi = 900)
+```
+
+# velocity analysis based on percent.mt quartiles

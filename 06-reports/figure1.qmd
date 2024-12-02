@@ -1,0 +1,277 @@
+---
+title: "Figure 1 analysis"
+author: "jack olmstead"
+format: 
+  html:
+    toc: true
+    toc_float: true
+    code-fold: true
+    code-tools: true
+    code-line-numbers: true
+    embed-resources: true
+editor_options: 
+  chunk_output_type: console
+knitr:
+  opts_knit:
+    root.dir: "/Users/jack/projects/actdep"
+---
+
+```{r setup}
+SAVE_PLOTS = FALSE
+knitr::opts_knit$set(root.dir = "/Users/jack/projects/actdep")
+```
+
+# UMAP
+
+Plots simple UMAPs, coloring dots by either Allen subclass or condition.
+
+***UMAP methods:***
+
+UMAP embeddings were created using the following Seurat v5 functions, in order, with parameters specified in parentheses: SCTransform(vars.to.regress = 'percent.mt', return.only.var.genes = FALSE), RunPCA(), FindNeighbors(dims = 1:41), RunUMAP(dims = 1:41). The choice of embedding in 41-PC space was determined by inspection of an elbow plot after RunPCA().
+
+```{r UMAP, message=FALSE}
+source("03-scripts/figures/figure1_UMAP.R")
+```
+
+# Expression heatmap for CA1 cells
+
+This code produces a matrix heatmap of gene expression in 30m EE, 6h EE, and seizure compared to SE. The output is a 3-column matrix, where the columns are cells whose colormap corresponds to log2(FC) from SE expression. The columns are 30m EE, 6h EE, and Seizure. Each row is a DEG.
+
+-   The rows of the matrix are sorted first according to ASCERTAINMENT, i.e. whether the gene was differentially expressed in 30m EE, 6h EE, or both.
+-   Within each ascertainment group, the rows are sorted according to the PEAK EXPRESSION in either 30m EE or 6h EE.
+
+***CA1 heatmap methods:***
+
+Expression heatmaps were created by first finding differentially expressed genes (DEGs) between conditions within the same subclass of cells using Seurat's FindMarkers() function. DEGs were classified as early-response genes if they were differentially expressed between SE and 30-min EE; late-response genes if they were differentially expressed between SE and 6-hr EE; or both if they were differentially expressed at 30-min and 6-hr of EE compared to SE. The gene list was then ordered first by whether the average log2(FC) expression was higher at 30-min EE or 6-hr EE compared to SE. Within each of these two categories, the gene list was further ordered by ascending average log2(FC) expression before plotting.
+
+***Log2(FC) methods:***
+
+Average log2(FC) expression was calculated first by averaging expression values using Seurat: AverageExpression(assay = 'SCT', layer = 'counts', group.by = 'condition'). The 'counts' layer of SCTransform output are not transformed values, but instead "corrected counts." (See <https://satijalab.org/seurat/reference/sctransform>) For each gene in each condition, SCT counts + 1 were divided by SE SCT counts + 1, and the result log2-transformed.
+
+```{r expression heatmap for CA1 cells}
+source("03-scripts/figures/figure1_DGE-heatmap_CA1.R")
+```
+
+# Expression heatmap for all subclasses
+
+***All-subclass expression heatmap methods:***
+
+Expression heatmaps were created by first finding differentially expressed genes (DEGs) between conditions within the same subclass of cells using Seurat's FindMarkers() function. Duplicate gene symbols appearing in multiple subclass x contrast DGE lists were removed. Average log2(FC) expression levels were calculated using the same methods described in ***Log2(FC) methods.*** DEGs were classified as early-response genes if they were differentially expressed between SE and 30-min EE; late-response genes if they were differentially expressed between SE and 6-hr EE; or both if they were differentially expressed at 30-min and 6-hr of EE compared to SE. The gene list was then ordered first by whether it was an ERG, LRG, or both. Within each of these three categories, the gene list was further ordered by ascending average log2(FC) expression before plotting.
+
+```{r expression heatmap for all subclasses}
+source("03-scripts/figures/figure1_DGE-heatmap_all_subclasses.R")
+```
+
+# Activation percent
+
+Determine what percent of cells are active in a given condition. Cells are defined as "active" if they have a certain number of genes that are expressed above the 90th percentile of expression in *just the SE cells.* Importantly, the script right now is hard-coded to only examine subclass 016 CA1-ProS Glut; this is hard-coded in `FindActiveCells()` within `seq_functions.R`.
+
+***Activated cells methods:***
+
+In order to determine the number of cells activated within a given condition, it was determined whether cells expressed activity-regulated genes above a certain threshold. The threshold was determined for each gene individually, and was defined as the 90th percentile of expression in the SE cells. Activity-regulated-gene lists were defined either a priori based on canonical ERGs, or defined as the list of lncRNAs that were differentially expressed at 30-min EE compared to SE. Thus, for each gene in the gene list, a binary classification was assigned as either expressed or not-expressed based on whether or not it surpassed the expression threshold. Finally, a cell was defined as "active" if it expressed at least 25% of the genes in the activity-regulated-gene list.
+
+```{r percent of cells activated using IEGs and lncRNAs}
+source("03-scripts/figures/figure1_activation_percent.R")
+```
+
+# to be moved
+
+<!-- # co-expression -->
+
+<!-- ## all cells -->
+
+<!-- ```{r} -->
+
+<!-- # select gene list to use -->
+
+<!-- gene_list <- dSE_v_d30m |> -->
+
+<!--   filter(abs(avg_log2FC) > 0.5) |> -->
+
+<!--   filter(p_val_adj_wilcox < 0.01) |> -->
+
+<!--   # filter(!(gene %in% c('Ddx3y', 'Gm7916'))) |> # these genes are not expressed in d30m at all -->
+
+<!--   arrange(avg_log2FC) |> -->
+
+<!--   # filter(gene %in% ieg_symbols) |> -->
+
+<!--   pull(gene) -->
+
+<!-- ca1 <- nuclei |> subset(subclass_name == '016 CA1-ProS Glut') -->
+
+<!-- corr_dSE_all  <- GetCorrData(ca1, 'dSE', gene_list) -->
+
+<!-- corr_d30m_all <- GetCorrData(ca1, 'd30m', gene_list) -->
+
+<!-- corr_d6h_all  <- GetCorrData(ca1, 'd6h', gene_list) -->
+
+<!-- corr_KA_all   <- GetCorrData(ca1, 'KA', gene_list) -->
+
+<!-- # combine all correlations -->
+
+<!-- corr_allCells <- rbind(corr_dSE_all, corr_d30m_all, corr_d6h_all, corr_KA_all) |> -->
+
+<!--   print() -->
+
+<!-- # plot -->
+
+<!-- theme_coexpression <- theme_minimal() + -->
+
+<!--   theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1), -->
+
+<!--         axis.text.y = element_text(size = 6), -->
+
+<!--         axis.title.x = element_blank(), -->
+
+<!--         axis.title.y = element_blank(), -->
+
+<!--         panel.grid = element_blank(), -->
+
+<!--         # legend.position = 'none' -->
+
+<!--         ) -->
+
+<!-- # cscale_custom <- scale_fill_gradient(low = 'white', high = 'black', limits = c(-1,1), name = "Pearson's r") -->
+
+<!-- cscale_custom <- scale_fill_gradient2(low = 'blue', mid = 'white', high = 'red', midpoint = 0,  limits = c(-1,1), name = "Pearson's r") -->
+
+<!-- p_SE <- ggplot(corr_dSE_all) + -->
+
+<!--   geom_tile(aes(x = gene1, y = gene2, fill = corr_coef)) + -->
+
+<!--   cscale_custom + -->
+
+<!--   theme_coexpression -->
+
+<!-- p_d30m <- ggplot(corr_d30m_all) + -->
+
+<!--   geom_tile(aes(x = gene1, y = gene2, fill = corr_coef)) + -->
+
+<!--   cscale_custom + -->
+
+<!--   theme_coexpression -->
+
+<!-- p_d6h <- ggplot(corr_d6h_all) + -->
+
+<!--   geom_tile(aes(x = gene1, y = gene2, fill = corr_coef)) + -->
+
+<!--   cscale_custom + -->
+
+<!--   theme_coexpression -->
+
+<!-- p_KA <- ggplot(corr_KA_all) + -->
+
+<!--   geom_tile(aes(x = gene1, y = gene2, fill = corr_coef)) + -->
+
+<!--   cscale_custom + -->
+
+<!--   theme_coexpression -->
+
+<!-- p_SE | p_d30m | p_d6h | p_KA -->
+
+<!-- # ggsave(path = '~/Downloads/', filename = 'all_cells.pdf', width = 42, height = 9, dpi = 900) -->
+
+<!-- # ggsave(path = '~/code/seq/manuscript_code/figure_1/plots/raw_R_plots/', filename = 'coexpression_allCells_SE.png', plot = p_SE,    width = 3.25, height = 3, dpi = 900) -->
+
+<!-- # ggsave(path = '~/code/seq/manuscript_code/figure_1/plots/raw_R_plots/', filename = 'coexpression_allCells_30m.png', plot = p_d30m, width = 3.25, height = 3, dpi = 900) -->
+
+<!-- # ggsave(path = '~/code/seq/manuscript_code/figure_1/plots/raw_R_plots/', filename = 'coexpression_allCells_6h.png', plot = p_d6h,   width = 3.25, height = 3, dpi = 900) -->
+
+<!-- # ggsave(path = '~/code/seq/manuscript_code/figure_1/plots/raw_R_plots/', filename = 'coexpression_allCells_KA.png', plot = p_KA,    width = 3.25, height = 3, dpi = 900) -->
+
+<!-- ``` -->
+
+<!-- ## active cells -->
+
+<!-- ```{r} -->
+
+<!-- # get list of barcodes for activated cells -->
+
+<!-- activated_cell_barcodes <- df_active_cells |> -->
+
+<!--   filter(active_binary == TRUE) |> -->
+
+<!--   pull(cell) -->
+
+<!-- active_cells <- subset(nuclei, bc_wells %in% activated_cell_barcodes) -->
+
+<!-- corr_dSE_active  <- GetCorrData(active_cells, 'dSE', gene_list) -->
+
+<!-- corr_d30m_active <- GetCorrData(active_cells, 'd30m', gene_list) -->
+
+<!-- corr_d6h_active  <- GetCorrData(active_cells, 'd6h', gene_list) -->
+
+<!-- corr_KA_active   <- GetCorrData(active_cells, 'KA', gene_list) -->
+
+<!-- # combine all correlations -->
+
+<!-- corr_allCells <- rbind(corr_dSE_active, corr_d30m_active, corr_d6h_active, corr_KA_active) |> -->
+
+<!--   print() -->
+
+<!-- theme_coexpression <- theme_minimal() + -->
+
+<!--   theme(axis.text.x = element_text(size = 6, angle = 45, hjust = 1), -->
+
+<!--         axis.text.y = element_text(size = 6), -->
+
+<!--         axis.title.x = element_blank(), -->
+
+<!--         axis.title.y = element_blank(), -->
+
+<!--         panel.grid = element_blank(), -->
+
+<!--         legend.position = 'none' -->
+
+<!--         ) -->
+
+<!-- # cscale_custom <- scale_fill_gradient(low = 'white', high = 'black', limits = c(-1,1), name = "Pearson's r") -->
+
+<!-- cscale_custom <- scale_fill_gradient2(low = 'blue', mid = 'white', high = 'red', midpoint = 0, limits = c(-1,1), name = "Pearson's r") -->
+
+<!-- p_SE <- ggplot(corr_dSE_active) + -->
+
+<!--   geom_tile(aes(x = gene1, y = gene2, fill = corr_coef)) + -->
+
+<!--   cscale_custom + -->
+
+<!--   theme_coexpression -->
+
+<!-- p_d30m <- ggplot(corr_d30m_active) + -->
+
+<!--   geom_tile(aes(x = gene1, y = gene2, fill = corr_coef)) + -->
+
+<!--   cscale_custom + -->
+
+<!--   theme_coexpression -->
+
+<!-- p_d6h <- ggplot(corr_d6h_active) + -->
+
+<!--   geom_tile(aes(x = gene1, y = gene2, fill = corr_coef)) + -->
+
+<!--   cscale_custom + -->
+
+<!--   theme_coexpression -->
+
+<!-- p_KA <- ggplot(corr_KA_active) + -->
+
+<!--   geom_tile(aes(x = gene1, y = gene2, fill = corr_coef)) + -->
+
+<!--   cscale_custom + -->
+
+<!--   theme_coexpression -->
+
+<!-- p_SE | p_d30m | p_d6h | p_KA -->
+
+<!-- ggsave(path = '~/Downloads/', filename = 'active_cells.pdf', width = 42, height = 9, dpi = 900) -->
+
+<!-- # ggsave(path = '~/code/seq/manuscript_code/figure_1/plots/raw_R_plots/', filename = 'coexpression_activeCells_SE.png', plot = p_SE,    width = 3.25, height = 3, dpi = 900) -->
+
+<!-- # ggsave(path = '~/code/seq/manuscript_code/figure_1/plots/raw_R_plots/', filename = 'coexpression_activeCells_30m.png', plot = p_d30m, width = 3.25, height = 3, dpi = 900) -->
+
+<!-- # ggsave(path = '~/code/seq/manuscript_code/figure_1/plots/raw_R_plots/', filename = 'coexpression_activeCells_6h.png', plot = p_d6h,   width = 3.25, height = 3, dpi = 900) -->
+
+<!-- # ggsave(path = '~/code/seq/manuscript_code/figure_1/plots/raw_R_plots/', filename = 'coexpression_activeCells_KA.png', plot = p_KA,    width = 3.25, height = 3, dpi = 900) -->
+
+<!-- ``` -->

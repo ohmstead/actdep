@@ -1,0 +1,7 @@
+---
+title: "Olmstead et al. 2025"
+author: "Jack Olmstead"
+---
+
+Use ``knitr::spin`` to call other Quarto documents in this doc.
+

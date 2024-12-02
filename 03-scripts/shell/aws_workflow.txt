@@ -1,0 +1,18 @@
+***EVERY TIME YOU LOG INTO A RE-STARTED INSTANCE***
+
+- attach EBS volume:
+
+sudo mount /dev/nvme1n1 /newvol/
+df -h /newvol/
+
+
+***EVERY TIME YOU START A LONG PROCESS***
+tmux
+tmux attach
+^C-b d to detach
+
+
+***TO DOWNLOAD DATA FROM IGM SERVER***
+curl -u blbloodgood:ahla3ahh5Rah 'ftp://blbloodgood@igm-storage2.ucsd.edu/240520_LH00444_0114_A22GK52LT3/JO2_S2_L006_R1_001.fastq.gz' -o /newvol/rawdata/JO2_S2_L006_R1_001.fastq.gz
+curl -u blbloodgood:ahla3ahh5Rah 'ftp://blbloodgood@igm-storage2.ucsd.edu/240520_LH00444_0114_A22GK52LT3/JO2_S2_L006_R2_001.fastq.gz' -o /newvol/rawdata/JO2_S2_L006_R2_001.fastq.gz
+curl https://ftp.ensembl.org/pub/release-109/gtf/mus_musculus/Mus_musculus.GRCm39.109.gtf.gz -o Mus_musculus.GRCm39.109.gtf.gz
