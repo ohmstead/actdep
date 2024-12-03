@@ -155,7 +155,7 @@ ggplot() +
 # ---- save plot ----
 if (SAVE_PLOTS) {
   print("Saving plot...")
-  ggsave(path = '05-results/figure1/', filename = 'DGE-heatmap_all_subclasses.png', plot = p, width = 10, height = 10, dpi = 900)
+  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'DGE-heatmap_all_subclasses.png', plot = p, width = 20, height = 5, dpi = 900)
 } else {
   print("Plotting without saving...")
   print(p)
