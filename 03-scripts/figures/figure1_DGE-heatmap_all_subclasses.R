@@ -4,6 +4,8 @@ library(Seurat)
 library(tidyverse)
 library(readxl)
 library(patchwork)
+library(ComplexHeatmap)
+library(circlize)
 
 source('03-scripts/R/seq_functions.R')
 nuclei <- LoadDataset("May2024", "combined")
@@ -17,7 +19,7 @@ print("Getting DEGs for all subclasses and contrasts...")
 subclass_list <- LoadSubclassesToUse(nuclei)
 
 # get list of contrasts to use
-contrast_list <- c("d30m_vs_dSE", "d6h_vs_dSE", "KA_vs_dSE")
+contrast_list <- c("d30m_vs_dSE", "d6h_vs_dSE")
 
 # load all DEGs from every subclass x contrast
 dir_deg <- "04-analysis/DEGs/condition/"
@@ -56,6 +58,8 @@ print("Culling duplicate DEGs and sorting")
 
 # for each subclass, get expression for each condition
 df_all_DEGs <- df_all_DEGs |> 
+  # filter out any contrasts that include KA
+  filter(contrast != "KA_vs_dSE") |>
   group_by(gene, subclass, contrast) |> 
   summarize(avg_log2FC = avg_log2FC, .groups = 'drop') |> 
   print()
@@ -65,7 +69,7 @@ df_all_DEGs_classified <- df_all_DEGs |>
   mutate(is_ERG = ifelse(contrast == "d30m_vs_dSE", TRUE, FALSE),
          is_LRG = ifelse(contrast == "d6h_vs_dSE", TRUE, FALSE)) |> 
   # Group by gene to classify as ERG, LRG, or both
-  group_by(gene) %>%
+  group_by(gene) |> 
   summarize(
     is_ERG = any(is_ERG),
     is_LRG = any(is_LRG),
@@ -94,8 +98,6 @@ df_all_DEGs <- df_all_DEGs |>
   mutate(gene = factor(gene, levels = df_all_DEGs_classified$gene)) |>
   mutate(subclass_by_contrast = paste(subclass, contrast, sep = " x "))
 
-df_all_DEGs
-
 
 # ---- normalize expression data ----
 print("Normalizing expression data...")
@@ -119,7 +121,10 @@ expression_data <-  AverageExpression(
   group_by(gene, subclass) |> 
   mutate(log2fc_from_SE = log2((avg_expression+1) / (avg_expression[condition == 'dSE']+1))) |> 
   mutate(subclass_by_condition = paste(subclass, condition, sep = ' x ')) |> 
-  mutate(gene = factor(gene, levels = df_all_DEGs_classified$gene))
+  mutate(gene = factor(gene, levels = df_all_DEGs_classified$gene)) |> 
+  mutate(condition = factor(condition, levels = c('dSE', 'd30m', 'd6h', 'KA'))) |> 
+  mutate(subclass = factor(subclass, levels = subclass_list))
+
 
 # ---- re-level values for plotting ----
 print("Re-leveling values for plotting...")
@@ -138,24 +143,81 @@ expression_data <- expression_data |>
 
 
 # ---- plot ----
-print("Plotting heatmap...")
+# complex heatmap annotations:
+# y: subclass
+# y: condition
+# x: classification
+# Prepare data for the ComplexHeatmap
+# Load necessary libraries
 
-p <- expression_data |> 
-  filter(condition != 'dSE') |>
-ggplot() +
-  aes(x = gene, y = subclass_by_condition) +
-  geom_point(aes(color = log2fc_from_SE, size = log2fc_from_SE)) +
-  scale_color_gradient2(low = 'blue', mid = 'white', high = 'red', midpoint = 0, limits = c(-3,3)) +
-  scale_size_binned_area(limits = c(-5, 5), oob = scales::squish) +
-  theme(
-    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+# Prepare data for the ComplexHeatmap
+expression_data_filtered <- expression_data %>%
+  filter(condition != 'dSE')
+
+# Create a matrix of log2 fold changes for the heatmap
+expression_matrix <- expression_data_filtered %>%
+  select(gene, subclass_by_condition, log2fc_from_SE) %>%
+  pivot_wider(names_from = gene, values_from = log2fc_from_SE) %>%
+  column_to_rownames(var = "subclass_by_condition") %>%
+  select(-subclass) %>%
+  as.matrix()
+
+# Ensure subclass_annotation has the same order as the rows in expression_matrix
+subclass_annotation <- expression_data_filtered %>%
+  group_by(subclass_by_condition, condition, subclass) %>%
+  distinct(subclass_by_condition) |> 
+  arrange(condition, subclass)
+
+subclass_colors <- LoadAllenColors("subclass")
+condition_colors <- LoadConditionColors("May2024")
+
+# Define row annotation
+row_anno <- rowAnnotation(
+  subclass = subclass_annotation$subclass,
+  condition = subclass_annotation$condition,
+  col = list(
+    subclass = subclass_colors,
+    condition = condition_colors
   )
+)
+
+# Define col annotation
+col_anno <- HeatmapAnnotation(
+  classification = df_all_DEGs_classified$classification,
+  col = list(classification = c("ERG" = "#BB4430", "LRG" = "#F2B880", "both" = "#82A6B1"))
+)
+
+# order expression matrix rows and cols
+expression_matrix <- expression_matrix[match(subclass_annotation$subclass_by_condition, rownames(expression_matrix)), ]
+expression_matrix <- expression_matrix[,match(df_all_DEGs_classified$gene, colnames(expression_matrix))]
+
+# Create the heatmap
+p <- Heatmap(
+  expression_matrix, # exclude the first column (subclass_by_condition)
+  name = "log2FC",
+  col = colorRamp2(c(-1, 0, 1), c("blue", "white", "red")),
+  cluster_rows= FALSE,
+  cluster_columns = FALSE,
+  left_annotation = row_ha,
+  top_annotation = col_anno,
+  row_split = subclass_annotation$condition,
+  column_split = factor(df_all_DEGs_classified$classification, levels = c("ERG", "LRG", "both")),
+  row_gap = unit(2, "mm"),
+  column_gap = unit(2, "mm"),
+  show_row_names = FALSE,
+  show_column_names = FALSE,
+  # row_names_gp = gpar(fontsize = 8),
+  # column_names_gp = gpar(fontsize = 8, rot = 90)
+)
 
 
 # ---- save plot ----
 if (SAVE_PLOTS) {
   print("Saving plot...")
-  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'DGE-heatmap_all_subclasses.png', plot = p, width = 20, height = 5, dpi = 900)
+  # ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'DGE-heatmap_all_subclasses.png', plot = p, width = 15, height = 5, dpi = 900)
+  png("05-results/figure1/raw_R_plots/DGE-heatmap_all_subclasses.png", width = 15, height = 5, units = "in", res = 900)
+  print(p)
+  dev.off()
 } else {
   print("Plotting without saving...")
   print(p)
