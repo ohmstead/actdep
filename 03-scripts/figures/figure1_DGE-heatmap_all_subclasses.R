@@ -140,19 +140,19 @@ df_gene_levels_ERG <- df_expression |>
   filter(classification == 'ERG') |> 
   filter(condition == 'd30m') |>
   slice_max(order_by = log2fc_from_SE, by = gene) |> 
-  arrange(subclass) |> print()
+  arrange(desc(n_subclasses), subclass) |> print()
 df_gene_levels_LRG <- df_expression |> 
   filter(classification == 'LRG') |> 
   filter(condition == 'd6h') |>
   slice_max(order_by = log2fc_from_SE, by = gene) |> 
-  arrange(subclass) |> print()
+  arrange(desc(n_subclasses), subclass) |> print()
 df_gene_levels_both <- df_expression |> 
   filter(classification == 'both') |> 
   filter(condition == 'd30m' | condition == 'd6h') |>
   slice_max(order_by = log2fc_from_SE, by = gene) |> 
-  arrange(subclass) |> print()
+  arrange(desc(n_subclasses), subclass) |> print()
 df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG, df_gene_levels_both) |> 
-  arrange(classification, subclass, desc(log2fc_from_SE)) |> print()
+  arrange(classification, desc(n_subclasses), subclass, desc(log2fc_from_SE)) |> print()
 
 # re-level variables for plotting ----
 print("Re-leveling variables for plotting...")
@@ -201,7 +201,7 @@ row_anno <- rowAnnotation(
 # Define col annotation
 col_anno <- HeatmapAnnotation(
   classification = df_gene_levels$classification,
-  subclass = df_gene_levels$subclass,
+  # subclass = df_gene_levels$subclass,
   col = list(
     classification = c("ERG" = "#BB4430", "LRG" = "#F2B880", "both" = "#82A6B1"),
     subclass = subclass_colors
@@ -217,7 +217,7 @@ p <- Heatmap(
   expression_matrix, # exclude the first column (subclass_by_condition)
   name = "log2FC",
   col = colorRamp2(c(-1, 0, 1), c("blue", "white", "red")),
-  cluster_rows= FALSE,
+  cluster_rows = FALSE,
   cluster_columns = FALSE,
   left_annotation = row_anno,
   top_annotation = col_anno,
