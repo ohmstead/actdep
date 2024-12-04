@@ -1,18 +1,17 @@
-# ---- load libs and data ----
+# load libs and data ----
 print("Loading libraries and data...")
 library(Seurat)
 library(tidyverse)
 library(readxl)
 library(patchwork)
 library(ComplexHeatmap)
-library(circlize)
 
 source('03-scripts/R/seq_functions.R')
 nuclei <- LoadDataset("May2024", "combined")
 condition_colors <- LoadConditionColors("May2024")
 
 
-# ---- get DEGs for all subclasses and contrasts ----
+# read in DEGs ----
 print("Getting DEGs for all subclasses and contrasts...")
 
 # get list of subclasses to use
@@ -53,7 +52,7 @@ for (file in deg_files) {
 }
 
 
-# ---- get ordered, non-repeating list of DEGs ----
+# classify DEGs ----
 print("Culling duplicate DEGs and sorting")
 
 # for each subclass, get expression for each condition
@@ -99,13 +98,13 @@ df_all_DEGs <- df_all_DEGs |>
   mutate(subclass_by_contrast = paste(subclass, contrast, sep = " x "))
 
 
-# ---- normalize expression data ----
+# normalize data ----
 print("Normalizing expression data...")
 
 # calculate log2FC expression compared to SE
 nuclei_subclass <- subset(nuclei, subclass_name %in% subclass_list)
 
-expression_data <-  AverageExpression(
+df_expression <-  AverageExpression(
     nuclei_subclass,
     features = df_all_DEGs_classified$gene,
     group.by = c("subclass_name", "condition"),
@@ -113,95 +112,117 @@ expression_data <-  AverageExpression(
     layer = 'counts'
   )$SCT |> 
   as.data.frame() |> 
-  # let's manipulate the data to make it easier to plot
   rownames_to_column(var = 'gene') |>
   pivot_longer(cols = -gene, names_to = 'subclass_by_contrast', values_to = 'avg_expression') |> 
   separate(subclass_by_contrast, into = c('subclass', 'condition'), sep = '_') |> 
   mutate(subclass = str_remove(subclass, '^.')) |> 
+  left_join(df_all_DEGs_classified, by = 'gene') |>
   group_by(gene, subclass) |> 
   mutate(log2fc_from_SE = log2((avg_expression+1) / (avg_expression[condition == 'dSE']+1))) |> 
   mutate(subclass_by_condition = paste(subclass, condition, sep = ' x ')) |> 
   mutate(gene = factor(gene, levels = df_all_DEGs_classified$gene)) |> 
   mutate(condition = factor(condition, levels = c('dSE', 'd30m', 'd6h', 'KA'))) |> 
-  mutate(subclass = factor(subclass, levels = subclass_list))
+  mutate(subclass = factor(subclass, levels = subclass_list)) |> 
+  ungroup()
 
 
-# ---- re-level values for plotting ----
-print("Re-leveling values for plotting...")
+# sort gene list ----
+print("Sorting gene list...")
+
+# 1. Begin with a tibble with columns gene, subclass, condition, classification (ERG/LRG/both) and log2FC
+# 2. Filter tibble to focus on the 30m condition for ERGs, the 6h condition for LRGs, or both conditions for "Both."
+# 3. Group rows by gene.
+# 4. Determine the subclass that has the highest log2FC expression.
+# 5. Arrange by subclass.
+# 6. Pull the genes and use them as the new sorting order.
+
+df_gene_levels_ERG <- df_expression |> 
+  filter(classification == 'ERG') |> 
+  filter(condition == 'd30m') |>
+  slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  arrange(subclass) |> print()
+df_gene_levels_LRG <- df_expression |> 
+  filter(classification == 'LRG') |> 
+  filter(condition == 'd6h') |>
+  slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  arrange(subclass) |> print()
+df_gene_levels_both <- df_expression |> 
+  filter(classification == 'both') |> 
+  filter(condition == 'd30m' | condition == 'd6h') |>
+  slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  arrange(subclass) |> print()
+df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG, df_gene_levels_both) |> 
+  arrange(classification, subclass, desc(log2fc_from_SE)) |> print()
+
+# re-level variables for plotting ----
+print("Re-leveling variables for plotting...")
 # reformat subclass_by_condition for plotting
-lvls_subclass_by_condition <- expression_data |> 
+lvls_subclass_by_condition <- df_expression |> 
   arrange(condition, subclass) |> 
   ungroup() |> 
   distinct(subclass_by_condition) |> 
   pull(subclass_by_condition)
 
-expression_data <- expression_data |> 
-  mutate(subclass_by_condition = factor(
-    subclass_by_condition, 
-    levels = lvls_subclass_by_condition)
-    )
+df_expression <- df_expression |> 
+  mutate(subclass_by_condition = factor(subclass_by_condition, levels = lvls_subclass_by_condition))
 
 
-# ---- plot ----
-# complex heatmap annotations:
-# y: subclass
-# y: condition
-# x: classification
-# Prepare data for the ComplexHeatmap
-# Load necessary libraries
-
-# Prepare data for the ComplexHeatmap
-expression_data_filtered <- expression_data %>%
-  filter(condition != 'dSE')
-
+# sort genes and subclasses -------
 # Create a matrix of log2 fold changes for the heatmap
-expression_matrix <- expression_data_filtered %>%
-  select(gene, subclass_by_condition, log2fc_from_SE) %>%
-  pivot_wider(names_from = gene, values_from = log2fc_from_SE) %>%
-  column_to_rownames(var = "subclass_by_condition") %>%
-  select(-subclass) %>%
+expression_matrix <- df_expression |>
+  filter(condition != 'dSE') |> 
+  select(gene, subclass_by_condition, log2fc_from_SE) |>
+  pivot_wider(names_from = gene, values_from = log2fc_from_SE) |> 
+  column_to_rownames(var = "subclass_by_condition") |> 
+  # select(-subclass) |> 
   as.matrix()
 
-# Ensure subclass_annotation has the same order as the rows in expression_matrix
-subclass_annotation <- expression_data_filtered %>%
-  group_by(subclass_by_condition, condition, subclass) %>%
-  distinct(subclass_by_condition) |> 
-  arrange(condition, subclass)
-
+# make annotations ----
 subclass_colors <- LoadAllenColors("subclass")
 condition_colors <- LoadConditionColors("May2024")
 
+# Ensure subclass_annotation has the same order as the rows in expression_matrix
+subclass_annotation <- df_expression |>
+  filter(condition != 'dSE') |> 
+  group_by(subclass_by_condition, condition, subclass) |>
+  distinct(subclass_by_condition) |> 
+  arrange(condition, subclass)
+
 # Define row annotation
 row_anno <- rowAnnotation(
-  subclass = subclass_annotation$subclass,
   condition = subclass_annotation$condition,
+  subclass = subclass_annotation$subclass,
   col = list(
-    subclass = subclass_colors,
-    condition = condition_colors
+    condition = condition_colors,
+    subclass = subclass_colors
   )
 )
 
 # Define col annotation
 col_anno <- HeatmapAnnotation(
-  classification = df_all_DEGs_classified$classification,
-  col = list(classification = c("ERG" = "#BB4430", "LRG" = "#F2B880", "both" = "#82A6B1"))
+  classification = df_gene_levels$classification,
+  subclass = df_gene_levels$subclass,
+  col = list(
+    classification = c("ERG" = "#BB4430", "LRG" = "#F2B880", "both" = "#82A6B1"),
+    subclass = subclass_colors
+  )
 )
 
 # order expression matrix rows and cols
 expression_matrix <- expression_matrix[match(subclass_annotation$subclass_by_condition, rownames(expression_matrix)), ]
-expression_matrix <- expression_matrix[,match(df_all_DEGs_classified$gene, colnames(expression_matrix))]
+expression_matrix <- expression_matrix[,match(df_gene_levels$gene, colnames(expression_matrix))]
 
-# Create the heatmap
+# plot ----
 p <- Heatmap(
   expression_matrix, # exclude the first column (subclass_by_condition)
   name = "log2FC",
   col = colorRamp2(c(-1, 0, 1), c("blue", "white", "red")),
   cluster_rows= FALSE,
   cluster_columns = FALSE,
-  left_annotation = row_ha,
+  left_annotation = row_anno,
   top_annotation = col_anno,
   row_split = subclass_annotation$condition,
-  column_split = factor(df_all_DEGs_classified$classification, levels = c("ERG", "LRG", "both")),
+  column_split = factor(df_gene_levels$classification, levels = c("ERG", "LRG", "both")),
   row_gap = unit(2, "mm"),
   column_gap = unit(2, "mm"),
   show_row_names = FALSE,
@@ -211,7 +232,7 @@ p <- Heatmap(
 )
 
 
-# ---- save plot ----
+# save plot ----
 if (SAVE_PLOTS) {
   print("Saving plot...")
   # ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'DGE-heatmap_all_subclasses.png', plot = p, width = 15, height = 5, dpi = 900)
