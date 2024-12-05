@@ -151,6 +151,35 @@ LoadSubclassesToUse <- function(seurat_obj) {
 }
 
 
+LoadGeneList <- function(list_type = "IEG") {
+  if (list_type == "IEG") {
+    gene_list <- c(
+        'Arc',
+        'Btg2',
+        'Dusp1',
+        'Dusp5',
+        'Egr1',
+        'Egr2',
+        'Egr3',
+        'Egr4',
+        'Fos',
+        'Fosb',
+        'Fosl2',
+        'Junb',
+        'Npas4',
+        'Nr4a1',
+        'Nr4a3'
+      )
+  } else if (list_type == "lncRNA") {
+    gene_list <- c(
+      ""
+    )
+  }
+  
+  return(gene_list)
+}
+
+
 GetCorrData <- function(seurat_obj, specific_condition, gene_list, output_fmt = 'complex_heatmap') {
   # returns the pairwise correlation between expression values of all gene pairs in gene_list. Only cells in the specified condition will be included.
   expression_data <- seurat_obj |> 

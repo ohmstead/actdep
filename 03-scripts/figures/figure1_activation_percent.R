@@ -17,23 +17,7 @@ condition_colors <- LoadConditionColors("May2024")
 # ---- get active cells IEG ----
 print("Getting percent of cells active using IEGs...")
 
-IEG_symbols <- c(
-  'Arc',
-  'Btg2',
-  'Dusp1',
-  'Dusp5',
-  'Egr1',
-  'Egr2',
-  'Egr3',
-  'Egr4',
-  'Fos',
-  'Fosb',
-  'Fosl2',
-  'Junb',
-  'Npas4',
-  'Nr4a1',
-  'Nr4a3'
-)
+IEG_symbols <- LoadGeneList("IEG")
 
 outputs <- FindActiveCells(nuclei, gene_list = IEG_symbols, gene_threshold = 3)
 df_active_cells_IEGs <- outputs$df_active_cells
