@@ -139,17 +139,20 @@ print("Sorting gene list...")
 df_gene_levels_ERG <- df_expression |> 
   filter(classification == 'ERG') |> 
   filter(condition == 'd30m') |>
-  slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  # slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  slice_min(order_by = log2fc_from_SE, by = gene) |> 
   arrange(desc(n_subclasses), subclass) |> print()
 df_gene_levels_LRG <- df_expression |> 
   filter(classification == 'LRG') |> 
   filter(condition == 'd6h') |>
-  slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  # slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  slice_min(order_by = log2fc_from_SE, by = gene) |> 
   arrange(desc(n_subclasses), subclass) |> print()
 df_gene_levels_both <- df_expression |> 
   filter(classification == 'both') |> 
   filter(condition == 'd30m' | condition == 'd6h') |>
-  slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  # slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  slice_min(order_by = log2fc_from_SE, by = gene) |> 
   arrange(desc(n_subclasses), subclass) |> print()
 df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG, df_gene_levels_both) |> 
   arrange(classification, desc(n_subclasses), subclass, desc(log2fc_from_SE)) |> print()
