@@ -5,6 +5,7 @@ library(tidyverse)
 library(readxl)
 library(patchwork)
 library(ComplexHeatmap)
+library(InteractiveComplexHeatmap)
 
 source('03-scripts/R/seq_functions.R')
 nuclei <- LoadDataset("May2024", "combined")
@@ -24,10 +25,8 @@ contrast_list <- c("d30m_vs_dSE", "d6h_vs_dSE")
 dir_deg <- "04-analysis/DEGs/condition/"
 deg_files <- list.files(dir_deg, full.names = TRUE)
 
-# make a df with columns for subclass and contrast
-df_all_DEGs <- data.frame()  # init empty df
-
 # loop thru CSVs and load in DEGs
+df_all_DEGs <- data.frame()  # init empty df
 for (file in deg_files) {
   fname <- basename(file)
   fname <- str_remove(fname, "\\.csv$")
@@ -55,48 +54,39 @@ for (file in deg_files) {
 # classify DEGs ----
 print("Culling duplicate DEGs and sorting")
 
-# for each subclass, get expression for each condition
-df_all_DEGs <- df_all_DEGs |> 
-  # filter out any contrasts that include KA
-  filter(contrast != "KA_vs_dSE") |>
-  group_by(gene, subclass, contrast) |> 
-  summarize(avg_log2FC = avg_log2FC, .groups = 'drop') |> 
-  print()
-
-df_all_DEGs_classified <- df_all_DEGs |> 
-  # Create new columns for ERG and LRG classification based on the contrasts
+df_gene_classifications <- df_all_DEGs |> 
   mutate(is_ERG = ifelse(contrast == "d30m_vs_dSE", TRUE, FALSE),
          is_LRG = ifelse(contrast == "d6h_vs_dSE", TRUE, FALSE)) |> 
-  # Group by gene to classify as ERG, LRG, or both
   group_by(gene) |> 
   summarize(
     is_ERG = any(is_ERG),
     is_LRG = any(is_LRG),
-    n_subclasses = n_distinct(subclass)
   ) |> 
-  # Classify genes as ERG, LRG, or both
   mutate(classification = case_when(
     is_ERG & is_LRG ~ "both",
     is_ERG ~ "ERG",
     is_LRG ~ "LRG",
     TRUE ~ NA_character_
-  )) |> 
-  # Keep only distinct genes and remove rows without a classification
-  filter(!is.na(classification)) |> 
+  )) |> print()
+# for each subclass, get expression for each condition
+
+df_distinct_DEGs <- df_all_DEGs |> 
+  mutate(condition = case_when(
+    contrast == "d30m_vs_dSE" ~ "d30m",
+    contrast == "d6h_vs_dSE" ~ "d6h",
+    contrast == "KA_vs_dSE" ~ "KA",
+    TRUE ~ NA_character_
+  )) |>
+  # filter out any contrasts that include KA
+  filter(contrast != "KA_vs_dSE") |>
+  group_by(gene, subclass, contrast) |> 
+  summarize(avg_log2FC = avg_log2FC, .groups = 'drop') |> 
+  left_join(df_gene_classifications, by = 'gene') |> 
+  # Create new columns for ERG and LRG classification based on the contrasts
+  mutate(subclass_by_contrast = paste(subclass, contrast, sep = " x ")) |> 
+  mutate(n_subclasses = n_distinct(subclass), .by = 'gene') |> 
   distinct(gene, .keep_all = TRUE) |> 
-  # Arrange by classification and number of subclasses
-  arrange(
-    desc(classification == "ERG"), 
-    desc(classification == "LRG"), 
-    desc(classification == "both"), 
-    desc(n_subclasses)
-    )
-
-df_all_DEGs <- df_all_DEGs |> 
-  left_join(df_all_DEGs_classified, by = 'gene') |> 
-  mutate(gene = factor(gene, levels = df_all_DEGs_classified$gene)) |>
-  mutate(subclass_by_contrast = paste(subclass, contrast, sep = " x "))
-
+  select(-subclass) # remove subclass for future joins
 
 # normalize data ----
 print("Normalizing expression data...")
@@ -104,23 +94,26 @@ print("Normalizing expression data...")
 # calculate log2FC expression compared to SE
 nuclei_subclass <- subset(nuclei, subclass_name %in% subclass_list)
 
-df_expression <-  AverageExpression(
+df_expression <- AverageExpression(
     nuclei_subclass,
-    features = df_all_DEGs_classified$gene,
+    features = df_distinct_DEGs$gene,
     group.by = c("subclass_name", "condition"),
     assays = 'SCT',
-    layer = 'counts'
+    layer = 'data'
   )$SCT |> 
   as.data.frame() |> 
-  rownames_to_column(var = 'gene') |>
-  pivot_longer(cols = -gene, names_to = 'subclass_by_contrast', values_to = 'avg_expression') |> 
+  rownames_to_column(var = 'gene') |> 
+  pivot_longer(cols = -gene, names_to = 'subclass_by_contrast', values_to = 'avg_expression_ln_scale') |> 
   separate(subclass_by_contrast, into = c('subclass', 'condition'), sep = '_') |> 
-  mutate(subclass = str_remove(subclass, '^.')) |> 
-  left_join(df_all_DEGs_classified, by = 'gene') |>
+  mutate(subclass = str_sub(subclass, 2, -1)) |> 
+  left_join(df_distinct_DEGs, by = 'gene') |> 
   group_by(gene, subclass) |> 
-  mutate(log2fc_from_SE = log2((avg_expression+1) / (avg_expression[condition == 'dSE']+1))) |> 
+  mutate(log2fc_from_SE = 
+    (avg_expression_ln_scale - avg_expression_ln_scale[condition == "dSE"]) / log(2),
+    .after = avg_expression_ln_scale
+  ) |> 
   mutate(subclass_by_condition = paste(subclass, condition, sep = ' x ')) |> 
-  mutate(gene = factor(gene, levels = df_all_DEGs_classified$gene)) |> 
+  mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |> 
   mutate(condition = factor(condition, levels = c('dSE', 'd30m', 'd6h', 'KA'))) |> 
   mutate(subclass = factor(subclass, levels = subclass_list)) |> 
   ungroup()
@@ -139,23 +132,21 @@ print("Sorting gene list...")
 df_gene_levels_ERG <- df_expression |> 
   filter(classification == 'ERG') |> 
   filter(condition == 'd30m') |>
-  # slice_max(order_by = log2fc_from_SE, by = gene) |> 
-  slice_min(order_by = log2fc_from_SE, by = gene) |> 
-  arrange(desc(n_subclasses), subclass) |> print()
+  slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  arrange(desc(n_subclasses), subclass)
 df_gene_levels_LRG <- df_expression |> 
   filter(classification == 'LRG') |> 
   filter(condition == 'd6h') |>
-  # slice_max(order_by = log2fc_from_SE, by = gene) |> 
-  slice_min(order_by = log2fc_from_SE, by = gene) |> 
-  arrange(desc(n_subclasses), subclass) |> print()
+  slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  arrange(desc(n_subclasses), subclass)
 df_gene_levels_both <- df_expression |> 
   filter(classification == 'both') |> 
   filter(condition == 'd30m' | condition == 'd6h') |>
-  # slice_max(order_by = log2fc_from_SE, by = gene) |> 
-  slice_min(order_by = log2fc_from_SE, by = gene) |> 
-  arrange(desc(n_subclasses), subclass) |> print()
+  slice_max(order_by = log2fc_from_SE, by = gene) |> 
+  arrange(desc(n_subclasses), subclass)
+
 df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG, df_gene_levels_both) |> 
-  arrange(classification, desc(n_subclasses), subclass, desc(log2fc_from_SE)) |> print()
+  arrange(classification, desc(n_subclasses), subclass, desc(log2fc_from_SE))
 
 # re-level variables for plotting ----
 print("Re-leveling variables for plotting...")
@@ -180,6 +171,7 @@ expression_matrix <- df_expression |>
   # select(-subclass) |> 
   as.matrix()
 
+
 # make annotations ----
 subclass_colors <- LoadAllenColors("subclass")
 condition_colors <- LoadConditionColors("May2024")
@@ -202,7 +194,7 @@ row_anno <- rowAnnotation(
 )
 
 # Define col annotation
-col_anno <- HeatmapAnnotation(
+col_anno_top <- HeatmapAnnotation(
   classification = df_gene_levels$classification,
   # subclass = df_gene_levels$subclass,
   col = list(
@@ -210,29 +202,39 @@ col_anno <- HeatmapAnnotation(
     subclass = subclass_colors
   )
 )
+ieg_symbols <- LoadGeneList("IEG")
+col_anno_bottom <- HeatmapAnnotation(
+  iegs = anno_mark(
+    at = which(df_gene_levels$gene %in% ieg_symbols), 
+    labels = ieg_symbols, 
+    side = "bottom"
+    )
+)
 
 # order expression matrix rows and cols
 expression_matrix <- expression_matrix[match(subclass_annotation$subclass_by_condition, rownames(expression_matrix)), ]
 expression_matrix <- expression_matrix[,match(df_gene_levels$gene, colnames(expression_matrix))]
 
+
 # plot ----
 p <- Heatmap(
   expression_matrix, # exclude the first column (subclass_by_condition)
   name = "log2FC",
-  col = colorRamp2(c(-1, 0, 1), c("blue", "white", "red")),
+  col = colorRamp2(c(-5,0,5), hcl_palette = "blue-red2"),
   cluster_rows = FALSE,
   cluster_columns = FALSE,
   left_annotation = row_anno,
-  top_annotation = col_anno,
+  top_annotation = col_anno_top,
+  bottom_annotation = col_anno_bottom,
   row_split = subclass_annotation$condition,
   column_split = factor(df_gene_levels$classification, levels = c("ERG", "LRG", "both")),
   row_gap = unit(2, "mm"),
   column_gap = unit(2, "mm"),
   show_row_names = FALSE,
   show_column_names = FALSE,
-  # row_names_gp = gpar(fontsize = 8),
-  # column_names_gp = gpar(fontsize = 8, rot = 90)
 )
+draw(p)
+htShiny(p, action = 'hover', output_ui_float = T)
 
 
 # save plot ----
