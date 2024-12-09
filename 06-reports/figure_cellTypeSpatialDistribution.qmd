@@ -1,19 +1,13 @@
 ---
 title: "DEGs among different cell types"
 author: "jack"
-format: 
-  html:
-    toc: true
-    toc_float: true
-    code-fold: true
-    code-tools: true
-    code-line-numbers: true
 editor_options: 
   chunk_output_type: console
 ---
 
-
 ```{r}
+source("03-scripts/R/seq_functions.R")
+
 library(Seurat)
 
 library(dplyr)
@@ -30,10 +24,7 @@ library(plotly)
 library(ComplexHeatmap)
 ```
 
-
 ```{r}
-source("~/code/seq/manuscript_code/seq_functions.R")
-
 condition_colors <- LoadConditionColors("May2024")
 subclass_colors <- LoadAllenColors("subclass")
 ```
@@ -165,6 +156,7 @@ wrap_plots(plots, nrow = 4, byrow = FALSE)
 ```
 
 I'm interested in the spatial distribution of IEG expression, so let's load some of that data in.
+
 ```{r load in MERFISH meta}
 allen_taxonomy <- read_csv("~/code/seq/misc/allen_taxonomy.csv")
 meta_merfish <- read_csv("/Volumes/jack/zhang2023/rawdata/cell_metadata.csv")

@@ -1,24 +1,12 @@
 ---
 title: "Figure 1 analysis"
 author: "jack olmstead"
-format: 
-  html:
-    toc: true
-    toc_float: true
-    code-fold: true
-    code-tools: true
-    code-line-numbers: true
-    embed-resources: true
 editor_options: 
   chunk_output_type: console
-knitr:
-  opts_knit:
-    root.dir: "/Users/jack/projects/actdep"
 ---
 
 ```{r setup}
 SAVE_PLOTS = FALSE
-knitr::opts_knit$set(root.dir = "/Users/jack/projects/actdep")
 ```
 
 # UMAP

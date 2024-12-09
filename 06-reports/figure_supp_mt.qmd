@@ -1,19 +1,12 @@
 ---
 title: "investigating mt reads"
 author: "jack"
-format: 
-  html:
-    toc: true
-    toc_float: true
-    code-fold: true
-    code-tools: true
-    code-line-numbers: true
 editor_options: 
   chunk_output_type: console
 ---
 
 ```{r}
-source("~/R/seq/manuscript/seq_functions.R")
+source("03-scripts/R/seq_functions.R")
 
 library(tidyverse)
 
@@ -36,6 +29,7 @@ condition_colors <- LoadConditionColors("May2024")
 ```
 
 # calc quartiles for percent.mt
+
 ```{r}
 # Calculate quantiles of percent.mt
 mt_quartiles <- quantile(nuclei$percent.mt, probs = seq(0, 1, 0.25))
@@ -54,6 +48,7 @@ print(mt_quartiles)
 ```
 
 # overall expression of mt genes
+
 ```{r}
 # get all genes that start with 'mt-'
 mt_genes <- rownames(nuclei)[grepl("^mt-", rownames(nuclei))]
@@ -77,6 +72,7 @@ meta |>
 ```
 
 # correlation between mt percent and gene count
+
 ```{r}
 my_theme <- theme_minimal() + theme(legend.position = 'none')
 
@@ -108,6 +104,7 @@ ggplot(meta) +
 This seems to falsify the hypothesis that the increase in gene counts that I see in the May2024 dataset compared to the Dec2023 dataset is due to an increase in overall cytoplasmic reads. Otherwise, we would expect to see a trend where as mt reads increase, the number of genes detected also increases.
 
 # DGE based on percent.mt quartiles
+
 I want to assess how stable the DGE list is between the percent.mt quartiles.
 
 ```{r}
@@ -206,7 +203,9 @@ print(intersection_genes)
 ```
 
 # Genes shared between overall DGE and within-quartile DGE
+
 Let's turn these into tables.
+
 ```{r}
 # Genes exclusive to overall DGE analysis
 overall_exclusive_genes <- dge_all |> 
@@ -259,6 +258,7 @@ kable(df_combined, format = "html", caption = "DGE Analysis Results") |>
 So if I use the full cohort of CA1 cells, I get 332 DGEs. If I stratify by percent.mt quartiles, I get 106 DGEs.
 
 # compare Q1+Q2 vs overall DGE expression
+
 From the Q1-Q4 venn diagram, it looks like almost all the genes that are captured through the within-quartile analyses are captured in the bottom 2 quartiles of percent.mt. What happens if I compare DGE in the bottom 2 quartiles versus overall DGE?
 
 ```{r}
@@ -338,6 +338,7 @@ kable(df_combined, format = "html", caption = "DGE Analysis Results: Overall vs 
 ```
 
 # number of "active" cells based on percent.mt quartiles
+
 With so many mt reads in this single-nucleus dataset, one possibility for this could be that there is incomplete membrane lysis and so packets of cytoplasm remain attached after the nuclear isolation. If this is the case, then one issue for analyzing IEG expression could be cytoplasmic reads that become attached to the nuclear membrane and sequenced.
 
 If this is the case, then one would expect that the number of "active cells" might increase with higher percent.mt, because the cytoplasmic mt reads sticking to the nucleus also give the opportunity for cytoplasmic IEGs to be captured. Let's take a look at this.
@@ -360,6 +361,7 @@ ggplot(df_active_cells) +
 ```
 
 # UMAPs colored by percent.mt
+
 ```{r}
 p1 <- FeaturePlot(nuclei, features = 'percent.mt', pt.size = 0.1) +
   theme_void() +

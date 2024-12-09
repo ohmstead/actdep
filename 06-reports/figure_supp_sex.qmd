@@ -13,6 +13,8 @@ editor_options:
 ---
 
 ```{r}
+source("03-scripts/R/seq_functions.R")
+
 library(readr)
 library(dplyr)
 library(tidyr)
@@ -20,8 +22,6 @@ library(tidyr)
 library(ggplot2)
 library(patchwork)
 library(gt)
-
-source("~/R/seq/manuscript/seq_functions.R")
 
 sex_colors <- LoadSexColors()
 ```
@@ -104,6 +104,7 @@ p1 + inset_element(p2, 0.1, 0.3, 0.8, 0.9)
 ```
 
 # tile plot of sex genes
+
 ```{r make tile plot of sex-specific genes}
 DEGs <- DEG_master |> 
   # filter out subclasses by subclass number
@@ -158,6 +159,7 @@ ggplot(all_combinations, aes(x = gene, y = subclass, fill = color)) +
 ```
 
 # table for subclasses with more sex-specific DEGs
+
 ```{r}
 subclass_name <- "016 CA1-ProS Glut"
 subclass_name <- "019 L2/3 IT PPP Glut"
@@ -190,7 +192,9 @@ DEG_master |>
 ```
 
 # microglia
+
 Just out of curiosity, I'd like to plot the sex-specific genes for microglia...
+
 ```{r}
 microglia <- DEG_master |> 
   filter(subclass == "334 Microglia NN")

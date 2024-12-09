@@ -9,8 +9,7 @@ SAVE_PLOTS = TRUE
 ```
 
 ```{r}
-getwd()
-source("~/projects/actdep/03-scripts/R/seq_functions.R")
+source("03-scripts/R/seq_functions.R")
 
 library(tidyverse)
 

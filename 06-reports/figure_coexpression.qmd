@@ -1,13 +1,6 @@
 ---
 title: "Figure 1 analysis"
 author: "jack"
-format: 
-  html:
-    toc: true
-    toc_float: true
-    code-fold: true
-    code-tools: true
-    code-line-numbers: true
 editor_options: 
   chunk_output_type: console
 ---
@@ -34,13 +27,13 @@ library(scales)
 ```
 
 # init
+
 ```{r}
 # load in all custom functions
 source("~/code/seq/manuscript_code/seq_functions.R")
 
 nuclei <- LoadDataset(dataset = 'May2024', sublibrary = 'combined')
 ```
-
 
 TF list taken from [AnimalTFDBv4.0](http://bioinfo.life.hust.edu.cn/AnimalTFDB4/#/) (Shen et al. (2023). *Nuc. Acids Res.*). [TFcheckpoint](https://www.tfcheckpoint.org/index.php/data-sources) is also a good resource.
 
@@ -80,7 +73,9 @@ ieg_symbols <- c(
 ```
 
 # gene ComplexHMs
+
 correlation matrices for complex heatmaps
+
 ```{r}
 degs  <- '___dSE-vs-d30m-DEGs'
 gene_list <- dSE_vs_d30m |> 
@@ -116,9 +111,11 @@ PlotComplexHeatmap(corr_KA_active,   paste0('KA-active', degs), save_plot = TRUE
 ```
 
 # ITF correlation matricies
+
 I want to see if there are any TFs that are co-activated together. This will result in an NxN correlation matrix of co-expression for transcription factors that are induced at either 30m or KA compared to HC.
 
 Note: THIS IS ONLY FOR CA1 CELLS RIGHT NOW
+
 ```{r}
 # get TFs genome-wide in the mouse
 tf_list <- "~/code/seq/data/Mus_musculus_TF.xlsx" |> 
@@ -153,6 +150,7 @@ PlotComplexHeatmap(corr_d30m_all, 'd30m-all-TFs', save_plot = FALSE)
 ```
 
 This cell creates some scatter plots comparing Foxo6 expression to the expression of other ITFs. It also uses Egr2 as a comparison ITF with low copy number that is positively correlated with other canonical ITFs.
+
 ```{r}
 # create df of expression for itfs
 df_expression <- ca1_seurat |> 
@@ -189,6 +187,7 @@ ggplot() +
 ```
 
 # compare the expression distribution of ITFs
+
 ```{r}
 df_expression |> 
   pivot_longer(cols = -c(cell), names_to = 'gene', values_to = 'expression') |>
@@ -199,8 +198,8 @@ ggplot() +
 
 ```
 
-
 # hclust
+
 I want to see if there are genes that form clusters of expression among the IEGs. I will use hierarchical clustering to do this.
 
 I would like to distinguish between active and inactive cells when doing this, so I'm going to take some code that I used in my figure 1 workbook and paste it here.
@@ -235,6 +234,7 @@ df_expression <- nuclei |>
 ```
 
 ## active cells
+
 ```{r}
 condition <- 'd30m'
 hclust_gene_mat_active <- df_expression |>
@@ -265,6 +265,7 @@ title(paste0('Active cells CA1 ', condition))
 ```
 
 ## all cells
+
 ```{r}
 hclust_gene_mat_all <- df_expression |>
   filter(m_condition == condition) |>
@@ -291,7 +292,9 @@ title(paste0('All cells CA1 ', condition))
 ```
 
 # cell heatmap
+
 I want to try my own heatmap implementation, instead of Seurat's shitty one.
+
 ```{r}
 # get module assignment and then map module number to a color
 k_clusters = 6
