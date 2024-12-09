@@ -148,6 +148,17 @@ df_gene_levels_both <- df_expression |>
 df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG, df_gene_levels_both) |> 
   arrange(classification, desc(n_subclasses), subclass, desc(log2fc_from_SE))
 
+# determine whether genes are TFs
+mouse_TFs <- read_excel("02-data/published_data/Mus_musculus_TF.xlsx") |> 
+  select(Symbol) |> 
+  pull()
+
+df_gene_levels <- df_gene_levels |> 
+  mutate(TF = ifelse(gene %in% mouse_TFs, "1", "0"))
+
+# combine classification and TF for anno purposes
+df_gene_levels$classification_TF <- paste(df_gene_levels$classification, df_gene_levels$TF, sep = "_")
+
 # re-level variables for plotting ----
 print("Re-leveling variables for plotting...")
 # reformat subclass_by_condition for plotting
@@ -161,7 +172,7 @@ df_expression <- df_expression |>
   mutate(subclass_by_condition = factor(subclass_by_condition, levels = lvls_subclass_by_condition))
 
 
-# sort genes and subclasses -------
+# sort genes and subclasses ----
 # Create a matrix of log2 fold changes for the heatmap
 expression_matrix <- df_expression |>
   filter(condition != 'dSE') |> 
@@ -171,49 +182,64 @@ expression_matrix <- df_expression |>
   # select(-subclass) |> 
   as.matrix()
 
-
-# make annotations ----
+# re-order expression matrix
 subclass_colors <- LoadAllenColors("subclass")
 condition_colors <- LoadConditionColors("May2024")
 
-# Ensure subclass_annotation has the same order as the rows in expression_matrix
-subclass_annotation <- df_expression |>
+# Ensure df_subclass_annotation has the same order as the rows in expression_matrix
+df_subclass_annotation <- df_expression |>
   filter(condition != 'dSE') |> 
   group_by(subclass_by_condition, condition, subclass) |>
   distinct(subclass_by_condition) |> 
   arrange(condition, subclass)
 
-# Define row annotation
+# order expression matrix rows and cols
+expression_matrix <- expression_matrix[match(df_subclass_annotation$subclass_by_condition, rownames(expression_matrix)), ]
+expression_matrix <- expression_matrix[,match(df_gene_levels$gene, colnames(expression_matrix))]
+
+# turn gene list (cols of exp matrix) into binary TF/non-TF
+df_tf <- colnames(expression_matrix) |>
+  as_tibble() |> 
+  mutate(gene = colnames(expression_matrix)) |> 
+  select(gene) |> 
+  mutate(TF = ifelse(gene %in% mouse_TFs, "1", "0"))
+
+
+# make annotation objects ----
 row_anno <- rowAnnotation(
-  condition = subclass_annotation$condition,
-  subclass = subclass_annotation$subclass,
+  condition = df_subclass_annotation$condition,
+  subclass = df_subclass_annotation$subclass,
   col = list(
     condition = condition_colors,
     subclass = subclass_colors
-  )
+  ),
+  show_annotation_name = FALSE,
+  show_legend = FALSE
 )
 
-# Define col annotation
 col_anno_top <- HeatmapAnnotation(
-  classification = df_gene_levels$classification,
+  classification = df_gene_levels$classification_TF,
   # subclass = df_gene_levels$subclass,
   col = list(
-    classification = c("ERG" = "#BB4430", "LRG" = "#F2B880", "both" = "#82A6B1"),
+    classification = c(
+      "ERG_0" = "#BB4430", "LRG_0" = "#F2B880", "both_0" = "#82A6B1", 
+      "ERG_1" = "black", "LRG_1" = "black", "both_1" = "black"
+      ),
     subclass = subclass_colors
-  )
+  ),
+  show_annotation_name = FALSE,
+  show_legend = FALSE
 )
+
 ieg_symbols <- LoadGeneList("IEG")
 col_anno_bottom <- HeatmapAnnotation(
   iegs = anno_mark(
     at = which(df_gene_levels$gene %in% ieg_symbols), 
     labels = ieg_symbols, 
     side = "bottom"
-    )
+    ),
+  show_annotation_name = FALSE
 )
-
-# order expression matrix rows and cols
-expression_matrix <- expression_matrix[match(subclass_annotation$subclass_by_condition, rownames(expression_matrix)), ]
-expression_matrix <- expression_matrix[,match(df_gene_levels$gene, colnames(expression_matrix))]
 
 
 # plot ----
@@ -226,7 +252,7 @@ p <- Heatmap(
   left_annotation = row_anno,
   top_annotation = col_anno_top,
   bottom_annotation = col_anno_bottom,
-  row_split = subclass_annotation$condition,
+  row_split = df_subclass_annotation$condition,
   column_split = factor(df_gene_levels$classification, levels = c("ERG", "LRG", "both")),
   row_gap = unit(2, "mm"),
   column_gap = unit(2, "mm"),
