@@ -12,7 +12,7 @@ subclass_colors <- LoadAllenColors(clade = "subclass")
 # ---- plot ----
 print("Plotting UMAPs...")
 
-p1 <- DimPlot(nuclei, reduction = "umap", group.by = "subclass_name", pt.size = 2, shuffle = TRUE, seed = 17) +
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "subclass_name", pt.size = 0.1, shuffle = TRUE, seed = 17) +
   scale_color_manual(values = subclass_colors) +
   theme_minimal() +
   labs(title = '', x = '', y = '') +
@@ -23,7 +23,7 @@ p1 <- DimPlot(nuclei, reduction = "umap", group.by = "subclass_name", pt.size = 
     legend.position = 'none'
   )
 
-p2 <- DimPlot(nuclei, reduction = "umap", group.by = "condition", pt.size = 2, shuffle = TRUE, seed = 17) +
+p2 <- DimPlot(nuclei, reduction = "umap", group.by = "condition", pt.size = 0.1, shuffle = TRUE, seed = 17) +
   scale_color_manual(values = condition_colors) +
   theme_minimal() +
   labs(title = '', x = '', y = '') +
