@@ -311,6 +311,34 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold) {
 }
 
 
+RunGOEnrichment <- function(gene_list){
+  # accepts gene_list as input, returns df of enriched GO terms
+  
+  # verify input is a gene list
+  if (!is.character(gene_list)) {
+    stop('gene_list input for RunGOEnrichment() must be a character vector.')
+  }
+  
+  library(clusterProfiler)
+  library(org.Mm.eg.db)
+  library(biomaRt)
+  
+  # from gene symbols, get Entrez gene IDs
+  gene_info <- getBM(
+    attributes = c("mgi_symbol", "entrezgene_id"),
+    filters = "mgi_symbol",
+    values = gene_list,
+    mart = ensembl
+  )
+  
+  # run analysis
+  results_GO <- enrichGO(gene = gene_info$entrezgene_id, OrgDb = 'org.Mm.eg.db', ont = 'ALL')
+  results_GO <- as_tibble(setReadable(results_GO, OrgDb = 'org.Mm.eg.db', keyType = 'ENTREZID'))
+  
+  return(results_GO)  
+}
+
+
 PrintScriptDone <- function() {
   done_string <- "print(glue('Script {basename(sys.frame(1)$ofile)} complete!'))"
   return(done_string)  # run with eval(parse(done_string))
