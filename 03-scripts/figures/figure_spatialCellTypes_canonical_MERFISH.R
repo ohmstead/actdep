@@ -28,11 +28,11 @@ allen_taxonomy <- allen_taxonomy |>
   mutate(cl = as.numeric(cl))
 meta_merfish <- meta_merfish |> 
   left_join(allen_taxonomy, by = c("cluster_alias" = "cl")) |> 
-  filter(low_quality_mapping == FALSE) |> print()
+  filter(low_quality_mapping == FALSE)
 
 
 # 3-D plot CA1 by supertype ----
-meta_merfish |>
+p <- meta_merfish |>
   filter(subclass_id_label == "016 CA1-ProS Glut") |>
   filter(z < 8 & z > 4) |> 
   plot_ly(
@@ -43,3 +43,5 @@ meta_merfish |>
     mode = "markers",
     marker = list(size = 5)
   )
+
+print(p)

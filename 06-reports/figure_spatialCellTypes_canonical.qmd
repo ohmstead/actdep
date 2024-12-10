@@ -5,64 +5,21 @@ editor_options:
   chunk_output_type: console
 ---
 
-I'm interested in the spatial distribution of IEG expression, so let's load some of that data in.
+```{r setup}
+SAVE_PLOTS = FALSE
+```
 
-```{r distro by IEG}
-# find proportion of cells expressing Npas4 above 0 in each supertype
-df_active_cells <- FindActiveCells(nuclei, gene_type='IEG') |>
-  pivot_longer(cols = c(num_upregd_IEGs:last_col(), -num_upregd_IEGs), names_to = "gene", values_to = "expression") |>
-  mutate(is_expressing = expression > 0) |> 
-  right_join(nuclei@meta.data, by = c("cell" = "bc_wells", "condition" = "condition")) |> 
-  filter(subclass_name == '016 CA1-ProS Glut')
+```{r MERFISH slices}
+#| message: false
+source("03-scripts/figures/figure_spatialCellTypes_canonical_MERFISH.R")
+```
 
-df_supertype_active  <- df_active_cells |>
-  group_by(supertype_name, condition) |> 
-  summarise(fraction_active = sum(active_binary) / n()) |> print()
+```{r static supertype distribution along anatomical axes}
+#| message: false
+source("03-scripts/figures/figure_spatialCellTypes_canonical_static.R")
+```
 
-
-# plot activation by supertype
-df_active_cells |> 
-  left_join(df_supertype_active, by = c("supertype_name", "condition")) |> 
-ggplot() +
-  aes(x = supertype_name, y = num_upregd_IEGs, fill = condition) +
-  geom_jitter(shape = 21, size = 1.5, alpha = 0.5) +
-  geom_hline(yintercept = 2.5) +
-  scale_fill_manual(values = condition_colors) +
-  scale_y_continuous(limits = c(-0.5, 10)) +
-  labs(title = "Activation by supertype",
-    x = "Supertype", y = "IEGs with expression\n>90th percentile") +
-  theme(
-    plot.title = element_text(size = 30),
-    axis.title.x = element_text(size = 30),
-    axis.title.y = element_text(size = 30),
-    strip.text = element_text(size = 18),
-    legend.position = 'none',
-  ) +
-  facet_wrap(~condition)
-
-
-# plot active cells by supertype along anatomical axes
-ca1_merfish |> 
-  group_by(z, supertype) |>  
-  summarise(n = n()) |> 
-  mutate(composition = n / sum(n)) |> 
-  left_join(df_supertype_active, by = c("supertype" = "supertype_name")) |> 
-  mutate(height = composition * fraction_active) |>
-ggplot() +
-  geom_area(aes(x = z, y = height, fill = supertype), position = 'stack') +
-  geom_vline(xintercept = seq(7.5,4,-0.2), color = 'white', linetype = 2, alpha = 0.3) +
-  scale_fill_manual(values = supertype_colors) +
-  scale_x_reverse() +
-  scale_y_continuous(limits = c(0, 1)) +
-  labs(title = "Active CA1 cells along A-P axis",
-    x = "<-- anterior / posterior -->", y = "Proportion of active cells by supertype"
-  ) +
-  theme(
-    plot.title = element_text(size = 30),
-    axis.title.x = element_text(size = 30),
-    axis.title.y = element_text(size = 30),
-    strip.text = element_text(size = 18),
-    legend.position = c(0.9, 0.9),
-  ) +
-  facet_wrap(~condition)
+```{r}
+#| message: false
+source("03-scripts/figures/figure_spatialCellTypes_canonical_activation.R")
 ```

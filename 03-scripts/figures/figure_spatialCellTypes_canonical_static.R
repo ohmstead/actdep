@@ -26,17 +26,17 @@ meta_merfish <- read_csv("02-data/published_data/Zhang2023/cell_metadata.csv")
 # "cl" and "cluster_id" are NOT the same thing in the allen_taxonomy. Use "cl" for joins!
 allen_taxonomy <- allen_taxonomy |> 
   mutate(cl = as.numeric(cl))
-meta_merfish <- meta_merfish |> 
+ca1_merfish <- meta_merfish |> 
   left_join(allen_taxonomy, by = c("cluster_alias" = "cl")) |> 
-  filter(low_quality_mapping == FALSE) |> print()
+  filter(low_quality_mapping == FALSE) |> 
+  filter(subclass_id_label == '016 CA1-ProS Glut') |>
+  filter(x < 9 | x > 2.5) |>      # anything outside this range is mis-classified
+  filter(y < 8.1 | y > 2.9 ) |>   # anything outside is mis-classified
+  filter(z < 8 & z > 4)           # anything outside is mis-classified
 
 
 # plot A-P (z) axis distro ----
-p_ap <- meta_merfish |> 
-  filter(subclass_id_label == '016 CA1-ProS Glut') |>
-  filter(x < 9| x > 2.5) |>   # anything outside this range is mis-classified
-  filter(y < 8.1 | y > 2.9 ) |>   # anything outside is mis-classified
-  filter(z < 8 & z > 4) |>   # anything outside is mis-classified
+p_ap <- ca1_merfish |> 
   group_by(z, supertype_id_label) |> 
   summarise(n = n()) |>
   mutate(percent = n / sum(n)) |> 
@@ -57,16 +57,11 @@ p_ap <- meta_merfish |>
 
 
 # plot D-V (y) axis distro ----
-merfish_filtered <- meta_merfish |> 
-  filter(subclass_id_label == '016 CA1-ProS Glut') |>
-  filter(x < 9| x > 2.5) |>   # anything outside this range is mis-classified
-  filter(y < 8.1 | y > 2.9 ) |>   # anything outside is mis-classified
-  filter(z < 8 & z > 4) |>   # anything outside is mis-classified
-  mutate(ycut = cut(y, breaks = seq(2.9, 8.1, 0.2)))
-merfish_filtered <- merfish_filtered |>
+ca1_merfish <- ca1_merfish |> 
+  mutate(ycut = cut(y, breaks = seq(2.9, 8.1, 0.2))) |> 
   mutate(yy = as.numeric(substr(as.character(ycut), 2, 4)))  # change to number
 
-p_dv <- merfish_filtered |>  
+p_dv <- ca1_merfish |>  
   group_by(yy, supertype_id_label) |> 
   summarise(n = n()) |>
   mutate(percent = n / sum(n)) |> 
@@ -87,4 +82,4 @@ p_dv <- merfish_filtered |>
   )
 
 
-p_ap + p_dv + plot_layout(widths = c(2,1))
+print(p_ap + p_dv + plot_layout(widths = c(2,1)))

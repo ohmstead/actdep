@@ -243,7 +243,7 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, save_plot = FALSE) {
 }
 
 
-FindActiveCells <- function(seurat_obj, gene_list, gene_threshold) {
+FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
 # Returns a tibble of cells that are "active" according to the following criterion:
 # >= 3 IEGs in a cell are expressed at counts >= 90th percentile of expression in the standard-environment condition.
   # find the 90th percentile of IEG expression in the dSE cells
