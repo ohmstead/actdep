@@ -1,0 +1,2 @@
+# changes the chromosome names in bedfiles from "chr1" notation to "mm39_1" notation to match Parse's naming convention
+awk 'BEGIN{OFS="\t"} {if($1 ~ /^chr/) $1="mm39_"substr($1, 4); print}' /Users/jack/projects/actdep/02-data/published_data/eRNAbase/eRNA_merge_mouse_nonred.bed > /Users/jack/projects/actdep/02-data/published_data/eRNAbase/eRNA_merge_mouse_nonred_converted.bed
