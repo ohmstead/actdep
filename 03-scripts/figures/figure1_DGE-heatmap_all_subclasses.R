@@ -9,7 +9,7 @@ library(InteractiveComplexHeatmap)
 
 source('03-scripts/R/seq_functions.R')
 nuclei <- LoadDataset("May2024", "combined")
-condition_colors <- LoadConditionColors("May2024")
+condition_colors <- LoadActivityColors("May2024")
 
 
 # read in DEGs ----
@@ -184,7 +184,7 @@ expression_matrix <- df_expression |>
 
 # re-order expression matrix
 subclass_colors <- LoadAllenColors("subclass")
-condition_colors <- LoadConditionColors("May2024")
+condition_colors <- LoadActivityColors("May2024")
 
 # Ensure df_subclass_annotation has the same order as the rows in expression_matrix
 df_subclass_annotation <- df_expression |>

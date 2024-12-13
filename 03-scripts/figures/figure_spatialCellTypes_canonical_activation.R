@@ -8,7 +8,7 @@ library(patchwork)
 library(ggplot2)
 library(plotly)
 
-condition_colors <- LoadConditionColors("May2024")
+condition_colors <- LoadActivityColors("May2024")
 subclass_colors <- LoadAllenColors("subclass")
 supertype_colors <- LoadAllenColors("supertype")
 

@@ -27,7 +27,7 @@ library(patchwork)
 # source("seq_functions.R")
 source("03-scripts/R/seq_functions.R")
 
-condition_colors <- LoadConditionColors("May2024")
+condition_colors <- LoadActivityColors("May2024")
 subclass_colors <- LoadAllenColors()
 ```
 

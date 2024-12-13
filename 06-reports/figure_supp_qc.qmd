@@ -22,7 +22,7 @@ library(SeuratDisk)
 ```
 
 ```{r load colors}
-condition_colors <- LoadConditionColors('May2024')
+condition_colors <- LoadActivityColors('May2024')
 sex_colors <- LoadSexColors()
 ```
 

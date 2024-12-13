@@ -6,7 +6,7 @@ library(ggplot2)
 source('03-scripts/R/seq_functions.R')
 nuclei <- LoadDataset("May2024")
 
-condition_colors <- LoadConditionColors("May2024")
+condition_colors <- LoadActivityColors("May2024")
 subclass_colors <- LoadAllenColors(clade = "subclass")
 
 # ---- plot ----

@@ -113,7 +113,7 @@ LoadSexColors <- function() {
 }
 
 
-LoadActivityColors <- function(palette='colorblind') {
+LoadActivityColors <- function(dataset = 'Dec2024', palette='colorblind') {
   if (palette == 'colorblind') {
     palette_colors <- c("#D81B60", "#1E88E5", "#FFC107", "#098154FF", "#63a45e", "#a8c66c")
   } else {

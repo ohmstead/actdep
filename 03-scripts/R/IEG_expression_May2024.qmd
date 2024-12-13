@@ -14,7 +14,7 @@ source("03-scripts/R/seq_functions.R")
 
 ```{r setup}
 nuclei <- LoadDataset("May2024")
-condition_colors <- LoadConditionColors("May2024")
+condition_colors <- LoadActivityColors("May2024")
 names(condition_colors) <- c("SE", "30m", "6h", "KA")
 ```
 

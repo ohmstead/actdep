@@ -164,7 +164,7 @@ ElbowPlot(nuclei,ndims = 50)
 ```
 
 ```{r visualize UMAP}
-condition_colors <- LoadConditionColors("May2024")
+condition_colors <- LoadActivityColors("May2024")
 p1 <- DimPlot(nuclei, reduction = "umap", group.by = "condition") +
   scale_color_manual(values = condition_colors)
 HoverLocator(p1, information = nuclei@meta.data)

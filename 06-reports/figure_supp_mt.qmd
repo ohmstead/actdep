@@ -22,7 +22,7 @@ library(SeuratDisk)
 ```{r}
 # nuclei <- LoadSeuratRds("~/R/seq/data/seurat.Rds")
 nuclei <- LoadDataset("May2024", "combined")
-condition_colors <- LoadConditionColors("May2024")
+condition_colors <- LoadActivityColors("May2024")
 
 # # scale percent.mt by 100
 # nuclei$percent.mt <- nuclei$percent.mt * 100

@@ -11,7 +11,7 @@ library(glue)
 
 source("03-scripts/R/seq_functions.R")
 nuclei <- LoadDataset("May2024", "combined")
-condition_colors <- LoadConditionColors("May2024")
+condition_colors <- LoadActivityColors("May2024")
 
 
 # ---- get active cells IEG ----
