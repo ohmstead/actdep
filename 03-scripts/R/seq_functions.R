@@ -113,9 +113,9 @@ LoadSexColors <- function() {
 }
 
 
-LoadConditionColors <- function(dataset, palette='colorblind') {
+LoadActivityColors <- function(palette='colorblind') {
   if (palette == 'colorblind') {
-    palette_colors <- c("#D81B60", "#1E88E5", "#FFC107", "#098154FF")
+    palette_colors <- c("#D81B60", "#1E88E5", "#FFC107", "#098154FF", "#63a45e", "#a8c66c")
   } else {
     # palette_colors <- paletteer::paletteer_d('ggthemes::wsj_colors6')
   }
@@ -125,14 +125,64 @@ LoadConditionColors <- function(dataset, palette='colorblind') {
                        'd30m' = palette_colors[1],
                        'd6h' = palette_colors[3],
                        'KA' = palette_colors[4])
-  } else {
+  } else if (dataset == 'Dec2023') {
     custom_colors <- c('SE' = palette_colors[2], 
                        '1h' = palette_colors[1],
                        '6h' = palette_colors[3],
                        'KA' = palette_colors[4])
+  } else if (dataset == 'Dec2024') {
+    custom_colors <- c('SE' = palette_colors[2],
+                       '30m' = palette_colors[1],
+                       '6h' = palette_colors[3],
+                       'KA 30m' = palette_colors[4],
+                       'KA 1h' = palette_colors[5],
+                       'KA 6h' = palette_colors[6]
+    )
   }
 
   return(custom_colors)
+}
+
+
+LoadZTColors <- function(palette = 1) {
+  if (palette == 1) {
+    zt_colors <- c(
+      'ZT0' = '#FADF7F',
+      'ZT4' = '#D9B26F',
+      'ZT12' = '#A69658',
+      'ZT16' = '#795C5F',
+    )
+  } else if (palette == 2) {
+    zt_colors <- c(
+      'ZT0' = '#D9B26F',
+      'ZT4' = '#F08080',
+      'ZT12' = '#5A0001',
+      'ZT16' = '#313628',
+    )
+  } else if (palette == 3) {
+    zt_colors <- c(
+      'ZT0' = '#92374D',
+      'ZT4' = '#DDCA7D',
+      'ZT12' = '#727D71',
+      'ZT16' = '#082D0F',
+    )
+  } else if (palette == 4) {
+    zt_colors <- c(
+      'ZT0' = '#C2DFE3',
+      'ZT4' = '#9DB4C0',
+      'ZT12' = '#5C6B73',
+      'ZT16' = '#253237',
+    )
+  } else if (palette == 5) {
+    zt_colors <- c(
+      'ZT0' = '#FFC49B',
+      'ZT4' = '#FFEFD3',
+      'ZT12' = '#ADB6C4',
+      'ZT16' = '#ADB6C4',
+    )
+  }
+
+  return(zt_colors)
 }
 
 
