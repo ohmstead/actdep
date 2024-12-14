@@ -1,21 +1,8 @@
-library(Seurat)
-library(SeuratDisk)
-
-library(tidyverse)
-library(readxl)
-
-# library(paletteer)  # this ruins radian autocompletion
-library(hues)
-
-library(dendextend)
-library(circlize)
-library(glue)
-library(patchwork)
-library(ggtext)
-library(scales)
-
+# A script housing a collection of commonly called functions in the actdep project.
 
 RunYaoDGE <- function(input_subclass, save_to_file = FALSE) {
+  library(Seurat)
+
   # if yao not in namespace, load object
   if (!exists('yao')) {
     yao <- LoadSeuratRds("/Volumes/jack/yao/yao_seurat.rds")
@@ -68,6 +55,8 @@ RunYaoDGE <- function(input_subclass, save_to_file = FALSE) {
 
 
 LoadDataset <- function(dataset, sublibrary = "combined") {
+  library(Seurat)
+
   if (dataset %in% c('yao', 'Yao')) {
     # try to load from local file
     if (path.exists()){
@@ -91,6 +80,8 @@ LoadDataset <- function(dataset, sublibrary = "combined") {
 
 
 LoadAllenColors <- function(clade = 'subclass') {
+  library(tidyverse)
+
   allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv")
   
   switch(
@@ -187,8 +178,11 @@ LoadZTColors <- function(palette = 1) {
 
 
 LoadSubclassesToUse <- function(seurat_obj) {
-  # returns a list of subclass_names to use. 
-  # subclasses with fewer than 100 cells are excluded.
+# returns a list of subclass_names to use. 
+# subclasses with fewer than 100 cells are excluded.
+  library(Seurat)
+  library(tidyverse)
+
   subclass_list <- seurat_obj@meta.data |> 
     filter(n() >= 100, .by = 'subclass_name') |> 
     distinct(subclass_name)
@@ -231,7 +225,11 @@ LoadGeneList <- function(list_type = "IEG") {
 
 
 GetCorrData <- function(seurat_obj, specific_condition, gene_list, output_fmt = 'complex_heatmap') {
-  # returns the pairwise correlation between expression values of all gene pairs in gene_list. Only cells in the specified condition will be included.
+# returns the pairwise correlation between expression values of all gene pairs
+# in gene_list. Only cells in the specified condition will be included.
+  library(Seurat)
+  library(tidyverse)
+
   expression_data <- seurat_obj |> 
     subset(condition == specific_condition) |> 
     GetAssayData('SCT', layer = 'data') |> 
@@ -267,8 +265,15 @@ GetCorrData <- function(seurat_obj, specific_condition, gene_list, output_fmt = 
 
 
 PlotComplexHeatmap <- function(corr_matrix, plot_title, save_plot = FALSE) {
-# Plots complex heatmap of genes x gene co-expression correlation values. Depends on GetCorrData, which must be called with argument output_fmt = 'complex_heatmap'.
-  
+# Plots complex heatmap of genes x gene co-expression correlation values.
+# Depends on output from GetCorrData, which must be called with argument
+# output_fmt = 'complex_heatmap'.
+
+  library(Seurat)
+  library(tidyverse)
+  library(ComplexHeatmap)
+  library(circlize)
+
   colormap <- colorRamp2(c(-1, 0, 1), c('blue', 'white', 'red'))
   
   if (save_plot) {
@@ -294,8 +299,9 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, save_plot = FALSE) {
 
 
 FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
-# Returns a tibble of cells that are "active" according to the following criterion:
-# >= 3 IEGs in a cell are expressed at counts >= 90th percentile of expression in the standard-environment condition.
+# Returns a tibble of cells that are "active" according to the following
+# criterion: >= gene_threshold IEGs in a cell are expressed at counts >= 90th
+# percentile of expression in the standard-environment condition.
   # find the 90th percentile of IEG expression in the dSE cells
   activation_thresholds <- seurat_obj |> 
     subset(subclass_name == '016 CA1-ProS Glut') |> 
@@ -362,16 +368,16 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
 
 
 RunGOEnrichment <- function(gene_list){
-  # accepts gene_list as input, returns df of enriched GO terms
-  
+# accepts gene_list as input, returns df of enriched GO terms
+  library(clusterProfiler)
+  library(org.Mm.eg.db)
+  library(biomaRt)
+  library(tidyverse)
+
   # verify input is a gene list
   if (!is.character(gene_list)) {
     stop('gene_list input for RunGOEnrichment() must be a character vector.')
   }
-  
-  library(clusterProfiler)
-  library(org.Mm.eg.db)
-  library(biomaRt)
   
   # from gene symbols, get Entrez gene IDs
   gene_info <- getBM(
@@ -390,6 +396,8 @@ RunGOEnrichment <- function(gene_list){
 
 
 PrintScriptDone <- function() {
+  library(glue)
+
   done_string <- "print(glue('Script {basename(sys.frame(1)$ofile)} complete!'))"
   return(done_string)  # run with eval(parse(done_string))
 }
@@ -413,7 +421,9 @@ SaveH5SeuratObject <- function(
     verbose = TRUE,
     overwrite = TRUE
 ) {
-  
+  library(Seurat)
+  library(SeuratDisk)
+
   # add copy of "RNA" 
   object[["RNA.tmp"]] <- CreateAssayObject(counts = object[["RNA"]]$counts)
   # switch default assay
@@ -439,6 +449,9 @@ SaveH5SeuratObject <- function(
 #' @return NULL
 #' 
 LoadH5SeuratObject <- function(filename, verbose = TRUE) {
+  library(Seurat)
+  library(SeuratDisk)
+
   # load h5 data
   object <- LoadH5Seurat(filename)
   # create "Assay5" class from old "Assay" class
