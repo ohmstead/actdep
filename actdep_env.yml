@@ -1,278 +1,278 @@
-name: actdep
 channels:
-  - defaults
-  - conda-forge
-  - bioconda
+- defaults
+- conda-forge
+- bioconda
 dependencies:
-  - _r-mutex=1.0.1=anacondar_1
-  - anndata=0.10.9=pyhd8ed1ab_0
-  - anndata2ri=1.3.2=pyhdfd78af_0
-  - appnope=0.1.4=pyhd8ed1ab_0
-  - array-api-compat=1.8=pyhd8ed1ab_0
-  - asttokens=2.4.1=pyhd8ed1ab_0
-  - attrs=24.2.0=py312hca03da5_0
-  - beautifulsoup4=4.12.3=py312hca03da5_0
-  - bedtools=2.31.1=hac2f1dd_2
-  - bleach=6.1.0=pyhd8ed1ab_0
-  - brotli=1.1.0=hb547adb_1
-  - brotli-bin=1.1.0=hb547adb_1
-  - brotli-python=1.1.0=py312h9f69965_1
-  - bustools=0.44.1=he88f0e2_0
-  - bwidget=1.9.14=hce30654_1
-  - bzip2=1.0.8=h99b78c6_7
-  - c-ares=1.33.1=hd74edd7_0
-  - ca-certificates=2024.11.26=hca03da5_0
-  - cached-property=1.5.2=hd8ed1ab_1
-  - cached_property=1.5.2=pyha770c72_1
-  - cairo=1.18.0=hb4a6bf7_3
-  - cctools_osx-arm64=986=hf2da8af_3
-  - certifi=2024.8.30=py312hca03da5_0
-  - cffi=1.17.0=py312h0fad829_1
-  - clang=18.1.8=default_h675cc0c_3
-  - clang-18=18.1.8=default_h5c12605_3
-  - clang_impl_osx-arm64=18.1.8=h2ae9ea5_19
-  - clang_osx-arm64=18.1.8=h54d7cd3_19
-  - clangxx=18.1.8=default_h675cc0c_3
-  - clangxx_impl_osx-arm64=18.1.8=h555f467_19
-  - clangxx_osx-arm64=18.1.8=h54d7cd3_19
-  - click=8.1.7=py312hca03da5_0
-  - colorama=0.4.6=pyhd8ed1ab_0
-  - comm=0.2.2=pyhd8ed1ab_0
-  - compiler-rt=18.1.8=h28df8ea_0
-  - compiler-rt_osx-arm64=18.1.8=h56c4e69_0
-  - contourpy=1.3.0=py312h6142ec9_0
-  - curl=8.9.1=hbf5303f_0
-  - cycler=0.12.1=pyhd8ed1ab_0
-  - debugpy=1.8.5=py312h5c2e7bc_0
-  - decorator=5.1.1=pyhd8ed1ab_0
-  - defusedxml=0.7.1=pyhd3eb1b0_0
-  - dunamai=1.22.0=pyhd8ed1ab_0
-  - exceptiongroup=1.2.2=pyhd8ed1ab_0
-  - executing=2.0.1=pyhd8ed1ab_0
-  - expat=2.6.2=hebf3989_0
-  - fastqc=0.12.1=hdfd78af_0
-  - ffq=0.3.1=pyhdfd78af_0
-  - font-ttf-dejavu-sans-mono=2.37=hab24e00_0
-  - font-ttf-inconsolata=3.000=h77eed37_0
-  - font-ttf-source-code-pro=2.038=h77eed37_0
-  - font-ttf-ubuntu=0.83=h77eed37_2
-  - fontconfig=2.14.2=h82840c6_0
-  - fonts-conda-ecosystem=1=0
-  - fonts-conda-forge=1=0
-  - fonttools=4.53.1=py312h7e5086c_0
-  - freetype=2.12.1=hadb7bae_2
-  - fribidi=1.0.10=h27ca646_0
-  - frozendict=2.4.6=py312h0bf5046_0
-  - get-annotations=0.1.2=pyhd8ed1ab_0
-  - get_version=3.5.5=pyhd8ed1ab_0
-  - gfortran_impl_osx-arm64=12.3.0=h53ed385_3
-  - gfortran_osx-arm64=12.3.0=h57527a5_1
-  - git=2.46.0=pl5321h41514c7_0
-  - gmp=6.3.0=h7bae524_2
-  - graphite2=1.3.13=hebf3989_1003
-  - gsl=2.7=h6e638da_0
-  - h5py=3.11.0=nompi_py312h903599c_102
-  - harfbuzz=9.0.0=h997cde5_1
-  - hdf5=1.14.3=nompi_hec07895_105
-  - htslib=1.21=ha435bb7_0
-  - icu=75.1=hfee45f7_0
-  - idna=3.10=pyhd8ed1ab_0
-  - importlib-metadata=8.4.0=pyha770c72_0
-  - importlib_metadata=8.4.0=hd8ed1ab_0
-  - ipykernel=6.29.5=pyh57ce528_0
-  - ipython=8.26.0=pyh707e725_0
-  - isl=0.26=imath32_h347afa1_101
-  - jedi=0.19.1=pyhd8ed1ab_0
-  - jinja2=3.1.4=pyhd8ed1ab_0
-  - joblib=1.4.2=pyhd8ed1ab_0
-  - jsonschema=4.23.0=py312hca03da5_0
-  - jsonschema-specifications=2024.10.1=pyhd8ed1ab_0
-  - jupyter_client=8.6.2=pyhd8ed1ab_0
-  - jupyter_core=5.7.2=py312h81bd7bf_0
-  - jupyterlab_pygments=0.3.0=pyhd8ed1ab_1
-  - kallisto=0.51.1=h90a5e85_0
-  - kb-python=0.26.0=pyhdfd78af_0
-  - kiwisolver=1.4.5=py312h6142ec9_2
-  - krb5=1.21.3=h237132a_0
-  - lcms2=2.16=ha0e7c42_0
-  - ld64_osx-arm64=711=h5ecc89c_3
-  - legacy-api-wrap=1.4=pyhd8ed1ab_1
-  - lerc=4.0.0=h9a09cb3_0
-  - libaec=1.1.3=hebf3989_0
-  - libasprintf=0.22.5=h8414b35_3
-  - libbigwig=0.4.7=hebdaf81_6
-  - libblas=3.9.0=23_osxarm64_openblas
-  - libbrotlicommon=1.1.0=hb547adb_1
-  - libbrotlidec=1.1.0=hb547adb_1
-  - libbrotlienc=1.1.0=hb547adb_1
-  - libcblas=3.9.0=23_osxarm64_openblas
-  - libclang-cpp18.1=18.1.8=default_h5c12605_3
-  - libcurl=8.9.1=hfd8ffcc_0
-  - libcxx=18.1.8=h3ed4263_6
-  - libcxx-devel=18.1.8=h6dc3340_6
-  - libdeflate=1.20=h93a5062_0
-  - libedit=3.1.20191231=hc8eb9b7_2
-  - libev=4.33=h93a5062_2
-  - libexpat=2.6.2=hebf3989_0
-  - libffi=3.4.2=h3422bc3_5
-  - libgettextpo=0.22.5=h8414b35_3
-  - libgfortran=5.0.0=13_2_0_hd922786_3
-  - libgfortran-devel_osx-arm64=12.3.0=hc62be1c_3
-  - libgfortran5=13.2.0=hf226fd6_3
-  - libglib=2.80.3=h59d46d9_2
-  - libhwloc=2.11.1=default_h7685b71_1000
-  - libiconv=1.17=h0d3ecfb_2
-  - libintl=0.22.5=h8414b35_3
-  - libjpeg-turbo=3.0.0=hb547adb_1
-  - liblapack=3.9.0=23_osxarm64_openblas
-  - libllvm14=14.0.6=hd1a9a77_4
-  - libllvm18=18.1.8=h5090b49_2
-  - libnghttp2=1.58.0=ha4dd798_1
-  - libopenblas=0.3.27=openmp_h517c56d_1
-  - libpng=1.6.43=h091b4b1_0
-  - libsodium=1.0.18=h27ca646_1
-  - libsqlite=3.46.0=hfb93653_0
-  - libssh2=1.11.0=h7a5bd25_0
-  - libtiff=4.6.0=h07db509_3
-  - libwebp-base=1.4.0=h93a5062_0
-  - libxcb=1.16=hc9fafa5_1
-  - libxml2=2.12.7=h01dff8b_4
-  - libxslt=1.1.39=h223e5b9_0
-  - libzlib=1.3.1=hfb2fe0b_1
-  - llvm-openmp=18.1.8=hde57baf_1
-  - llvm-tools=18.1.8=h5090b49_2
-  - llvm-tools-18=18.1.8=h5090b49_2
-  - llvmlite=0.43.0=py312h30cb90f_0
-  - lxml=5.3.0=py312ha59c1f6_1
-  - make=4.4.1=hc9fafa5_0
-  - markupsafe=2.1.5=py312h024a12e_1
-  - matplotlib-base=3.9.2=py312h32d6e5a_0
-  - matplotlib-inline=0.1.7=pyhd8ed1ab_0
-  - mistune=3.0.2=pyhd8ed1ab_0
-  - mpc=1.3.1=h8f1351a_0
-  - mpfr=4.2.1=h1cfca0a_2
-  - munkres=1.1.4=pyh9f0ad1d_0
-  - natsort=8.4.0=pyhd8ed1ab_0
-  - nbclient=0.10.0=pyhd8ed1ab_0
-  - nbconvert=7.16.4=py312hca03da5_0
-  - nbformat=5.10.4=py312hca03da5_0
-  - ncurses=6.5=h7bae524_1
-  - nest-asyncio=1.6.0=pyhd8ed1ab_0
-  - networkx=3.3=pyhd8ed1ab_1
-  - numba=0.60.0=py312h41cea2d_0
-  - numpy=1.26.4=py312h8442bc7_0
-  - numpy_groupies=0.11.2=pyhd8ed1ab_0
-  - openjdk=22.0.1=h363fedd_1
-  - openjpeg=2.5.2=h9f1df11_0
-  - openssl=3.4.0=h39f12f2_0
-  - packaging=24.1=pyhd8ed1ab_0
-  - pandas=2.2.2=py312h8ae5369_1
-  - pango=1.54.0=h9ee27a3_2
-  - parso=0.8.4=pyhd8ed1ab_0
-  - patsy=0.5.6=pyhd8ed1ab_0
-  - pcre2=10.44=h297a79d_2
-  - perl=5.32.1=7_h4614cfb_perl5
-  - pexpect=4.9.0=pyhd8ed1ab_0
-  - pickleshare=0.7.5=py_1003
-  - pillow=10.4.0=py312h39b1d8d_0
-  - pip=24.2=pyh8b19718_1
-  - pixman=0.43.4=hebf3989_0
-  - platformdirs=4.2.2=pyhd8ed1ab_0
-  - plotly=5.24.1=py312h989b03a_0
-  - prompt-toolkit=3.0.47=pyha770c72_0
-  - psutil=6.0.0=py312h7e5086c_0
-  - pthread-stubs=0.4=h27ca646_1001
-  - ptyprocess=0.7.0=pyhd3deb0d_0
-  - pure_eval=0.2.3=pyhd8ed1ab_0
-  - pycparser=2.22=pyhd8ed1ab_0
-  - pygments=2.18.0=pyhd8ed1ab_0
-  - pynndescent=0.5.13=pyhff2d567_0
-  - pyparsing=3.1.4=pyhd8ed1ab_0
-  - pysocks=1.7.1=py312hca03da5_0
-  - python=3.12.5=h30c5eda_0_cpython
-  - python-dateutil=2.9.0=pyhd8ed1ab_0
-  - python-fastjsonschema=2.20.0=pyhd8ed1ab_0
-  - python-tzdata=2024.1=pyhd8ed1ab_0
-  - python_abi=3.12=5_cp312
-  - pytz=2024.1=pyhd8ed1ab_0
-  - pyzmq=26.2.0=py312hc6335d2_0
-  - qhull=2020.2=h420ef59_5
-  - r-base=4.3.3=h11bd7ca_14
-  - readline=8.2=h92ec313_1
-  - referencing=0.35.1=pyhd8ed1ab_0
-  - requests=2.32.3=py312hca03da5_0
-  - rpds-py=0.20.0=py312he431725_1
-  - rpy2=3.5.11=py312r43h3339331_3
-  - samtools=1.21=hc9c1273_0
-  - scanpy=1.10.2=pyhd8ed1ab_0
-  - scikit-learn=1.5.1=py312h1b546db_0
-  - scipy=1.14.1=py312heb3a901_0
-  - seaborn=0.13.2=hd8ed1ab_2
-  - seaborn-base=0.13.2=pyhd8ed1ab_2
-  - session-info=1.0.0=pyhd8ed1ab_0
-  - setuptools=72.2.0=pyhd8ed1ab_0
-  - sigtool=0.1.3=h44b9a77_0
-  - simplegeneric=0.8.1=py_1
-  - six=1.16.0=pyh6c4a22f_0
-  - soupsieve=2.5=py312hca03da5_0
-  - stack_data=0.6.2=pyhd8ed1ab_0
-  - statsmodels=0.14.2=py312hbebd99a_0
-  - stdlib-list=0.10.0=pyhd8ed1ab_0
-  - tapi=1100.0.11=he4954df_0
-  - tbb=2021.12.0=h7b3277c_4
-  - tenacity=9.0.0=pyhd8ed1ab_0
-  - threadpoolctl=3.5.0=pyhc1e730c_0
-  - tinycss2=1.3.0=pyhd8ed1ab_0
-  - tk=8.6.13=h5083fa2_1
-  - tktable=2.10=h1e387b8_6
-  - tornado=6.4.1=py312h024a12e_1
-  - tqdm=4.66.5=pyhd8ed1ab_0
-  - traitlets=5.14.3=pyhd8ed1ab_0
-  - typing_extensions=4.12.2=pyha770c72_0
-  - tzdata=2024a=h8827d51_1
-  - tzlocal=5.2=py312h81bd7bf_1
-  - umap-learn=0.5.6=py312h81bd7bf_1
-  - urllib3=2.2.3=py312hca03da5_0
-  - wcwidth=0.2.13=pyhd8ed1ab_0
-  - webencodings=0.5.1=py312hca03da5_2
-  - wheel=0.44.0=pyhd8ed1ab_0
-  - xorg-libxau=1.0.11=hb547adb_0
-  - xorg-libxdmcp=1.1.3=h27ca646_0
-  - xz=5.2.6=h57fd34a_0
-  - zeromq=4.3.5=hcc0f68c_4
-  - zipp=3.20.1=pyhd8ed1ab_0
-  - zlib=1.3.1=hfb2fe0b_1
-  - zstd=1.5.6=hb46c0d2_0
-  - pip:
-      - alabaster==1.0.0
-      - babel==2.16.0
-      - biopython==1.84
-      - charset-normalizer==3.3.2
-      - deeptools==3.5.5
-      - deeptoolsintervals==0.1.9
-      - docutils==0.21.2
-      - future==1.0.0
-      - imagesize==1.4.1
-      - loompy==3.0.7
-      - ngs-tools==1.8.6
-      - numpydoc==1.8.0
-      - pandocfilters==1.5.1
-      - py2bit==0.3.0
-      - pybigwig==0.3.23
-      - pybktree==1.1
-      - pysam==0.22.1
-      - radian==0.6.13
-      - rchitect==0.4.7
-      - regex==2024.11.6
-      - shortuuid==1.0.13
-      - snowballstemmer==2.2.0
-      - sphinx==8.0.2
-      - sphinxcontrib-applehelp==2.0.0
-      - sphinxcontrib-devhelp==2.0.0
-      - sphinxcontrib-htmlhelp==2.1.0
-      - sphinxcontrib-jsmath==1.0.1
-      - sphinxcontrib-qthelp==2.0.0
-      - sphinxcontrib-serializinghtml==2.0.0
-      - tabulate==0.9.0
-      - umi-tools==1.1.6
+- _r-mutex
+- anndata
+- anndata2ri
+- appnope
+- array-api-compat
+- asttokens
+- attrs
+- beautifulsoup4
+- bedtools
+- bleach
+- brotli
+- brotli-bin
+- brotli-python
+- bustools
+- bwidget
+- bzip2
+- c-ares
+- ca-certificates
+- cached-property
+- cached_property
+- cairo
+- cctools_osx-arm64
+- certifi
+- cffi
+- clang
+- clang-18
+- clang_impl_osx-arm64
+- clang_osx-arm64
+- clangxx
+- clangxx_impl_osx-arm64
+- clangxx_osx-arm64
+- click
+- colorama
+- comm
+- compiler-rt
+- compiler-rt_osx-arm64
+- contourpy
+- curl
+- cycler
+- debugpy
+- decorator
+- defusedxml
+- dunamai
+- exceptiongroup
+- executing
+- expat
+- fastqc
+- ffq
+- font-ttf-dejavu-sans-mono
+- font-ttf-inconsolata
+- font-ttf-source-code-pro
+- font-ttf-ubuntu
+- fontconfig
+- fonts-conda-ecosystem
+- fonts-conda-forge
+- fonttools
+- freetype
+- fribidi
+- frozendict
+- get-annotations
+- get_version
+- gfortran_impl_osx-arm64
+- gfortran_osx-arm64
+- git
+- gmp
+- graphite2
+- gsl
+- h5py
+- harfbuzz
+- hdf5
+- htslib
+- icu
+- idna
+- importlib-metadata
+- importlib_metadata
+- ipykernel
+- ipython
+- isl
+- jedi
+- jinja2
+- joblib
+- jsonschema
+- jsonschema-specifications
+- jupyter_client
+- jupyter_core
+- jupyterlab_pygments
+- kallisto
+- kb-python
+- kiwisolver
+- krb5
+- lcms2
+- ld64_osx-arm64
+- legacy-api-wrap
+- lerc
+- libaec
+- libasprintf
+- libbigwig
+- libblas
+- libbrotlicommon
+- libbrotlidec
+- libbrotlienc
+- libcblas
+- libclang-cpp18.1
+- libcurl
+- libcxx
+- libcxx-devel
+- libdeflate
+- libedit
+- libev
+- libexpat
+- libffi
+- libgettextpo
+- libgfortran
+- libgfortran-devel_osx-arm64
+- libgfortran5
+- libglib
+- libhwloc
+- libiconv
+- libintl
+- libjpeg-turbo
+- liblapack
+- libllvm14
+- libllvm18
+- libnghttp2
+- libopenblas
+- libpng
+- libsodium
+- libsqlite
+- libssh2
+- libtiff
+- libwebp-base
+- libxcb
+- libxml2
+- libxslt
+- libzlib
+- llvm-openmp
+- llvm-tools
+- llvm-tools-18
+- llvmlite
+- lxml
+- make
+- markupsafe
+- matplotlib-base
+- matplotlib-inline
+- mistune
+- mpc
+- mpfr
+- munkres
+- natsort
+- nbclient
+- nbconvert
+- nbformat
+- ncurses
+- nest-asyncio
+- networkx
+- numba
+- numpy
+- numpy_groupies
+- openjdk
+- openjpeg
+- openssl
+- packaging
+- pandas
+- pango
+- parso
+- patsy
+- pcre2
+- perl
+- pexpect
+- pickleshare
+- pillow
+- pip
+- pixman
+- platformdirs
+- plotly
+- prompt-toolkit
+- psutil
+- pthread-stubs
+- ptyprocess
+- pure_eval
+- pycparser
+- pygments
+- pynndescent
+- pyparsing
+- pysocks
+- python
+- python-dateutil
+- python-fastjsonschema
+- python-tzdata
+- python_abi
+- pytz
+- pyzmq
+- qhull
+- r-base
+- readline
+- referencing
+- requests
+- rpds-py
+- rpy2
+- samtools
+- scanpy
+- scikit-learn
+- scipy
+- seaborn
+- seaborn-base
+- session-info
+- setuptools
+- sigtool
+- simplegeneric
+- six
+- soupsieve
+- stack_data
+- statsmodels
+- stdlib-list
+- tapi
+- tbb
+- tenacity
+- threadpoolctl
+- tinycss2
+- tk
+- tktable
+- tornado
+- tqdm
+- traitlets
+- typing_extensions
+- tzdata
+- tzlocal
+- umap-learn
+- urllib3
+- wcwidth
+- webencodings
+- wheel
+- xorg-libxau
+- xorg-libxdmcp
+- xz
+- zeromq
+- zipp
+- zlib
+- zstd
+- pip:
+  - alabaster
+  - babel
+  - biopython
+  - charset-normalizer
+  - deeptools
+  - deeptoolsintervals
+  - docutils
+  - future
+  - imagesize
+  - loompy
+  - ngs-tools
+  - numpydoc
+  - pandocfilters
+  - py2bit
+  - pybigwig
+  - pybktree
+  - pysam
+  - radian
+  - rchitect
+  - regex
+  - shortuuid
+  - snowballstemmer
+  - sphinx
+  - sphinxcontrib-applehelp
+  - sphinxcontrib-devhelp
+  - sphinxcontrib-htmlhelp
+  - sphinxcontrib-jsmath
+  - sphinxcontrib-qthelp
+  - sphinxcontrib-serializinghtml
+  - tabulate
+  - umi-tools
+name: actdep
 prefix: /Users/jack/miniforge3/envs/actdep
