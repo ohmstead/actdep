@@ -56,6 +56,7 @@ RunYaoDGE <- function(input_subclass, save_to_file = FALSE) {
 
 LoadDataset <- function(dataset, sublibrary = "combined") {
   library(Seurat)
+  library(glue)
 
   if (dataset %in% c('yao', 'Yao')) {
     # try to load from local file
