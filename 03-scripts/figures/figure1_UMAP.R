@@ -4,9 +4,9 @@ library(Seurat)
 library(ggplot2)
 
 source('03-scripts/R/seq_functions.R')
-nuclei <- LoadDataset("May2024")
+nuclei <- LoadDataset("Dec2024_pilot")
 
-condition_colors <- LoadActivityColors("May2024")
+activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors(clade = "subclass")
 
 # ---- plot ----
@@ -23,8 +23,8 @@ p1 <- DimPlot(nuclei, reduction = "umap", group.by = "subclass_name", pt.size = 
     legend.position = 'none'
   )
 
-p2 <- DimPlot(nuclei, reduction = "umap", group.by = "condition", pt.size = 0.1, shuffle = TRUE, seed = 17) +
-  scale_color_manual(values = condition_colors) +
+p2 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition", pt.size = 0.1, shuffle = TRUE, seed = 17) +
+  scale_color_manual(values = activity_colors) +
   theme_minimal() +
   labs(title = '', x = '', y = '') +
   theme(
