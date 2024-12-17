@@ -124,11 +124,11 @@ LoadActivityColors <- function(dataset = 'Dec2024', palette='colorblind') {
                        'KA' = palette_colors[4])
   } else if (dataset == 'Dec2024') {
     custom_colors <- c('SE' = palette_colors[2],
-                       '30m' = palette_colors[1],
-                       '6h' = palette_colors[3],
-                       'KA 30m' = palette_colors[4],
-                       'KA 1h' = palette_colors[5],
-                       'KA 6h' = palette_colors[6]
+                       'EE_30m' = palette_colors[1],
+                       'EE_6h' = palette_colors[3],
+                       'KA_30m' = palette_colors[4],
+                       'KA_1h' = palette_colors[5],
+                       'KA_6h' = palette_colors[6]
     )
   }
 

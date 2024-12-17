@@ -65,7 +65,7 @@ cell_meta <- nuclei@meta.data
 nuclei <- nuclei |> 
   subset(
     tscp_count >= 1500 & tscp_count <= 100000 &
-    gene_count >= 1500 & gene_count <= 8000  &
+    gene_count >= 1500  & gene_count <= 8000  &
     percent.mt <= 1
   )
 ```
@@ -82,52 +82,67 @@ At this point, upload the h5ad object to [MapMyCells](https://knowledge.brain-ma
 allen_meta_path = "04-analysis/Seurats/Dec2024_pilot/nuclei_MapMyCellsh5Seurat_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1734378681105/nuclei_MapMyCellsh5Seurat_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1734378681105.csv"
 allen_meta <- read_csv(allen_meta_path, skip = 4)
 
-meta <- merge(cell_meta, allen_meta, by.x = 'bc_wells', by.y = 'cell_id')
+meta <- merge(cell_meta, allen_meta, by.x = 'bc_wells', by.y = 'cell_id') |> 
+  as_tibble()
 
-# add condition and sublibrary metadata
+# make new columns
 meta <- meta |> 
-  mutate(condition = str_sub(sample, 1, -2)) |> 
-  mutate(sublibrary = factor(str_sub(bc_wells, -1)))
+  mutate(sublibrary = factor(str_sub(bc_wells, -1))) |> 
+  mutate(ZT = str_extract(sample, "^[^_]+")) |>
+  mutate(seizure = ifelse(str_detect(ZT, "KA"), TRUE, FALSE)) |>
+  mutate(ZT = ifelse(seizure == T, NA, ZT))
 
-meta$condition <- factor(meta$condition, levels = c('dSE', 'd30m', 'd6h', 'KA'))
+# make col: activity_condition (e.g. SE, EE_6h, KA_30m)
+meta <- meta |>
+  mutate(sample = str_replace(sample, "30M", "30m")) |>  # lowercase 30m samples
+  mutate(sample = str_replace(sample, "6H", "6h")) |>  # lowercase 6h samples
+  mutate(activity_condition = ifelse(
+    str_detect(str_sub(sample, 1, 2), "KA"),  # if KA
+    str_sub(sample, 1, -2),                   # then make it KA_30m or KA_6h
+    str_extract(sample, "(?<=_).*")           # otherwise only include text after first underscore
+  )) |> 
+  mutate(activity_condition = ifelse(         # remove replicate numbers from activity_condition
+    str_detect(activity_condition, "KA"), 
+    activity_condition,
+    str_sub(activity_condition, 1, -2)
+  )) |> 
+  mutate(activity_condition = ifelse(         # add "EE_" prefix to 30m and 6h
+    str_detect(activity_condition, "SE"), 
+    "SE", 
+    ifelse(
+      !str_detect(activity_condition, "KA"), 
+      paste0("EE_", activity_condition), 
+      activity_condition
+  ))) |> 
+  mutate(replicate = str_sub(sample, -1)) |>  # add replicate column
+  mutate(activity = str_sub(activity_condition, 1, 2))
 
-# set levels for sample
-sample_levels <- c('dSE1', 'dSE2', 'dSE3',
-                   'd30m1', 'd30m2', 'd30m3',
-                   'd6h1', 'd6h2', 'd6h3',
-                   'KA1', 'KA2', 'KA3')
+meta$ZT <- factor(meta$ZT, levels = c('ZT0', 'ZT4', 'ZT12', 'ZT16'))
+meta$sublibrary <- factor(meta$sublibrary, levels = c('1', '2', '3', '4', '5', '6', '7', '8'))
+meta$activity_condition <- factor(meta$activity_condition, levels = c('SE', 'EE_30m', 'EE_6h', 'KA_30m', 'KA_6h'))
 
-meta$sample <- factor(meta$sample, levels = sample_levels)
-
-
-# hard-code sex of sample
-sample_sexes <- data.frame(sample = c('d30m1',  'd30m2',  'd30m3',
-                                      'd6h1',   'd6h2',   'd6h3',
-                                      'dSE1',   'dSE2',   'dSE3',
-                                      'KA1',    'KA2',    'KA3'),
+# # hard-code sex of sample
+# sample_sexes <- data.frame(sample = c('d30m1',  'd30m2',  'd30m3',
+#                                       'd6h1',   'd6h2',   'd6h3',
+#                                       'dSE1',   'dSE2',   'dSE3',
+#                                       'KA1',    'KA2',    'KA3'),
                            
-                           sex =    c('female', 'female', 'female',
-                                      'male',   'female', 'female',
-                                      'female', 'male',   'male',
-                                      'male',   'male',   'female')
-                           )
+#                            sex =    c('female', 'female', 'female',
+#                                       'male',   'female', 'female',
+#                                       'female', 'male',   'male',
+#                                       'male',   'male',   'female')
+#                            )
+
 # add new info, re-order cols, remove useless cols
 meta <- meta |> 
-  left_join(sample_sexes) |> 
-  relocate(sublibrary, sample, condition, sex, .after = bc_wells) |>
-  relocate(sample, condition, sex, .after = bc_wells) |> 
+  # left_join(sample_sexes) |> 
+  relocate(sublibrary, sample, ZT, activity_condition, activity, .after = bc_wells) |>
   relocate(ends_with("_name"), .after = mread_count) |> 
   select(-c(species, ends_with("_well"), ends_with("wind"))) |> 
   # THIS LINE IS VERY IMPORTANT SO CELLS GET RIGHT METADATA
-  arrange(match(bc_wells, rownames(nuclei@meta.data)))
+  arrange(match(bc_wells, rownames(nuclei@meta.data))) |> print(n = 5)
 
 nuclei <- AddMetaData(nuclei, meta)
-```
-
-Finally, filter out sublibrary 2 cells, because they are low-quality. See `/actdep/03-scripts/R/compare_flattop_Seurat_May2024.qmd` for more information if you're curious.
-
-```{r}
-nuclei <- subset(nuclei, sublibrary == 1)
 ```
 
 # Intermediate processing
@@ -137,13 +152,13 @@ Normalize data using SCTransform, build UMAP embedding.
 ```{r process dataset with Seurat}
 options(future.globals.maxSize = 14000 * 1024^2) # allow variables to be 14 GB large
 
-nuclei <- nuclei |> 
-  SCTransform(vars.to.regress = 'percent.mt', return.only.var.genes = FALSE) |>
-  RunPCA() |>
-  FindNeighbors(dims = 1:41) |>
-  FindClusters(resolution = 0.8) |>
-  BuildClusterTree(reorder = TRUE, reorder.numeric = "TRUE") |>
-  RunUMAP(dims = 1:41)
+nuclei <- NormalizeData(nuclei, normalization.method = 'LogNormalize', scale.factor = 10000)
+nuclei <- FindVariableFeatures(nuclei)
+nuclei <- ScaleData(nuclei)
+nuclei <- RunPCA(nuclei, npcs = 50)
+nuclei <- FindNeighbors(nuclei, dims = 1:41)
+nuclei <- FindClusters(nuclei, resolution = 0.8)
+nuclei <- RunUMAP(nuclei, dims = 1:41)
 
 # make cell identities default to subclass_name
 Idents(nuclei) <- nuclei$subclass_name
@@ -166,9 +181,9 @@ ElbowPlot(nuclei,ndims = 50)
 ```
 
 ```{r visualize UMAP}
-condition_colors <- LoadActivityColors("May2024")
-p1 <- DimPlot(nuclei, reduction = "umap", group.by = "condition") +
-  scale_color_manual(values = condition_colors)
+activity_colors <- LoadActivityColors("Dec2024")
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition") +
+  scale_color_manual(values = activity_colors)
 HoverLocator(p1, information = nuclei@meta.data)
 ```
 
