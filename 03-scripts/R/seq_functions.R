@@ -432,6 +432,25 @@ PrintScriptDone <- function() {
 }
 
 
+ShrinkSubclassName <- function(subclass_name) {
+# removes slashes and underscores from Allen taxonomy subclass names 
+# to prep for storage in filenames
+  subclass_name_new <- gsub(" ", "_", subclass_name)
+  subclass_name_new <- gsub("/", "", subclass_name_new)
+  
+  return(subclass_name_new)
+}
+
+
+# GrowSubclassName <- function(subclass_name) {
+#   # removes slashes and underscores from Allen taxonomy subclass names to prep for storage in filenames
+#   subclass_name_new <- gsub(" ", "_", subclass_name)
+#   subclass_name_new <- gsub("/", "", subclass_name_new)
+#   
+#   return(subclass_name_new)
+# }
+
+
 #' Patch of SeuratDisk::SaveH5Seurat function
 #'
 #' The "Assay5" class attribute "RNA" needs to be converted to a standard "Assay"

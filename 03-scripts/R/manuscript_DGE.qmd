@@ -22,7 +22,7 @@ library(patchwork)
 
 source("03-scripts/R/seq_functions.R")
 
-nuclei <- LoadDataset("May2024")
+nuclei <- LoadDataset("Dec2024_pilot")
 ```
 
 ```{r removeSexSpecificGenes()}
@@ -87,8 +87,7 @@ for (i in seq_along(subclasses)) {
   subclass <- subclasses[i]
   print(glue("subclass {i}/{length(subclasses)}"))
   
-  subclass_fname <- gsub(" ", "_", subclass)
-  subclass_fname <- gsub("/", "", subclass_fname)
+  subclass_fname <- ShrinkSubclassName(subclass)
   csv_write_dir <- "04-analysis/DEGs/condition"
   
   DGE_d30m_vs_dSE <- findDEG(subclass, 'd30m', 'dSE', log2FC_threshold)
