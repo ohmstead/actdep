@@ -58,6 +58,19 @@ nuclei <- CreateSeuratObject(mat)
 nuclei <- AddMetaData(nuclei, cell_meta)
 ```
 
+```{r add exp metadata}
+experimental_meta_path <- "01-documentation/sample_experimental_metadata_Dec2024.csv"
+experimental_meta <- read_csv(experimental_meta_path)
+
+# merge with metadata by sample
+meta <- nuclei@meta.data
+meta <- merge(meta, experimental_meta) |> 
+  arrange(match(bc_wells, rownames(nuclei@meta.data)))
+
+# put back into Seurat obj
+nuclei <- AddMetaData(nuclei, meta)
+```
+
 ```{r QC filter cells}
 nuclei$percent.mt <- PercentageFeatureSet(nuclei, pattern = "^mt-")
 cell_meta <- nuclei@meta.data
@@ -79,6 +92,7 @@ Convert(path_for_h5Seurat, dest = paste0(save_dir, "nuclei_MapMyCells.h5ad"), as
 At this point, upload the h5ad object to [MapMyCells](https://knowledge.brain-map.org/mapmycells/process/) and run the Hierarchical Clustering algorithm for 10X whole-brain mouse. Download the results folder and put inside 04-analysis/seurats/May2024/.
 
 ```{r merge and add metadata}
+# load in Allen metadata
 allen_meta_path = "04-analysis/Seurats/Dec2024_pilot/nuclei_MapMyCellsh5Seurat_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1734378681105/nuclei_MapMyCellsh5Seurat_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1734378681105.csv"
 allen_meta <- read_csv(allen_meta_path, skip = 4)
 
@@ -120,18 +134,60 @@ meta <- meta |>
 meta$ZT <- factor(meta$ZT, levels = c('ZT0', 'ZT4', 'ZT12', 'ZT16'))
 meta$sublibrary <- factor(meta$sublibrary, levels = c('1', '2', '3', '4', '5', '6', '7', '8'))
 meta$activity_condition <- factor(meta$activity_condition, levels = c('SE', 'EE_30m', 'EE_6h', 'KA_30m', 'KA_6h'))
-
-# # hard-code sex of sample
-# sample_sexes <- data.frame(sample = c('d30m1',  'd30m2',  'd30m3',
-#                                       'd6h1',   'd6h2',   'd6h3',
-#                                       'dSE1',   'dSE2',   'dSE3',
-#                                       'KA1',    'KA2',    'KA3'),
-                           
-#                            sex =    c('female', 'female', 'female',
-#                                       'male',   'female', 'female',
-#                                       'female', 'male',   'male',
-#                                       'male',   'male',   'female')
-#                            )
+meta$sample <- factor(meta$sample, levels = c(
+  'KA_30m1',
+  'KA_30m2',
+  'KA_30m3',
+  'KA_6h1',
+  'KA_6h2',
+  'KA_6h3',
+  
+  'ZT0_SE1',
+  'ZT0_SE2',
+  'ZT0_SE3',
+  'ZT0_SE4',
+  'ZT0_30m1',
+  'ZT0_30m2',
+  'ZT0_30m3',
+  'ZT0_30m4',
+  'ZT0_6h1',
+  'ZT0_6h2',
+  'ZT0_6h3',
+  
+  'ZT4_SE1',
+  'ZT4_SE2',
+  'ZT4_SE3',
+  'ZT4_SE4',
+  'ZT4_30m1',
+  'ZT4_30m2',
+  'ZT4_30m3',
+  'ZT4_30m4',
+  'ZT4_6h1',
+  'ZT4_6h2',
+  'ZT4_6h3',
+  
+  'ZT12_SE1',
+  'ZT12_SE2',
+  'ZT12_SE3',
+  'ZT12_30m1',
+  'ZT12_30m2',
+  'ZT12_30m3',
+  'ZT12_6h1',
+  'ZT12_6h2',
+  'ZT12_6h3',
+  
+  'ZT16_SE1',
+  'ZT16_SE2',
+  'ZT16_SE3',
+  'ZT16_SE4',
+  'ZT16_30m1',
+  'ZT16_30m2',
+  'ZT16_30m3',
+  'ZT16_30m4',
+  'ZT16_6h1',
+  'ZT16_6h2',
+  'ZT16_6h3',
+))
 
 # add new info, re-order cols, remove useless cols
 meta <- meta |> 
