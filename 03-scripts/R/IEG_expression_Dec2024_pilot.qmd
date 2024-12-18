@@ -107,7 +107,7 @@ print(p)
 ## ZT-based expression
 
 ```{r by ZT}
-ca1_long |> 
+p <- ca1_long |> 
   mutate(expressed = ifelse(expression > 1, 1, 0)) |> 
   filter(!activity_condition %in% c('KA_30m', 'KA_6h')) |>
 ggplot(aes(x = ZT, fill = ZT)) +
