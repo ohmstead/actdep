@@ -142,35 +142,35 @@ LoadZTColors <- function(palette = 1) {
       'ZT0' = '#FADF7F',
       'ZT4' = '#D9B26F',
       'ZT12' = '#A69658',
-      'ZT16' = '#795C5F',
+      'ZT16' = '#795C5F'
     )
   } else if (palette == 2) {
     zt_colors <- c(
       'ZT0' = '#D9B26F',
       'ZT4' = '#F08080',
       'ZT12' = '#5A0001',
-      'ZT16' = '#313628',
+      'ZT16' = '#313628'
     )
   } else if (palette == 3) {
     zt_colors <- c(
       'ZT0' = '#92374D',
       'ZT4' = '#DDCA7D',
       'ZT12' = '#727D71',
-      'ZT16' = '#082D0F',
+      'ZT16' = '#082D0F'
     )
   } else if (palette == 4) {
     zt_colors <- c(
       'ZT0' = '#C2DFE3',
       'ZT4' = '#9DB4C0',
       'ZT12' = '#5C6B73',
-      'ZT16' = '#253237',
+      'ZT16' = '#253237'
     )
   } else if (palette == 5) {
     zt_colors <- c(
       'ZT0' = '#FFC49B',
       'ZT4' = '#FFEFD3',
-      'ZT12' = '#ADB6C4',
-      'ZT16' = '#ADB6C4',
+      'ZT12' = '#C4D6E5',
+      'ZT16' = '#ADB6C4'
     )
   }
 
@@ -306,7 +306,7 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
   # find the 90th percentile of IEG expression in the dSE cells
   activation_thresholds <- seurat_obj |> 
     subset(subclass_name == '016 CA1-ProS Glut') |> 
-    subset(condition == 'dSE') |> 
+    subset(condition == 'SE') |> 
     GetAssayData('SCT', layer = 'counts') |> 
     as.data.frame() |> 
     rownames_to_column(var = 'gene') |> 
