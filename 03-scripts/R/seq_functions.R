@@ -368,6 +368,34 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
 }
 
 
+FindDEGs <- function(seurat_obj, subclass, ident_var, group1, group2, logFC_threshold=0.25) {
+# uses MAST to find DEGs between conditions within a subclass and removes sex-specific DEGs
+  library(Seurat)
+  library(glue)
+  
+  # print report statement
+  print(glue("Finding DEGs between {subclass} {group1} and {group2}."))
+  
+  # subset nuclei
+  nuclei_subclass <- seurat_obj |> 
+    subset(subclass_name == subclass)
+  Idents(nuclei_subclass) <- nuclei_subclass[[ident_var]]
+  
+  # find DEGs
+  DEGs <- FindMarkers(
+    nuclei_subclass, 
+    logfc.threshold = logFC_threshold,
+    test.use = 'MAST',
+    ident.1 = group1, ident.2 = group2,
+    # latent.vars = c('sublibrary', 'percent.mt'),
+  ) |> 
+    filter(p_val_adj < 0.05) |> 
+    rownames_to_column(var = 'gene')
+  
+  return(DEGs)
+}
+
+
 RunGOEnrichment <- function(gene_list){
 # accepts gene_list as input, returns df of enriched GO terms
   library(clusterProfiler)
