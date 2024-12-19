@@ -1,5 +1,5 @@
 ---
-title: "Create Seurat object for May2024 dataset"
+title: "Create Seurat object for Dec2024_pilot dataset"
 ---
 
 This script contains all pre- and intermediate processing of the snRNA-seq data after it comes out of the Parse pipeline. In other words, it takes the digital cell-gene expression matrix produced by the Parse pipeline and turns it into a Seurat object for secondary analyses.
@@ -24,6 +24,7 @@ In general, NPAS4 induces a diverse set of pan-neuronal and celltype-specific ef
 
 ```{r setup}
 SAVE_PLOTS = FALSE
+SAVE_NEW_SEURAT_OBJECT <- TRUE
 ```
 
 ```{r load libs and functions}
@@ -34,6 +35,7 @@ library(SeuratDisk)
 library(tidyverse)
 library(glue)
 library(reticulate)
+library(scCustomize)
 
 source("03-scripts/R/seq_functions.R")
 reticulate::use_condaenv("sc")
@@ -41,9 +43,8 @@ reticulate::use_condaenv("sc")
 
 ```{r create basic Seurat obj}
 dataset <- 'Dec2024_pilot'
-SAVE_NEW_SEURAT_OBJECT <- TRUE
 
-data_dir <- "/Volumes/jack/seq/analysis_Dec2024_pilot/unfiltered_mats/all-sample/DGE_unfiltered/"
+data_dir <- "/Volumes/jack/seq/analysis_Dec2024_pilot/filtered_mats/all-sample/DGE_filtered/"
 save_dir <- glue("04-analysis/Seurats/{dataset}/")
 
 # make save_dir if it doesn't exist
@@ -52,55 +53,57 @@ if (!dir.exists(save_dir)) {
 }
 
 mat <- ReadParseBio(data_dir)
-cell_meta <- read_csv(paste0(data_dir, "cell_metadata.csv"))
-
-nuclei <- CreateSeuratObject(mat)
-nuclei <- AddMetaData(nuclei, cell_meta)
+nuclei_unfiltered <- CreateSeuratObject(mat)
 ```
 
 ```{r add exp metadata}
+cell_meta <- read_csv(paste0(data_dir, "cell_metadata.csv")) |> 
+  select(-species, -ends_with(c('_well', '_wind'))) |> 
+  mutate(sample = str_replace(sample, '30M', '30m')) |> 
+  mutate(sample = str_replace(sample, '6H', '6h'))
+  
 experimental_meta_path <- "01-documentation/sample_experimental_metadata_Dec2024.csv"
 experimental_meta <- read_csv(experimental_meta_path)
 
 # merge with metadata by sample
-meta <- nuclei@meta.data
-meta <- merge(meta, experimental_meta) |> 
-  arrange(match(bc_wells, rownames(nuclei@meta.data)))
+meta_unfiltered <- merge(cell_meta, experimental_meta) |> 
+  # LINE IS CRITICAL TO ASSIGN CORRECT METADATA TO CELLS-- DO NOT DELETE
+  arrange(match(bc_wells, rownames(nuclei_unfiltered@meta.data)))
 
-# put back into Seurat obj
-nuclei <- AddMetaData(nuclei, meta)
+# add metadata to seurat
+nuclei_unfiltered <- AddMetaData(nuclei_unfiltered, meta_unfiltered)
 ```
 
 ```{r QC filter cells}
-nuclei$percent.mt <- PercentageFeatureSet(nuclei, pattern = "^mt-")
-cell_meta <- nuclei@meta.data
+nuclei_unfiltered$percent.mt <- PercentageFeatureSet(nuclei_unfiltered, pattern = "^mt-")
 
-nuclei <- nuclei |> 
+nuclei_filtered <- nuclei_unfiltered |> 
   subset(
     tscp_count >= 1500 & tscp_count <= 100000 &
     gene_count >= 1500  & gene_count <= 8000  &
-    percent.mt <= 1
+    percent.mt <= 5
   )
 ```
 
 ```{r convert Seurat to anndata, MapMyCells}
-path_for_h5Seurat <- paste0(save_dir, "nuclei_MapMyCells.h5Seurat")
-SaveH5SeuratObject(nuclei, path_for_h5Seurat)
-Convert(path_for_h5Seurat, dest = paste0(save_dir, "nuclei_MapMyCells.h5ad"), assay = "RNA.tmp", overwrite = TRUE)
+path_for_h5Seurat <- paste0(save_dir, "nuclei_MapMyCells.h5ad")
+as.anndata(x = nuclei_filtered, file_path = save_dir, file_name = "nuclei_MapMyCells", main_layer = "counts", other_layers = NULL)
 ```
 
 At this point, upload the h5ad object to [MapMyCells](https://knowledge.brain-map.org/mapmycells/process/) and run the Hierarchical Clustering algorithm for 10X whole-brain mouse. Download the results folder and put inside 04-analysis/seurats/May2024/.
 
-```{r merge and add metadata}
+```{r merge metadata sources}
 # load in Allen metadata
-allen_meta_path = "04-analysis/Seurats/Dec2024_pilot/nuclei_MapMyCellsh5Seurat_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1734378681105/nuclei_MapMyCellsh5Seurat_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1734378681105.csv"
+allen_meta_path = "04-analysis/Seurats/Dec2024_pilot/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1734632524092/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1734632524092.csv"
 allen_meta <- read_csv(allen_meta_path, skip = 4)
 
-meta <- merge(cell_meta, allen_meta, by.x = 'bc_wells', by.y = 'cell_id') |> 
-  as_tibble()
+# meta_merged <- merge(nuclei_filtered@meta.data, allen_meta, by.x = 'bc_wells', by.y = 'cell_id')
+meta_merged <- left_join(nuclei_filtered@meta.data, allen_meta, by = join_by('bc_wells' == 'cell_id'))
+```
 
+```{r mutate meta variables}
 # make new columns
-meta <- meta |> 
+meta <- meta_merged |> 
   mutate(sublibrary = factor(str_sub(bc_wells, -1))) |> 
   mutate(ZT = str_extract(sample, "^[^_]+")) |>
   mutate(seizure = ifelse(str_detect(ZT, "KA"), TRUE, FALSE)) |>
@@ -108,8 +111,6 @@ meta <- meta |>
 
 # make col: activity_condition (e.g. SE, EE_6h, KA_30m)
 meta <- meta |>
-  mutate(sample = str_replace(sample, "30M", "30m")) |>  # lowercase 30m samples
-  mutate(sample = str_replace(sample, "6H", "6h")) |>  # lowercase 6h samples
   mutate(activity_condition = ifelse(
     str_detect(str_sub(sample, 1, 2), "KA"),  # if KA
     str_sub(sample, 1, -2),                   # then make it KA_30m or KA_6h
@@ -186,7 +187,7 @@ meta$sample <- factor(meta$sample, levels = c(
   'ZT16_30m4',
   'ZT16_6h1',
   'ZT16_6h2',
-  'ZT16_6h3',
+  'ZT16_6h3'
 ))
 
 # add new info, re-order cols, remove useless cols
@@ -194,11 +195,10 @@ meta <- meta |>
   # left_join(sample_sexes) |> 
   relocate(sublibrary, sample, ZT, activity_condition, activity, .after = bc_wells) |>
   relocate(ends_with("_name"), .after = mread_count) |> 
-  select(-c(species, ends_with("_well"), ends_with("wind"))) |> 
   # THIS LINE IS VERY IMPORTANT SO CELLS GET RIGHT METADATA
-  arrange(match(bc_wells, rownames(nuclei@meta.data))) |> print(n = 5)
+  arrange(match(bc_wells, rownames(nuclei_filtered@meta.data)))
 
-nuclei <- AddMetaData(nuclei, meta)
+nuclei <- AddMetaData(nuclei_filtered, meta)
 ```
 
 # Intermediate processing
@@ -230,15 +230,19 @@ HoverLocator(p1)
 ```
 
 ```{r visualize PCs}
+class_colors <- LoadAllenColors('class')
+subclass_colors <- LoadAllenColors('subclass')
+  
 VizDimLoadings(nuclei, dims = 1:5, reduction = "pca")
-DimPlot(nuclei, reduction = "pca", group.by = "class_name")
+DimPlot(nuclei, reduction = "pca", group.by = "class_name") + scale_color_manual(values = class_colors)
+DimPlot(nuclei, reduction = "pca", group.by = "subclass_name") + scale_color_manual(values = subclass_colors)
 DimHeatmap(nuclei, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
 ElbowPlot(nuclei,ndims = 50)
 ```
 
 ```{r visualize UMAP}
 activity_colors <- LoadActivityColors("Dec2024")
-p1 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition") +
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17) +
   scale_color_manual(values = activity_colors)
 HoverLocator(p1, information = nuclei@meta.data)
 ```
