@@ -33,6 +33,7 @@ SAVE_NEW_SEURAT_OBJECT <- TRUE
 library(Seurat)
 library(SeuratDisk)
 library(tidyverse)
+library(glue)
 
 source("03-scripts/R/seq_functions.R")
 ```
@@ -76,45 +77,64 @@ Convert(path_for_h5Seurat, dest = paste0(save_dir, "nuclei_MapMyCells.h5ad"), as
 
 At this point, upload the h5ad object to [MapMyCells](https://knowledge.brain-map.org/mapmycells/process/) and run the Hierarchical Clustering algorithm for 10X whole-brain mouse. Download the results folder and put inside 04-analysis/seurats/May2024/.
 
-```{r merge and add metadata}
+```{r load Allen meta}
 allen_meta_path = "04-analysis/Seurats/May2024/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1732080825686/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1732080825686.csv"
-allen_meta <- read_csv(allen_meta_path, skip = 4)
 
+allen_meta <- read_csv(allen_meta_path, skip = 4)
+```
+
+```{r merge metadata}
 meta <- merge(cell_meta, allen_meta, by.x = 'bc_wells', by.y = 'cell_id')
 
 # add activity_condition and sublibrary metadata
 meta <- meta |> 
   mutate(activity_condition = str_sub(sample, 1, -2)) |> 
   mutate(activity_condition = case_when(
-    'dSE'  ~ 'SE',
-    'd30m' ~ 'EE30m',
-    'd6h'  ~ 'EE6h',
-    'KA'   ~ 'KA1h'
+    activity_condition == 'dSE'  ~ 'SE',
+    activity_condition == 'd30m' ~ 'EE30m',
+    activity_condition == 'd6h'  ~ 'EE6h',
+    activity_condition == 'KA'   ~ 'KA1h'
+  )) |> 
+  mutate(sample = case_when(
+    sample == 'dSE1' ~ 'SE1',
+    sample == 'dSE2' ~ 'SE2',
+    sample == 'dSE3' ~ 'SE3',
+    
+    sample == 'd30m1' ~ 'EE30m1',
+    sample == 'd30m2' ~ 'EE30m2',
+    sample == 'd30m3' ~ 'EE30m3',
+
+    sample == 'd6h1' ~ 'EE6h1',
+    sample == 'd6h2' ~ 'EE6h2',
+    sample == 'd6h3' ~ 'EE6h3',
+    
+    sample == 'KA1' ~ 'KA1h1',
+    sample == 'KA2' ~ 'KA1h2',
+    sample == 'KA3' ~ 'KA1h3',
   )) |> 
   mutate(sublibrary = factor(str_sub(bc_wells, -1)))
 
-meta$activity_condition <- factor(meta$activity_condition, levels = c('dSE', 'd30m', 'd6h', 'KA'))
-
-# set levels for sample
-sample_levels <- c('dSE1', 'dSE2', 'dSE3',
-                   'd30m1', 'd30m2', 'd30m3',
-                   'd6h1', 'd6h2', 'd6h3',
-                   'KA1', 'KA2', 'KA3')
-
-meta$sample <- factor(meta$sample, levels = sample_levels)
+meta$activity_condition <- factor(meta$activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA1h'))
+meta$sample <- factor(meta$sample, levels = c(
+  'SE1', 'SE2', 'SE3',
+  'EE30m1', 'EE30m2', 'EE30m3',
+  'EE6h1', 'EE6h2', 'EE6h3',
+  'KA1h1', 'KA1h2', 'KA1h3'
+))
 
 
 # hard-code sex of sample
-sample_sexes <- data.frame(sample = c('d30m1',  'd30m2',  'd30m3',
-                                      'd6h1',   'd6h2',   'd6h3',
-                                      'dSE1',   'dSE2',   'dSE3',
-                                      'KA1',    'KA2',    'KA3'),
+sample_sexes <- data.frame(sample = c('EE30m1',  'EE30m2',  'EE30m3',
+                                      'EE6h1',   'EE6h2',   'EE6h3',
+                                      'SE1',   'SE2',   'SE3',
+                                      'KA1h1',    'KA1h2',    'KA1h3'),
                            
                            sex =    c('female', 'female', 'female',
                                       'male',   'female', 'female',
                                       'female', 'male',   'male',
                                       'male',   'male',   'female')
-                           )
+                          )
+
 # add new info, re-order cols, remove useless cols
 meta <- meta |> 
   left_join(sample_sexes) |> 
@@ -123,7 +143,8 @@ meta <- meta |>
   relocate(ends_with("_name"), .after = mread_count) |> 
   select(-c(species, ends_with("_well"), ends_with("wind"))) |> 
   # THIS LINE IS VERY IMPORTANT SO CELLS GET RIGHT METADATA
-  arrange(match(bc_wells, rownames(nuclei@meta.data)))
+  arrange(match(bc_wells, rownames(nuclei@meta.data))) |> 
+  as_tibble()
 
 nuclei <- AddMetaData(nuclei, meta)
 ```
