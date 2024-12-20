@@ -1,5 +1,7 @@
 ---
 title: "Manuscript DGE analysis"
+editor_options: 
+  chunk_output_type: inline
 ---
 
 This code iterates through all major subclasses represented in the data and finds the differentially expressed genes in every contrast combination. It uses MAST and has latent variables "sublibrary" and "percent.mt" as variables. Finally, any sex-specific genes (i.e., those differentially expressed in the Yao et al. 2023 dataset) that show up in the DEG list are removed.
@@ -23,6 +25,17 @@ library(patchwork)
 source("03-scripts/R/seq_functions.R")
 
 nuclei <- LoadDataset("Dec2024_pilot")
+
+csv_write_dir <- "04-analysis/DEGs/Dec2024_pilot_activity_condition"
+```
+
+```{r select major subclasses}
+subclass_list <- LoadSubclassesToUse(nuclei) |> 
+  print() |>  # print n before pulling just the list of names
+  pull(subclass_name)
+
+nuclei <- nuclei |> 
+  subset(subclass_name %in% subclass_list)
 ```
 
 ```{r removeSexSpecificGenes()}
@@ -47,65 +60,75 @@ removeSexSpecificGenes <- function(subclass, naive_gene_list) {
 ```
 
 ```{r findDEG()}
-# uses MAST to find DEGs between conditions within a subclass and removes sex-specific DEGs
-findDEG <- function(subclass, group1, group2, logFC_threshold=0.25) {
-  # print report statement
-  print(glue("{subclass} between {group1} and {group2}."))
+# # uses MAST to find DEGs between conditions within a subclass and removes sex-specific DEGs
+# findDEG <- function(subclass, group1, group2, logFC_threshold=0.25) {
+#   # print report statement
+#   print(glue("{subclass} between {group1} and {group2}."))
   
-  # subset nuclei
-  nuclei_subclass <- subset(nuclei, subclass_name == subclass)
-  Idents(nuclei_subclass) <- nuclei_subclass$condition
+#   # subset nuclei
+#   nuclei_subclass <- subset(nuclei, subclass_name == subclass)
+#   Idents(nuclei_subclass) <- nuclei_subclass$condition
   
-  # find DEGs
-  DEGs <- FindMarkers(
-    nuclei_subclass, 
-    logfc.threshold = logFC_threshold,
-    test.use = 'MAST',
-    ident.1 = group1, ident.2 = group2,
-    latent.vars = c('sublibrary', 'percent.mt'),
-  ) |> 
-    filter(p_val_adj < 0.05) |> 
-    rownames_to_column(var = 'gene')
+#   # find DEGs
+#   DEGs <- FindMarkers(
+#     nuclei_subclass, 
+#     logfc.threshold = logFC_threshold,
+#     test.use = 'MAST',
+#     ident.1 = group1, ident.2 = group2,
+#     latent.vars = c('sublibrary', 'percent.mt'),
+#   ) |> 
+#     filter(p_val_adj < 0.05) |> 
+#     rownames_to_column(var = 'gene')
   
-  # remove sex-specific genes
-  naive_DEG_list <- DEGs |> 
-    pull(gene)
-  clean_DEG_list <- removeSexSpecificGenes(subclass, naive_DEG_list)
-  DEGs <- DEGs |> 
-    filter(gene %in% clean_DEG_list)
+#   # remove sex-specific genes
+#   naive_DEG_list <- DEGs |> 
+#     pull(gene)
+#   # clean_DEG_list <- removeSexSpecificGenes(subclass, naive_DEG_list)
+#   clean_DEG_list <- naive_DEG_list
+#   DEGs <- DEGs |> 
+#     filter(gene %in% clean_DEG_list)
   
-  return(DEGs)
-}
+#   return(DEGs)
+# }
 ```
 
 ```{r find DEGs for subclasses, message = FALSE}
-subclasses <- LoadSubclassesToUse(seurat_obj = nuclei)
+log2FC_threshold <- 0.585  # corresponding to 50% change
 
-log2FC_threshold <- 0.25
-
-for (i in seq_along(subclasses)) {
-  subclass <- subclasses[i]
-  print(glue("subclass {i}/{length(subclasses)}"))
+for (i in seq_along(subclass_list)) {
+  subclass <- subclass_list[i]
+  print(glue("subclass {i}/{length(subclass_list)}"))
   
   subclass_fname <- ShrinkSubclassName(subclass)
-  csv_write_dir <- "04-analysis/DEGs/condition"
+
+  DGE_EE30m_vs_SE <- FindDEGs(nuclei, subclass, 'activity_condition', 'EE_30m', 'SE', log2FC_threshold)
+  write_csv(DGE_EE30m_vs_SE, glue("{csv_write_dir}/{subclass_fname}_EE30m_vs_SE.csv"))
   
-  DGE_d30m_vs_dSE <- findDEG(subclass, 'd30m', 'dSE', log2FC_threshold)
-  write_csv(DGE_d30m_vs_dSE, glue("{csv_write_dir}/{subclass_fname}_d30m_vs_dSE.csv"))
+  DGE_EE6h_vs_SE <- FindDEGs(nuclei, subclass, 'activity_condition', 'EE_6h', 'SE', log2FC_threshold)
+  write_csv(DGE_EE6h_vs_SE, glue("{csv_write_dir}/{subclass_fname}_EE6h_vs_SE.csv"))
   
-  DGE_d30m_vs_d6h <- findDEG(subclass, 'd30m', 'd6h', log2FC_threshold)
-  write_csv(DGE_d30m_vs_d6h, glue("{csv_write_dir}/{subclass_fname}_d30m_vs_d6h.csv"))
+  DGE_KA30m_vs_SE <- FindDEGs(nuclei, subclass, 'activity_condition', 'KA_30m', 'SE', log2FC_threshold)
+  write_csv(DGE_KA30m_vs_SE, glue("{csv_write_dir}/{subclass_fname}_KA30m_vs_SE.csv"))
   
-  DGE_d6h_vs_dSE <-  findDEG(subclass, 'd6h', 'dSE', log2FC_threshold)
-  write_csv(DGE_d6h_vs_dSE,  glue("{csv_write_dir}/{subclass_fname}_d6h_vs_dSE.csv"))
+  DGE_KA6h_vs_SE <- FindDEGs(nuclei, subclass, 'activity_condition', 'KA_6h', 'SE', log2FC_threshold)
+  write_csv(DGE_KA6h_vs_SE, glue("{csv_write_dir}/{subclass_fname}_KA6h_vs_SE.csv"))
   
-  DGE_KA_vs_dSE <-   findDEG(subclass, 'KA', 'dSE', log2FC_threshold)
-  write_csv(DGE_KA_vs_dSE,   glue("{csv_write_dir}/{subclass_fname}_KA_vs_dSE.csv"))
+  DGE_KA30m_vs_EE30m <- FindDEGs(nuclei, subclass, 'activity_condition', 'KA_30m', 'EE_30m', log2FC_threshold)
+  write_csv(DGE_KA30m_vs_EE30m, glue("{csv_write_dir}/{subclass_fname}_KA30m_vs_EE30m.csv"))
   
-  DGE_KA_vs_d30m <-  findDEG(subclass, 'KA', 'd30m', log2FC_threshold)
-  write_csv(DGE_KA_vs_d30m,  glue("{csv_write_dir}/{subclass_fname}_KA_vs_d30m.csv"))
+  DGE_KA6h_vs_EE6h <- FindDEGs(nuclei, subclass, 'activity_condition', 'KA_6h', 'EE_6h', log2FC_threshold)
+  write_csv(DGE_KA6h_vs_EE6h, glue("{csv_write_dir}/{subclass_fname}_KA6h_vs_EE6h.csv"))
   
-  DGE_KA_vs_d6h <-   findDEG(subclass, 'KA', 'd6h', log2FC_threshold)
-  write_csv(DGE_KA_vs_d6h,   glue("{csv_write_dir}/{subclass_fname}_KA_vs_d6h.csv"))
+}
+```
+
+```{r}
+# this contrast was errantly calcualted in the previous loop 
+for (i in seq_along(subclass_list)) {
+  subclass <- subclass_list[i]
+  print(glue("subclass {i}/{length(subclass_list)}"))
+  
+  DGE_KA6h_vs_EE6h <- FindDEGs(nuclei, subclass, 'activity_condition', 'KA_6h', 'EE_6h', log2FC_threshold)
+  write_csv(DGE_KA6h_vs_EE6h, glue("{csv_write_dir}/{subclass_fname}_KA6h_vs_EE6h.csv"))
 }
 ```
