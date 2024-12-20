@@ -109,32 +109,33 @@ meta <- meta_merged |>
   mutate(seizure = ifelse(str_detect(ZT, "KA"), TRUE, FALSE)) |>
   mutate(ZT = ifelse(seizure == T, NA, ZT))
 
-# make col: activity_condition (e.g. SE, EE_6h, KA_30m)
+# make col: activity_condition (e.g. SE, EE6h, KA30m)
 meta <- meta |>
+  mutate(replicate = str_sub(sample, -1)) |> 
+  mutate(activity_condition = str_sub(sample, 1, -2)) |>  # remove replicate numbers
   mutate(activity_condition = ifelse(
-    str_detect(str_sub(sample, 1, 2), "KA"),  # if KA
-    str_sub(sample, 1, -2),                   # then make it KA_30m or KA_6h
-    str_extract(sample, "(?<=_).*")           # otherwise only include text after first underscore
+    str_detect(str_sub(activity_condition, 1, 2), "KA"),         # if KA
+    str_remove(activity_condition, '_'),                         # then make it KA30m or KA6h
+    str_remove(str_extract(activity_condition, "(?<=_).*"), '_') # else only include text after first underscore
   )) |> 
-  mutate(activity_condition = ifelse(         # remove replicate numbers from activity_condition
-    str_detect(activity_condition, "KA"), 
-    activity_condition,
-    str_sub(activity_condition, 1, -2)
-  )) |> 
+  # mutate(activity_condition = ifelse(         # remove replicate numbers from activity_condition
+  #   str_detect(activity_condition, "KA"), 
+  #   activity_condition,
+  #   str_sub(activity_condition, 1, -2)
+  # )) |> 
   mutate(activity_condition = ifelse(         # add "EE_" prefix to 30m and 6h
     str_detect(activity_condition, "SE"), 
     "SE", 
     ifelse(
       !str_detect(activity_condition, "KA"), 
-      paste0("EE_", activity_condition), 
+      paste0("EE", activity_condition), 
       activity_condition
-  ))) |> 
-  mutate(replicate = str_sub(sample, -1)) |>  # add replicate column
-  mutate(activity = str_sub(activity_condition, 1, 2))
+  )))
+  
 
 meta$ZT <- factor(meta$ZT, levels = c('ZT0', 'ZT4', 'ZT12', 'ZT16'))
 meta$sublibrary <- factor(meta$sublibrary, levels = c('1', '2', '3', '4', '5', '6', '7', '8'))
-meta$activity_condition <- factor(meta$activity_condition, levels = c('SE', 'EE_30m', 'EE_6h', 'KA_30m', 'KA_6h'))
+meta$activity_condition <- factor(meta$activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA30m', 'KA6h'))
 meta$sample <- factor(meta$sample, levels = c(
   'KA_30m1',
   'KA_30m2',
@@ -193,7 +194,7 @@ meta$sample <- factor(meta$sample, levels = c(
 # add new info, re-order cols, remove useless cols
 meta <- meta |> 
   # left_join(sample_sexes) |> 
-  relocate(sublibrary, sample, ZT, activity_condition, activity, .after = bc_wells) |>
+  relocate(sublibrary, sample, ZT, activity_condition, .after = bc_wells) |>
   relocate(ends_with("_name"), .after = mread_count) |> 
   # THIS LINE IS VERY IMPORTANT SO CELLS GET RIGHT METADATA
   arrange(match(bc_wells, rownames(nuclei_filtered@meta.data)))

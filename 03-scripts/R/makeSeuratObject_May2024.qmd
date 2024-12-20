@@ -24,6 +24,7 @@ In general, NPAS4 induces a diverse set of pan-neuronal and celltype-specific ef
 
 ```{r setup}
 SAVE_PLOTS = FALSE
+SAVE_NEW_SEURAT_OBJECT <- TRUE
 ```
 
 ```{r load libs and functions}
@@ -41,7 +42,6 @@ source("03-scripts/R/seq_functions.R")
 
 dataset <- 'May2024'
 sublibrary <- 'combined'
-SAVE_NEW_SEURAT_OBJECT <- TRUE
 
 data_dir <- paste0("/Volumes/jack/seq/analysis_", dataset, "/", sublibrary, "/0_all-sample/DGE_filtered/")
 save_dir <- glue("04-analysis/Seurats/{dataset}/")
@@ -82,12 +82,18 @@ allen_meta <- read_csv(allen_meta_path, skip = 4)
 
 meta <- merge(cell_meta, allen_meta, by.x = 'bc_wells', by.y = 'cell_id')
 
-# add condition and sublibrary metadata
+# add activity_condition and sublibrary metadata
 meta <- meta |> 
-  mutate(condition = str_sub(sample, 1, -2)) |> 
+  mutate(activity_condition = str_sub(sample, 1, -2)) |> 
+  mutate(activity_condition = case_when(
+    'dSE'  ~ 'SE',
+    'd30m' ~ 'EE30m',
+    'd6h'  ~ 'EE6h',
+    'KA'   ~ 'KA1h'
+  )) |> 
   mutate(sublibrary = factor(str_sub(bc_wells, -1)))
 
-meta$condition <- factor(meta$condition, levels = c('dSE', 'd30m', 'd6h', 'KA'))
+meta$activity_condition <- factor(meta$activity_condition, levels = c('dSE', 'd30m', 'd6h', 'KA'))
 
 # set levels for sample
 sample_levels <- c('dSE1', 'dSE2', 'dSE3',
@@ -112,8 +118,8 @@ sample_sexes <- data.frame(sample = c('d30m1',  'd30m2',  'd30m3',
 # add new info, re-order cols, remove useless cols
 meta <- meta |> 
   left_join(sample_sexes) |> 
-  relocate(sublibrary, sample, condition, sex, .after = bc_wells) |>
-  relocate(sample, condition, sex, .after = bc_wells) |> 
+  relocate(sublibrary, sample, activity_condition, sex, .after = bc_wells) |>
+  relocate(sample, activity_condition, sex, .after = bc_wells) |> 
   relocate(ends_with("_name"), .after = mread_count) |> 
   select(-c(species, ends_with("_well"), ends_with("wind"))) |> 
   # THIS LINE IS VERY IMPORTANT SO CELLS GET RIGHT METADATA
@@ -164,9 +170,9 @@ ElbowPlot(nuclei,ndims = 50)
 ```
 
 ```{r visualize UMAP}
-condition_colors <- LoadActivityColors("May2024")
-p1 <- DimPlot(nuclei, reduction = "umap", group.by = "condition") +
-  scale_color_manual(values = condition_colors)
+activity_colors <- LoadActivityColors("May2024")
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition") +
+  scale_color_manual(values = activity_colors)
 HoverLocator(p1, information = nuclei@meta.data)
 ```
 
