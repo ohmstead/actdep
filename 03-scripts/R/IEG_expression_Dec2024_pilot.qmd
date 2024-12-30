@@ -88,7 +88,7 @@ Let's examine binary expression now: Proportion of cells in each replicate that 
 ```{r by activity}
 p <- ca1_long |> 
   mutate(expressed = ifelse(expression > 1, 1, 0)) |> 
-ggplot(ca1_long, aes(x = activity_condition, fill = activity_condition)) +
+ggplot(aes(x = activity_condition, fill = activity_condition)) +
   geom_bar(aes(y = ifelse(expressed > 0, 1, 0)), stat = "summary", fun = "mean", color = 'black') +
   scale_fill_manual(values = activity_colors) +
   facet_wrap(~gene, scales = "free_y") +
@@ -107,9 +107,10 @@ print(p)
 ## ZT-based expression
 
 ```{r by ZT}
+library(ggh4x)
 p <- ca1_long |> 
   mutate(expressed = ifelse(expression > 1, 1, 0)) |> 
-  filter(!activity_condition %in% c('KA_30m', 'KA_6h')) |>
+  filter(!activity_condition %in% c('KA30m', 'KA6h')) |>
 ggplot(aes(x = ZT, fill = ZT)) +
   geom_bar(aes(y = ifelse(expressed > 0, 1, 0)), stat = "summary", fun = "mean", color = 'black') +
   scale_fill_manual(values = ZT_colors) +
