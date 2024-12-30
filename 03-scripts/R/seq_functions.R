@@ -113,10 +113,10 @@ LoadActivityColors <- function(dataset = 'Dec2024', palette='colorblind') {
   }
 
   if (dataset == 'May2024') {
-    custom_colors <- c('dSE' = palette_colors[2], 
-                       'd30m' = palette_colors[1],
-                       'd6h' = palette_colors[3],
-                       'KA' = palette_colors[4])
+    custom_colors <- c('SE' = palette_colors[2], 
+                       'EE30m' = palette_colors[1],
+                       'EE6h' = palette_colors[3],
+                       'KA1h' = palette_colors[4])
   } else if (dataset == 'Dec2023') {
     custom_colors <- c('SE' = palette_colors[2], 
                        '1h' = palette_colors[1],
@@ -124,11 +124,11 @@ LoadActivityColors <- function(dataset = 'Dec2024', palette='colorblind') {
                        'KA' = palette_colors[4])
   } else if (dataset == 'Dec2024') {
     custom_colors <- c('SE' = palette_colors[2],
-                       'EE_30m' = palette_colors[1],
-                       'EE_6h' = palette_colors[3],
-                       'KA_30m' = palette_colors[4],
-                       'KA_1h' = palette_colors[5],
-                       'KA_6h' = palette_colors[6]
+                       'EE30m' = palette_colors[1],
+                       'EE6h' = palette_colors[3],
+                       'KA30m' = palette_colors[4],
+                       'KA1h' = palette_colors[5],
+                       'KA6h' = palette_colors[6]
     )
   }
 
@@ -178,19 +178,20 @@ LoadZTColors <- function(palette = 1) {
 }
 
 
-LoadSubclassesToUse <- function(seurat_obj) {
+LoadSubclassesToUse <- function(seurat_obj, cell_cutoff = 150) {
 # returns a list of subclass_names to use. 
 # subclasses with fewer than 100 cells are excluded.
   library(Seurat)
   library(tidyverse)
 
   subclass_list <- seurat_obj@meta.data |> 
-    filter(n() >= 100, .by = 'subclass_name') |> 
-    distinct(subclass_name)
+    group_by(subclass_name) |> 
+    summarize(n = n()) |> 
+    filter(n >= cell_cutoff)
   
-  rownames(subclass_list) <- NULL
   # sort list alphabetically
-  subclass_list <- subclass_list$subclass_name |> sort()
+  subclass_list <- subclass_list |> 
+    arrange(subclass_name)
   
   return(subclass_list)
 }
@@ -379,7 +380,10 @@ FindDEGs <- function(seurat_obj, subclass, ident_var, group1, group2, logFC_thre
   # subset nuclei
   nuclei_subclass <- seurat_obj |> 
     subset(subclass_name == subclass)
-  Idents(nuclei_subclass) <- nuclei_subclass[[ident_var]]
+  
+  # change cell identity to seurat_obj$ident_var
+  ident_var_vector <- nuclei_subclass@meta.data |> pull(ident_var)
+  Idents(nuclei_subclass) <- ident_var_vector
   
   # find DEGs
   DEGs <- FindMarkers(
@@ -387,9 +391,10 @@ FindDEGs <- function(seurat_obj, subclass, ident_var, group1, group2, logFC_thre
     logfc.threshold = logFC_threshold,
     test.use = 'MAST',
     ident.1 = group1, ident.2 = group2,
-    # latent.vars = c('sublibrary', 'percent.mt'),
+    latent.vars = c('sublibrary', 'percent.mt'),
   ) |> 
     filter(p_val_adj < 0.05) |> 
+    arrange(desc(avg_log2FC)) |> 
     rownames_to_column(var = 'gene')
   
   return(DEGs)
