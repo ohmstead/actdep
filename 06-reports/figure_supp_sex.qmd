@@ -27,12 +27,12 @@ sex_colors <- LoadSexColors()
 ```
 
 ```{r load in sex-specific genes}
-parent_dir <- "/Volumes/jack/yao2023/DGE/"
+parent_dir <- "/Volumes/jack/Yao2023/DGE/"
 subclass_regexp <- "^\\d{3}.*\\.csv$" # starts with 3 ints, ends w/ .csv
 csvs <- dir(parent_dir)[grepl(subclass_regexp, dir(parent_dir))]
 
 # from figure_supp_qc.qmd
-subclasses_to_use <- read_csv("/Volumes/jack/yao2023/subclasses_to_use.csv") |> 
+subclasses_to_use <- read_csv("/Volumes/jack/Yao2023/subclasses_to_use.csv") |> 
   pull(subclass_name)
 
 # this table will be used to rename subclasses (shortened because of csv fnames)

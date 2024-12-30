@@ -58,12 +58,12 @@ LoadDataset <- function(dataset, sublibrary = "combined") {
   library(Seurat)
   library(glue)
 
-  if (dataset %in% c('yao', 'Yao')) {
+  if (dataset %in% c('yao', 'Yao', 'yao2023', 'Yao2023')) {
     # try to load from local file
-    if (path.exists()){
+    if (file.exists("04-analysis/Seurats/Yao2023/seurat.Rds")){
       local_file_loc <- "04-analysis/Seurats/Yao2023/seurat.Rds"
     } else {
-      data_path <- "/Volumes/jack/yao/"
+      data_path <- "/Volumes/jack/Yao2023/"
       seurat_obj <- LoadSeuratRds(paste0(data_path, "yao_seurat.rds"))
     }
   } else {
