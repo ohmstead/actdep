@@ -1,0 +1,518 @@
+---
+title: "Create Seurat object for Dec2024_pilot dataset"
+editor_options: 
+  chunk_output_type: console
+---
+
+# Intro
+
+This script contains all pre- and intermediate processing of the snRNA-seq data after it comes out of the Parse pipeline. In other words, it takes the digital cell-gene expression matrix produced by the Parse pipeline and turns it into a Seurat object for secondary analyses.
+
+Any other analyses in the paper should use the Seurat object created in this file, unless otherwise specified.
+
+# Methods
+
+***Data preprocessing and quality control:***
+
+Libraries were sequenced on an Illumina NovaSeq X Plus using paired-end 100-bp reads. Sequencing was targeted at 60,000 reads per nucleus. FASTQ files were created using Illumina's bcl2fastq. Raw cell x gene count matricies from demultiplexed samples were generated from the FASTQ files using Parse Bioscience's `split-pipe` pipeline, version 1.1.2. The count matrix was loaded into R and associated with experimental metadata such as sample, sex, and condition. Percent of reads mapping to mitochondrial reads was calculated for each nucleus. Parse Bioscience's `split-pipe` pipeline uses a barcode-rank algorithm to threshold-out nuclei below a certain number of assigned transcripts, which was first used to filter out low-quality nuclei. In addition to this, nuclei had to have an assigned transcript count in between 1500 - 100000; a gene count in between 1500 and 8000; and percent-mitochondrial-read count below 1%. All other nuclei were excluded.
+
+***Intermediate data processing:***
+
+### Pasted from Pollina 2023 methods, to use as a template
+
+**snRNA-seq analysis.** FASTQ files were created using the standard bcl2fastq pipeline from Illumina. Gene expression tables for each nuclear barcode were generated using the CellRanger 3.0.0 pipeline as designed by 10x Genomics. Samples were demultiplexed, and all Npas4fl/fl or Tip60fl/fl samples were merged using the CellRanger aggr function using default parameters. The datasets were loaded into R and analysed using the Seurat (v.3)66 and Monocle367 packages. Nuclei were removed from the dataset if they contained fewer than 500 detected genes, displayed more than 5% of reads mapping to mitochondrial genes or had RNA counts detected at a level greater than 2 standard deviations higher than the average value in their assigned cell type (which probably reflect doublets and multiplets). To remove potential doublets from the datasets in a more stringent manner, we used the DoubletFinder package in R, which assesses which barcodes in a dataset are most likely to be doublets based on transcriptional similarity to distinct clusters68. We used default parameters and an estimated doublet rate of 7% based on guidance from 10x Genomics Chromium Single Cell 3′ Reagent kits v3 User Guide and the number of nuclei run in each reaction lane.
+
+All nuclei in either Npas4fl/fl or Tip60fl/fl samples were considered together for clustering and dimensionality reduction. The 2,000 top variable genes across nuclei were identified using Seurat’s (v.3) FindVariableFeatures function, which were used to perform PCA using the RunPCA function (both using default parameters). A shared nearest neighbour graph was constructed using the FindNeighbors function (considering the top 30 principal components), and clustering was assigned using the FindClusters function (resolution n = 0.02). The following marker genes were used to assign cell type to the principal ten clusters identified: pan-neuronal (Rbfox3); pan-excitatory neurons (Slc17a7); pan-inhibitory neurons (Gad2); excitatory dentate gyrus neurons (Prox1 and C1ql2); excitatory CA3 neurons (Cpne4 and Spock1); excitatory CA1 neurons (Mpped1); excitatory subiculum neurons (Tshz2); oligodendrocytes (Mog and Mag); oligodendrocyte precursor cells (Pdgfra); astrocytes (Gfap); microglia (Cx3cr1 and C1qc); and endothelial cells (Cldn5) (Extended Data Fig. 4). To assign infection status to each nucleus, we set a threshold of detecting more than eight mCherry or GFP transcripts in a given nucleus, which represented an inflection point above the background rate of detection for the distribution of these transcripts per nucleus, and reflected the expected infection patterns based on the known tropism of the AAV2/9 virus used in these experiments. Differential gene expression analysis between Cre and ΔCre-infected cells within each cluster was conducted using Wilcoxon rank-sum test using the FindMarkers function (logfc. threshold = 0.25), and significant genes were defined as those with an adjusted P \< 0.01. Heatmaps were generated using custom functions written in R. Violin plots were generated using Seurat VlnPlot function with default parameters.
+
+We observed that in both datasets, within each neuronal cluster, the cells subclustered according to infection status (Cre versus ΔCre), and this effect was not driven by expression of viral transcripts, as all viral features were removed from the gene expression matrix. This subclustering probably reflects the inability of Cre-infected cells to fully induce activity-dependent genes following depletion of either Npas4 or Tip60. At 6 h after stimulation, these activity-induced genes were among the most highly expressed genes and differed across neuronal cell types, and therefore contributed significantly to the principal components used in dimensionality reduction for cell-type clustering. We used two independent analysis packages, Seurat (v.3) and Monocle3, to call differentially expressed genes and only considered significant genes (adjusted P \< 0.01) from both analyses. Although we identified genes that are both upregulated and downregulated after acute Npas4 or Tip60 depletion, we focused our downstream analysis on downregulated genes that are more likely to be directly activated by this complex. To ensure our observed downregulation of putative target genes was not simply due to higher expression or detection of genes in the ΔCre-infected tissue, we randomly sampled from the top 10% of most highly expressed genes (to account for the target genes being highly expressed overall) and calculated the ΔCre – Cre difference for the set of randomly selected genes. We performed 10,000 iterations of this analysis to generate a distribution of sample differences using randomly selected genes. The actual observed differences (using the NPAS4–NuA4 target genes identified in each neuronal subtype) lay far outside this distribution (Extended Data Fig. 5c).
+
+In general, NPAS4 induces a diverse set of pan-neuronal and celltype-specific effector genes. Many targets were found to be common among 2 or 3 cell types, and about 10% of targets were specific to one cell class. Broadly, the set of all NPAS4 target genes were enriched for genes with functions in cell–cell adhesion, intercellular signalling and axon guidance, as well as a diverse set of metabotropic and ionotropic neurotransmitter receptor subunits. In addition to capturing known NPAS4 target genes such as Nptx2, Plk2 and Bdnf, we identified 1,766 potentially new targets of NPAS4 in the hippocampus by this analysis (Supplementary Table 3).
+
+```{r setup}
+SAVE_PLOTS = FALSE
+SAVE_NEW_SEURAT_OBJECT <- TRUE
+```
+
+```{r load libs and functions}
+#| message: false
+
+library(Seurat)
+library(SeuratDisk)
+library(tidyverse)
+library(glue)
+library(reticulate)
+library(scCustomize)
+library(patchwork)
+library(DoubletFinder)
+
+source("03-scripts/R/seq_functions.R")
+reticulate::use_condaenv("sc")
+```
+
+```{r create basic Seurat obj}
+dataset <- 'Dec2024'
+
+data_dir <- "/Volumes/jack2/analysis_Dec2024/filtered_mats/all-sample/DGE_filtered/"
+save_dir <- glue("04-analysis/Seurats/{dataset}/")
+
+# make save_dir if it doesn't exist
+if (!dir.exists(save_dir)) {
+  dir.create(save_dir, recursive = TRUE)
+}
+
+mat <- ReadParseBio(data_dir)
+# nuclei_unfiltered <- CreateSeuratObject(mat)
+nuclei_unfiltered <- readRDS("04-analysis/Seurats/Dec2024/seurat_trailmaker.rds")
+```
+
+```{r add exp metadata}
+cell_meta <- read_csv(paste0(data_dir, "cell_metadata.csv")) |> 
+  select(-species, -ends_with(c('_well', '_wind'))) |> 
+  mutate(sample = str_replace(sample, '30M', '30m')) |> 
+  mutate(sample = str_replace(sample, '6H', '6h'))
+
+experimental_meta_path <- "01-documentation/sample_experimental_metadata_Dec2024.csv"
+experimental_meta <- read_csv(experimental_meta_path)
+
+# merge with metadata by sample
+meta_unfiltered <- merge(cell_meta, experimental_meta) |> 
+  # LINE IS CRITICAL TO ASSIGN CORRECT METADATA TO CELLS-- DO NOT DELETE
+  arrange(match(bc_wells, rownames(nuclei_unfiltered@meta.data)))
+
+# add metadata to seurat
+nuclei_unfiltered <- AddMetaData(nuclei_unfiltered, meta_unfiltered)
+```
+
+```{r QC filter cells}
+nuclei_unfiltered$percent.mt <- PercentageFeatureSet(nuclei_unfiltered, pattern = "^mt-")
+
+nuclei_filtered <- nuclei_unfiltered |> 
+  subset(
+    tscp_count >= 1500 & 
+    gene_count >= 1500 & 
+    percent.mt <= 5
+  )
+```
+
+```{r convert Seurat to anndata, MapMyCells}
+as.anndata(x = nuclei_filtered, file_path = save_dir, file_name = "nuclei_MapMyCells_filtered", main_layer = "counts", other_layers = NULL)
+```
+
+At this point, upload the h5ad object to [MapMyCells](https://knowledge.brain-map.org/mapmycells/process/) and run the Hierarchical Clustering algorithm for 10X whole-brain mouse. Download the results folder and put inside 04-analysis/seurats/May2024/.
+
+```{r merge metadata sources}
+# load in Allen metadata
+allen_meta_path = "04-analysis/Seurats/Dec2024/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1737326030693/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1737326030693.csv"
+allen_meta <- read_csv(allen_meta_path, skip = 4)
+
+# meta_merged <- merge(nuclei_filtered@meta.data, allen_meta, by.x = 'bc_wells', by.y = 'cell_id')
+meta_merged <- left_join(nuclei_filtered@meta.data, allen_meta, by = join_by('bc_wells' == 'cell_id'))
+```
+
+```{r mutate meta variables}
+# make new columns
+meta <- meta_merged |>
+  mutate(sublibrary = factor(str_sub(bc_wells, -1))) |>
+  mutate(ZT = str_extract(sample, "^[^_]+")) |>
+  mutate(seizure = ifelse(str_detect(ZT, "KA"), TRUE, FALSE)) |>
+  mutate(ZT = ifelse(seizure == T, NA, ZT))
+
+# make col: activity_condition (e.g. SE, EE6h, KA30m)
+meta <- meta |>
+  mutate(replicate = str_sub(sample, -1)) |> 
+  mutate(activity_condition = str_sub(sample, 1, -2)) |>  # remove replicate numbers
+  mutate(activity_condition = ifelse(
+    str_detect(str_sub(activity_condition, 1, 2), "KA"),         # if KA
+    str_remove(activity_condition, '_'),                         # then make it KA30m or KA6h
+    str_remove(str_extract(activity_condition, "(?<=_).*"), '_') # else only include text after first underscore
+  )) |> 
+  # mutate(activity_condition = ifelse(         # remove replicate numbers from activity_condition
+  #   str_detect(activity_condition, "KA"), 
+  #   activity_condition,
+  #   str_sub(activity_condition, 1, -2)
+  # )) |> 
+  mutate(activity_condition = ifelse(         # add "EE_" prefix to 30m and 6h
+    str_detect(activity_condition, "SE"), 
+    "SE", 
+    ifelse(
+      !str_detect(activity_condition, "KA"), 
+      paste0("EE", activity_condition), 
+      activity_condition
+  )))
+  
+
+meta$ZT <- factor(meta$ZT, levels = c('ZT0', 'ZT4', 'ZT12', 'ZT16'))
+meta$sublibrary <- factor(meta$sublibrary, levels = c('1', '2', '3', '4', '5', '6', '7', '8'))
+meta$activity_condition <- factor(meta$activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA30m', 'KA6h'))
+meta$sample <- factor(meta$sample, levels = c(
+  'KA_30m1',
+  'KA_30m2',
+  'KA_30m3',
+  'KA_6h1',
+  'KA_6h2',
+  'KA_6h3',
+  
+  'ZT0_SE1',
+  'ZT0_SE2',
+  'ZT0_SE3',
+  'ZT0_SE4',
+  'ZT0_30m1',
+  'ZT0_30m2',
+  'ZT0_30m3',
+  'ZT0_30m4',
+  'ZT0_6h1',
+  'ZT0_6h2',
+  'ZT0_6h3',
+  
+  'ZT4_SE1',
+  'ZT4_SE2',
+  'ZT4_SE3',
+  'ZT4_SE4',
+  'ZT4_30m1',
+  'ZT4_30m2',
+  'ZT4_30m3',
+  'ZT4_30m4',
+  'ZT4_6h1',
+  'ZT4_6h2',
+  'ZT4_6h3',
+  
+  'ZT12_SE1',
+  'ZT12_SE2',
+  'ZT12_SE3',
+  'ZT12_30m1',
+  'ZT12_30m2',
+  'ZT12_30m3',
+  'ZT12_6h1',
+  'ZT12_6h2',
+  'ZT12_6h3',
+  
+  'ZT16_SE1',
+  'ZT16_SE2',
+  'ZT16_SE3',
+  'ZT16_SE4',
+  'ZT16_30m1',
+  'ZT16_30m2',
+  'ZT16_30m3',
+  'ZT16_30m4',
+  'ZT16_6h1',
+  'ZT16_6h2',
+  'ZT16_6h3'
+))
+
+# add new info, re-order cols, remove useless cols
+meta <- meta |> 
+  # left_join(sample_sexes) |> 
+  relocate(sublibrary, sample, ZT, activity_condition, .after = bc_wells) |>
+  relocate(ends_with("_name"), .after = mread_count) |> 
+  # THIS LINE IS VERY IMPORTANT SO CELLS GET RIGHT METADATA
+  arrange(match(bc_wells, rownames(nuclei_filtered@meta.data)))
+
+nuclei <- AddMetaData(nuclei_filtered, meta)
+```
+
+# Intermediate processing
+
+Normalize data, build UMAP embedding.
+
+```{r process dataset with Seurat}
+options(future.globals.maxSize = 14000 * 1024^2) # allow variables to be 14 GB large
+
+nuclei <- NormalizeData(nuclei, normalization.method = 'LogNormalize', scale.factor = 10000)
+nuclei <- FindVariableFeatures(nuclei)
+nuclei <- ScaleData(nuclei)
+nuclei <- RunPCA(nuclei, npcs = 50)
+nuclei <- FindNeighbors(nuclei, dims = 1:41)
+nuclei <- FindClusters(nuclei, resolution = 0.8)
+nuclei <- RunUMAP(nuclei, dims = 1:41)
+
+# make cell identities default to subclass_name
+Idents(nuclei) <- nuclei$subclass_name
+rownames(nuclei@meta.data) <- Cells(nuclei)
+```
+
+```{r visualize variable genes}
+# Identify the 10 most highly variable genes
+top50 <- head(VariableFeatures(nuclei), 50)
+p1 <- VariableFeaturePlot(nuclei)
+LabelPoints(p1, points = top50, repel = TRUE)
+HoverLocator(p1)
+```
+
+```{r visualize PCs}
+class_colors <- LoadAllenColors('class')
+subclass_colors <- LoadAllenColors('subclass')
+  
+VizDimLoadings(nuclei, dims = 1:5, reduction = "pca")
+DimPlot(nuclei, reduction = "pca", group.by = "class_name") + scale_color_manual(values = class_colors)
+DimPlot(nuclei, reduction = "pca", group.by = "subclass_name") + scale_color_manual(values = subclass_colors) + theme(legend.position = 'none')
+DimHeatmap(nuclei, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
+ElbowPlot(nuclei,ndims = 50)
+```
+
+```{r visualize UMAP}
+activity_colors <- LoadActivityColors("Dec2024")
+subclass_colors <- LoadAllenColors()
+ZT_colors <- LoadZTColors(5)
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17) +
+  scale_color_manual(values = activity_colors)
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "subclass_name", shuffle = TRUE, seed = 17) +
+  scale_color_manual(values = subclass_colors)
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "ZT", shuffle = TRUE, seed = 17, alpha = 0.3) +
+  scale_color_manual(values = ZT_colors)
+HoverLocator(p1, information = nuclei@meta.data)
+```
+
+```{r save raw Seurat}
+SaveSeuratRds(nuclei, file = paste0(save_dir, "seurat_raw.Rds")) # local
+```
+
+# Filter low-quality clusters
+
+```{r static UMAPs}
+# static UMAP feature plots
+FeaturePlot(nuclei, reduction = 'umap', features = 'nCount_RNA', pt.size = 1)
+FeaturePlot(nuclei, reduction = 'umap', features = 'percent.mt', pt.size = 1)
+```
+
+```{r violin plots}
+pUMI <- ggplot(nuclei@meta.data) +
+  aes(x = seurat_clusters, y = nCount_RNA, fill = seurat_clusters) +
+  geom_violin(width = 2) +
+  geom_boxplot(outliers = F, width = 0.2) +
+  ylim(0, 30000) + 
+  labs(y = 'UMI') +
+  theme(legend.position = 'none',
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pMt <- ggplot(nuclei@meta.data) +
+  aes(x = seurat_clusters, y = percent.mt, fill = seurat_clusters) +
+  geom_jitter(shape = 21, width = 0.2, alpha = 0.2) +
+  geom_boxplot(position = 'dodge', outliers = F, alpha = 0.8, width = 0.2) +
+  labs(y = 'Percent mt reads') +
+  theme(legend.position = 'none',
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pN <- nuclei@meta.data |> 
+  group_by(seurat_clusters) |> 
+  summarize(n = n()) |> 
+ggplot() +
+  aes(x = seurat_clusters, y = n, fill = seurat_clusters) +
+  geom_col() +
+  scale_x_discrete(expand = expansion(mult = 0.013)) +
+  scale_y_log10() +
+  labs(y = 'log10(n)') +
+  theme(legend.position = 'none',
+        panel.grid.major.y = element_line(colour = "#808080"),
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pUMI / pMt / pN + 
+  plot_layout(heights = c(7, 7, 1)) +
+  plot_annotation(title = 'Naive Seurat clustering of Dec2024')
+```
+
+The above graph has the following takeaways:
+
+-   Based on UMI count, small clusters that could be discarded:
+
+    -   0, astrocytes
+
+    -   4, oligos
+
+    -   5, OPCs
+
+    -   9, oligos
+
+    -   12, microglia
+
+    -   27, KA6h astrocytes
+
+    -   32, DG IMN
+
+    -   39, KA30m astrocytes
+
+    -   40, cluster of many different cell types; should probably delete
+
+    -   44, HPF CR Glut
+
+    -   50, ependymal
+
+-   Based on mt read count, small clusters that could be discarded:
+
+    -   0, astrocytes
+
+    -   27, KA6h astrocytes
+
+    -   36, vascular
+
+    -   49, another small astrocyte cluster; looks out of place and deletable
+
+    -   50, ependymal
+
+```{r isolate clusters in UMAP}
+clusters_to_plot <- c(
+  0,
+  4,
+  5,
+  9,
+  12,
+  27,
+  32,
+  36,
+  39,
+  40, 
+  44,
+  49,
+  50
+  )
+
+for (cluster in clusters_to_plot) {
+  p <- DimPlot(nuclei, reduction = 'umap', group.by = 'seurat_clusters', pt.size = 1) + 
+    scale_color_manual(values = setNames('red', cluster)) +
+    labs(title = glue("cluster {cluster}")) +
+    theme(plot.title = element_text(size = 30),
+          legend.position = 'none')
+
+  print(p)
+}
+
+```
+
+```{r marker gene violins}
+VlnPlot(
+  nuclei,
+  group.by = 'seurat_clusters',
+  alpha = 0.1,
+  features = c(
+    # 'Snap25',
+    'Rbfox3',
+    # 'Slc17a6',
+    # 'Gad2',
+    # 'Prox1',
+    'Gfap',
+    'Mog'
+  )
+) + theme(legend.position = 'none')
+```
+
+## Remove cells in low-quality clusters
+
+```{r}
+clusters_to_remove <- c(
+  40,
+  49
+)
+
+# get list of accepted barcodes NOT in bad clusters
+bc_to_keep <- nuclei@meta.data |> 
+  filter(!seurat_clusters %in% clusters_to_remove) |> 
+  pull(bc_wells)
+
+# remove bad cells and make new Seurat
+nuclei_filtered_clusters_removed <- nuclei_filtered |> 
+  subset(bc_wells %in% bc_to_keep)
+
+# add metadata
+meta_temp <- meta |> 
+  right_join(nuclei_filtered_clusters_removed@meta.data)
+rownames(meta_temp) <- meta_temp$bc_wells
+nuclei_filtered_clusters_removed <- AddMetaData(nuclei_filtered_clusters_removed, meta_temp)
+```
+
+## Re-do intermediate processing on new subsetted object
+
+```{r process dataset with Seurat}
+options(future.globals.maxSize = 14000 * 1024^2) # allow variables to be 14 GB large
+
+nuclei_curated <- NormalizeData(nuclei_filtered_clusters_removed, normalization.method = 'LogNormalize', scale.factor = 10000)
+nuclei_curated <- FindVariableFeatures(nuclei_curated)
+nuclei_curated <- ScaleData(nuclei_curated)
+nuclei_curated <- RunPCA(nuclei_curated, npcs = 50)
+nuclei_curated <- FindNeighbors(nuclei_curated, dims = 1:41)
+nuclei_curated <- FindClusters(nuclei_curated, resolution = 0.8)
+nuclei_curated <- RunUMAP(nuclei_curated, dims = 1:41)
+
+# make cell identities default to subclass_name
+Idents(nuclei_curated) <- nuclei_curated$subclass_name
+rownames(nuclei_curated@meta.data) <- Cells(nuclei_curated)
+```
+
+```{r visualize variable genes}
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(nuclei_curated), 50)
+p1 <- VariableFeaturePlot(nuclei_curated)
+LabelPoints(p1, points = top10, repel = TRUE)
+HoverLocator(p1)
+```
+
+```{r visualize PCs}
+class_colors <- LoadAllenColors('class')
+subclass_colors <- LoadAllenColors('subclass')
+  
+VizDimLoadings(nuclei_curated, dims = 1:5, reduction = "pca")
+DimPlot(nuclei_curated, reduction = "pca", group.by = "class_name") + scale_color_manual(values = class_colors)
+DimPlot(nuclei_curated, reduction = "pca", group.by = "subclass_name") + scale_color_manual(values = subclass_colors)
+DimHeatmap(nuclei_curated, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
+ElbowPlot(nuclei_curated,ndims = 50)
+```
+
+```{r visualize UMAP}
+activity_colors <- LoadActivityColors("Dec2024")
+subclass_colors <- LoadAllenColors()
+ZT_colors <- LoadZTColors(5)
+p1 <- DimPlot(nuclei_curated, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17, pt.size = 1) +
+  scale_color_manual(values = activity_colors)
+p1 <- DimPlot(nuclei_curated, reduction = "umap", group.by = "subclass_name", shuffle = TRUE, seed = 17, pt.size = 1) +
+  scale_color_manual(values = subclass_colors)
+p1 <- DimPlot(nuclei_curated, reduction = "umap", group.by = "ZT", shuffle = TRUE, seed = 17, alpha = 0.3, pt.size = 1) +
+  scale_color_manual(values = ZT_colors)
+HoverLocator(p1, information = nuclei_curated@meta.data)
+```
+
+# Remove doublets
+
+```{r pK identification}
+sweep_results <- paramSweep(nuclei_curated, PCs = 1:10, sct = FALSE)
+sweep_stats <- summarizeSweep(sweep_results, GT = FALSE)
+pK_table <- find.pK(sweep_stats)
+```
+
+```{r model homotypic rate}
+homotypic.prop <- modelHomotypic(nuclei$seurat_clusters)
+nExp_poi <- round(0.075*nrow(nuclei_curated@meta.data))
+nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+```
+
+```{r find doublets}
+nuclei_curated <- doubletFinder(nuclei_curated,
+              sct = FALSE,
+              PCs = 1:30,
+              pK = 0.005,
+              nExp = nExp_poi
+              )
+nuclei_curated$doublet.class <- factor(nuclei_curated$DF.classifications_0.25_0.01_452, levels = c('Singlet', 'Doublet'))
+bc_doublets <- names(nuclei_curated$doublet.class[nuclei_curated$doublet.class == 'Doublet'])
+```
+
+```{r plot doublets}
+p <- DimPlot(nuclei_curated, 
+            group.by = 'doublet.class', 
+            pt.size = 1) + 
+  scale_color_manual(values = setNames(c('black','red'), c('Singlet', 'Doublet')))
+HoverLocator(p, information = nuclei_curated@meta.data)
+```
+
+# Save object
+
+```{r save Seurat object}
+if (SAVE_NEW_SEURAT_OBJECT) {
+  print('Saving Seurat object...')
+  
+  SaveSeuratRds(nuclei, file = paste0(data_dir, "seurat.Rds")) # portable SSD
+  SaveSeuratRds(nuclei, file = paste0(save_dir, "seurat.Rds")) # local
+  
+  print('Done!')
+}
+```
