@@ -24,6 +24,7 @@
 *.pyc
 *~
 
+*.ai
 *.bam
 *.sam.gz
 *.sam
