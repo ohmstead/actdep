@@ -5,7 +5,7 @@ RunYaoDGE <- function(input_subclass, save_to_file = FALSE) {
 
   # if yao not in namespace, load object
   if (!exists('yao')) {
-    yao <- LoadSeuratRds("/Volumes/jack/yao/yao_seurat.rds")
+    yao <- LoadDataset('Yao2023')
   }
   
   subclass_str <- gsub(' ', '_', input_subclass)
@@ -198,6 +198,9 @@ LoadSubclassesToUse <- function(seurat_obj, cell_cutoff = 150) {
 
 
 LoadGeneList <- function(list_type = "IEG") {
+  library(readxl)
+  library(dplyr)
+  
   if (list_type == "IEG") {
     gene_list <- c(
         'Arc',
@@ -220,6 +223,13 @@ LoadGeneList <- function(list_type = "IEG") {
     gene_list <- c(
       ""
     )
+  } else if (list_type == "tyssowski") {
+    PRG_rapid <- read_excel("02-data/published_data/Tyssowski2018/tyssowski_gene_lists.xlsx", sheet = 1) |> 
+      pull(`Gene ID`)
+    PRG_delay <- read_excel("02-data/published_data/Tyssowski2018/tyssowski_gene_lists.xlsx", sheet = 2) |> 
+      pull(`Gene ID`)
+    
+    gene_list <- c(PRG_rapid, PRG_delay)
   }
   
   return(gene_list)
@@ -233,7 +243,7 @@ GetCorrData <- function(seurat_obj, specific_condition, gene_list, output_fmt = 
   library(tidyverse)
 
   expression_data <- seurat_obj |> 
-    subset(condition == specific_condition) |> 
+    subset(activity_condition == specific_condition) |> 
     GetAssayData('SCT', layer = 'data') |> 
     as.data.frame() |>
     rownames_to_column(var = 'gene') |> 
@@ -243,11 +253,13 @@ GetCorrData <- function(seurat_obj, specific_condition, gene_list, output_fmt = 
 
   if (output_fmt == 'complex_heatmap') {
     # format output as matrix
-    corr <- cor(t(expression_data), method = 'pearson')
+    corr <- cor(t(expression_data), method = 'pearson', use = 'pairwise.complete.obs')
     
-    # remove from t the rows and cols with names in the character vector u
-    na_names <- names(which(is.na(corr[1,])))
-    corr <- corr[!(rownames(corr) %in% na_names), !(colnames(corr) %in% na_names)]
+    # find rows and columns that are exclusively NA and remove them
+    corr <- corr[rowSums(is.na(corr)) < ncol(corr), ]
+    corr <- corr[, colSums(is.na(corr)) < nrow(corr)]
+    
+    
     
   } else if (output_fmt == 'geom_tile') {
     # format output as df
@@ -266,7 +278,7 @@ GetCorrData <- function(seurat_obj, specific_condition, gene_list, output_fmt = 
 }
 
 
-PlotComplexHeatmap <- function(corr_matrix, plot_title, save_plot = FALSE) {
+PlotComplexHeatmap <- function(corr_matrix, plot_title, save_path = NULL) {
 # Plots complex heatmap of genes x gene co-expression correlation values.
 # Depends on output from GetCorrData, which must be called with argument
 # output_fmt = 'complex_heatmap'.
@@ -278,11 +290,14 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, save_plot = FALSE) {
 
   colormap <- colorRamp2(c(-1, 0, 1), c('blue', 'white', 'red'))
   
-  if (save_plot) {
-    folder_path <- '05-results/figure1/raw_R_plots/'
-    fname <- paste0(folder_path, 'complexHeatmap_', plot_title, '.png')
+  if (!is.null(save_path)) {
+    if (str_sub(save_path, -1) != '/') {
+      save_path <- paste0(save_path, '/')
+    }
+    fname <- str_replace_all(plot_title, ' ', '_')
+    full_path <- paste0(save_path, 'complexHeatmap_', fname, '.png')
     
-    png(file = fname, width = 16.25, height = 15, units = 'in', res = 600)
+    png(file = full_path, width = 1000, height = 900, units = 'px')
   }
   
   # plot using ComplexHeatmap library
@@ -295,8 +310,9 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, save_plot = FALSE) {
   )
   
   draw(hm)
+  print(hm)
   
-  if (save_plot) {dev.off()}
+  if (!is.null(save_path)) {dev.off()}
 }
 
 
@@ -307,25 +323,25 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
   # find the 90th percentile of IEG expression in the dSE cells
   activation_thresholds <- seurat_obj |> 
     subset(subclass_name == '016 CA1-ProS Glut') |> 
-    subset(condition == 'SE') |> 
-    GetAssayData('SCT', layer = 'counts') |> 
+    subset(activity_condition == 'SE') |> 
+    GetAssayData('RNA', layer = 'data') |> 
     as.data.frame() |> 
     rownames_to_column(var = 'gene') |> 
     filter(gene %in% gene_list) |> 
     rowwise() |> 
     mutate(percentile_90th = quantile(c_across(-gene), 0.9)) |> 
-    select(gene, percentile_90th)
+    dplyr::select(gene, percentile_90th)
   
   activation_thresholds <- setNames(activation_thresholds$percentile_90th, activation_thresholds$gene)
   
   cell_conditions <- seurat_obj |> 
-    FetchData("condition") |> 
+    FetchData("activity_condition") |> 
     rownames_to_column(var = "cell")
   
   # make a new df with only the expression for genes in gene_list
   df_ieg_expression <- seurat_obj |> 
     subset(subclass_name == '016 CA1-ProS Glut') |>
-    GetAssayData('SCT', layer = 'counts') |> 
+    GetAssayData('RNA', layer = 'counts') |> 
     as.data.frame() |> 
     rownames_to_column(var = 'gene') |>
     filter(gene %in% gene_list) |> 
@@ -336,7 +352,7 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
   # elements in activation_thresholds. this is important for comparing 
   # whether IEG expression exceeds 90th percentile ascertained thru SE
   df_colnames <- df_ieg_expression |> 
-    select(-cell) |>
+    dplyr::select(-cell) |>
     colnames()
   
   verification <- all(df_colnames == names(activation_thresholds))
@@ -350,11 +366,11 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
     mutate(num_upregd_genes = sum(c_across(-cell) > activation_thresholds)) |>
     left_join(cell_conditions, by = 'cell') |>
     mutate(active_binary = num_upregd_genes >= gene_threshold) |>
-    relocate(condition, active_binary, num_upregd_genes, .after = cell)
+    relocate(activity_condition, active_binary, num_upregd_genes, .after = cell)
   
   # print percentages for each condition
   df_active_cells |>
-    group_by(condition) |> 
+    group_by(activity_condition) |> 
     summarize(percent_active = sum(active_binary) / n()) |> 
     ungroup() |> 
     print()
@@ -413,9 +429,14 @@ RunGOEnrichment <- function(gene_list){
     stop('gene_list input for RunGOEnrichment() must be a character vector.')
   }
   
+  # make ensemble biomart object
+  ensembl <- useEnsembl(biomart = "ensembl", 
+                     dataset = "mmusculus_gene_ensembl")
+  
+  
   # from gene symbols, get Entrez gene IDs
   gene_info <- getBM(
-    attributes = c("mgi_symbol", "entrezgene_id"),
+    attributes = c("mgi_symbol", "entrezgene_id", "ensembl_gene_id"),
     filters = "mgi_symbol",
     values = gene_list,
     mart = ensembl
