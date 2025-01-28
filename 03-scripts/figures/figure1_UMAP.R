@@ -4,7 +4,7 @@ library(Seurat)
 library(ggplot2)
 
 source('03-scripts/R/seq_functions.R')
-nuclei <- LoadDataset("Dec2024_pilot")
+nuclei <- LoadDataset("Dec2024")
 
 activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors(clade = "subclass")
@@ -23,7 +23,7 @@ p1 <- DimPlot(nuclei, reduction = "umap", group.by = "subclass_name", pt.size = 
     legend.position = 'none'
   )
 
-p2 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition", pt.size = 0.1, shuffle = TRUE, seed = 17) +
+p2 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition", pt.size = 0.1, shuffle = TRUE, seed = 17, alpha = 0.5) +
   scale_color_manual(values = activity_colors) +
   theme_minimal() +
   labs(title = '', x = '', y = '') +
@@ -41,8 +41,8 @@ p2
 if (SAVE_PLOTS) {
   print("Saving plot...")
   
-  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'UMAP_subclass.png', plot = p1, width = 3, height = 3, dpi = 900)
-  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'UMAP_condition.png', plot = p2, width = 3, height = 3, dpi = 900)
+  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'UMAP_subclass.png', plot = p1, width = 9, height = 9, dpi = 900)
+  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'UMAP_condition.png', plot = p2, width = 9, height = 9, dpi = 900)
 } else {
   print("Plotting without saving...")
 }
