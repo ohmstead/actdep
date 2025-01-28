@@ -2,9 +2,13 @@
 title: "Create Seurat object for Dec2024_pilot dataset"
 ---
 
+# Intro
+
 This script contains all pre- and intermediate processing of the snRNA-seq data after it comes out of the Parse pipeline. In other words, it takes the digital cell-gene expression matrix produced by the Parse pipeline and turns it into a Seurat object for secondary analyses.
 
 Any other analyses in the paper should use the Seurat object created in this file, unless otherwise specified.
+
+# Methods
 
 ***Data preprocessing and quality control:***
 
@@ -12,7 +16,7 @@ Libraries were sequenced on an Illumina NovaSeq X Plus using paired-end 100-bp r
 
 ***Intermediate data processing:***
 
-### from Pollina 2023 methods, to use as a template
+### Pasted from Pollina 2023 methods, to use as a template
 
 **snRNA-seq analysis.** FASTQ files were created using the standard bcl2fastq pipeline from Illumina. Gene expression tables for each nuclear barcode were generated using the CellRanger 3.0.0 pipeline as designed by 10x Genomics. Samples were demultiplexed, and all Npas4fl/fl or Tip60fl/fl samples were merged using the CellRanger aggr function using default parameters. The datasets were loaded into R and analysed using the Seurat (v.3)66 and Monocle367 packages. Nuclei were removed from the dataset if they contained fewer than 500 detected genes, displayed more than 5% of reads mapping to mitochondrial genes or had RNA counts detected at a level greater than 2 standard deviations higher than the average value in their assigned cell type (which probably reflect doublets and multiplets). To remove potential doublets from the datasets in a more stringent manner, we used the DoubletFinder package in R, which assesses which barcodes in a dataset are most likely to be doublets based on transcriptional similarity to distinct clusters68. We used default parameters and an estimated doublet rate of 7% based on guidance from 10x Genomics Chromium Single Cell 3′ Reagent kits v3 User Guide and the number of nuclei run in each reaction lane.
 
@@ -36,6 +40,8 @@ library(tidyverse)
 library(glue)
 library(reticulate)
 library(scCustomize)
+library(patchwork)
+library(DoubletFinder)
 
 source("03-scripts/R/seq_functions.R")
 reticulate::use_condaenv("sc")
@@ -61,7 +67,7 @@ cell_meta <- read_csv(paste0(data_dir, "cell_metadata.csv")) |>
   select(-species, -ends_with(c('_well', '_wind'))) |> 
   mutate(sample = str_replace(sample, '30M', '30m')) |> 
   mutate(sample = str_replace(sample, '6H', '6h'))
-  
+
 experimental_meta_path <- "01-documentation/sample_experimental_metadata_Dec2024.csv"
 experimental_meta <- read_csv(experimental_meta_path)
 
@@ -79,8 +85,9 @@ nuclei_unfiltered$percent.mt <- PercentageFeatureSet(nuclei_unfiltered, pattern 
 
 nuclei_filtered <- nuclei_unfiltered |> 
   subset(
-    tscp_count >= 1500 & tscp_count <= 100000 &
-    gene_count >= 1500  & gene_count <= 8000  &
+    mread_count > 2000 & 
+    tscp_count >= 1500 & 
+    gene_count >= 1500 & 
     percent.mt <= 5
   )
 ```
@@ -204,7 +211,7 @@ nuclei <- AddMetaData(nuclei_filtered, meta)
 
 # Intermediate processing
 
-Normalize data using SCTransform, build UMAP embedding.
+Normalize data, build UMAP embedding.
 
 ```{r process dataset with Seurat}
 options(future.globals.maxSize = 14000 * 1024^2) # allow variables to be 14 GB large
@@ -243,10 +250,237 @@ ElbowPlot(nuclei,ndims = 50)
 
 ```{r visualize UMAP}
 activity_colors <- LoadActivityColors("Dec2024")
+subclass_colors <- LoadAllenColors()
+ZT_colors <- LoadZTColors(5)
 p1 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17) +
   scale_color_manual(values = activity_colors)
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "subclass_name", shuffle = TRUE, seed = 17) +
+  scale_color_manual(values = subclass_colors)
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "ZT", shuffle = TRUE, seed = 17, alpha = 0.3) +
+  scale_color_manual(values = ZT_colors)
 HoverLocator(p1, information = nuclei@meta.data)
 ```
+
+# Filter low-quality clusters
+
+```{r static UMAPs}
+# static UMAP feature plots
+FeaturePlot(nuclei, reduction = 'umap', features = 'nCount_RNA', pt.size = 1)
+FeaturePlot(nuclei, reduction = 'umap', features = 'percent.mt', pt.size = 1)
+```
+
+```{r violin plots}
+pUMI <- ggplot(nuclei@meta.data) +
+  aes(x = seurat_clusters, y = nCount_RNA, fill = seurat_clusters) +
+  geom_violin(width = 2) +
+  geom_boxplot(outliers = F, width = 0.2) +
+  ylim(0, 30000) + 
+  labs(y = 'UMI') +
+  theme(legend.position = 'none',
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pMt <- ggplot(nuclei@meta.data) +
+  aes(x = seurat_clusters, y = percent.mt, fill = seurat_clusters) +
+  geom_jitter(shape = 21, width = 0.2, alpha = 0.2) +
+  geom_boxplot(position = 'dodge', outliers = F, alpha = 0.8, width = 0.2) +
+  labs(y = 'Percent mt reads') +
+  theme(legend.position = 'none',
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pN <- nuclei@meta.data |> 
+  group_by(seurat_clusters) |> 
+  summarize(n = n()) |> 
+ggplot() +
+  aes(x = seurat_clusters, y = n, fill = seurat_clusters) +
+  geom_col() +
+  scale_x_discrete(expand = expansion(mult = 0.013)) +
+  scale_y_log10() +
+  labs(y = 'log10(n)') +
+  theme(legend.position = 'none',
+        panel.grid.major.y = element_line(colour = "#808080"),
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pUMI / pMt / pN + 
+  plot_layout(heights = c(7, 7, 1)) +
+  plot_annotation(title = 'Naive Seurat clustering of Dec2024')
+```
+
+The above graph has the following takeaways:
+
+-   Based on UMI count, small clusters that should be discarded:
+
+    -   22
+
+    -   33
+
+    -   37
+
+    -   39
+
+    -   43
+
+-   Based on mt read count, small clusters that should be discarded:
+
+    -   34
+
+    -   37
+
+    -   44
+
+```{r isolate clusters in UMAP}
+clusters_to_plot <- c(
+  12
+  # 14,
+  # 22
+  # 33,
+  # 34,
+  # 37,
+  # 39,
+  # 43,
+  # 44
+  )
+
+for (cluster in clusters_to_plot) {
+  p <- DimPlot(nuclei, reduction = 'umap', group.by = 'seurat_clusters', pt.size = 1) + 
+    scale_color_manual(values = setNames('red', cluster)) +
+    labs(title = glue("cluster {cluster}")) +
+    theme(plot.title = element_text(size = 30),
+          legend.position = 'none')
+
+  print(p)
+}
+
+```
+
+```{r marker gene violins}
+VlnPlot(
+  nuclei,
+  group.by = 'seurat_clusters',
+  alpha = 0.1,
+  features = c(
+    # 'Snap25',
+    'Rbfox3',
+    # 'Slc17a6',
+    # 'Gad2',
+    # 'Prox1',
+    'Gfap',
+    'Mog'
+  )
+) + theme(legend.position = 'none')
+```
+
+## Remove cells in low-quality clusters
+
+```{r}
+clusters_to_remove <- c(
+  34,
+  37,
+  44
+)
+
+# get list of accepted barcodes NOT in bad clusters
+bc_to_keep <- nuclei@meta.data |> 
+  filter(!seurat_clusters %in% clusters_to_remove) |> 
+  pull(bc_wells)
+
+# remove bad cells and make new Seurat
+nuclei_filtered_clusters_removed <- nuclei_filtered |> 
+  subset(bc_wells %in% bc_to_keep)
+
+# add metadata
+meta_temp <- meta |> 
+  right_join(nuclei_filtered_clusters_removed@meta.data)
+rownames(meta_temp) <- meta_temp$bc_wells
+nuclei_filtered_clusters_removed <- AddMetaData(nuclei_filtered_clusters_removed, meta_temp)
+```
+
+## Re-do intermediate processing on new subsetted object
+
+```{r process dataset with Seurat}
+options(future.globals.maxSize = 14000 * 1024^2) # allow variables to be 14 GB large
+
+nuclei_curated <- NormalizeData(nuclei_filtered_clusters_removed, normalization.method = 'LogNormalize', scale.factor = 10000)
+nuclei_curated <- FindVariableFeatures(nuclei_curated)
+nuclei_curated <- ScaleData(nuclei_curated)
+nuclei_curated <- RunPCA(nuclei_curated, npcs = 50)
+nuclei_curated <- FindNeighbors(nuclei_curated, dims = 1:41)
+nuclei_curated <- FindClusters(nuclei_curated, resolution = 0.8)
+nuclei_curated <- RunUMAP(nuclei_curated, dims = 1:41)
+
+# make cell identities default to subclass_name
+Idents(nuclei_curated) <- nuclei_curated$subclass_name
+rownames(nuclei_curated@meta.data) <- Cells(nuclei_curated)
+```
+
+```{r visualize variable genes}
+# Identify the 10 most highly variable genes
+top10 <- head(VariableFeatures(nuclei_curated), 50)
+p1 <- VariableFeaturePlot(nuclei_curated)
+LabelPoints(p1, points = top10, repel = TRUE)
+HoverLocator(p1)
+```
+
+```{r visualize PCs}
+class_colors <- LoadAllenColors('class')
+subclass_colors <- LoadAllenColors('subclass')
+  
+VizDimLoadings(nuclei_curated, dims = 1:5, reduction = "pca")
+DimPlot(nuclei_curated, reduction = "pca", group.by = "class_name") + scale_color_manual(values = class_colors)
+DimPlot(nuclei_curated, reduction = "pca", group.by = "subclass_name") + scale_color_manual(values = subclass_colors)
+DimHeatmap(nuclei_curated, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
+ElbowPlot(nuclei_curated,ndims = 50)
+```
+
+```{r visualize UMAP}
+activity_colors <- LoadActivityColors("Dec2024")
+subclass_colors <- LoadAllenColors()
+ZT_colors <- LoadZTColors(5)
+p1 <- DimPlot(nuclei_curated, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17, pt.size = 1) +
+  scale_color_manual(values = activity_colors)
+p1 <- DimPlot(nuclei_curated, reduction = "umap", group.by = "subclass_name", shuffle = TRUE, seed = 17, pt.size = 1) +
+  scale_color_manual(values = subclass_colors)
+p1 <- DimPlot(nuclei_curated, reduction = "umap", group.by = "ZT", shuffle = TRUE, seed = 17, alpha = 0.3, pt.size = 1) +
+  scale_color_manual(values = ZT_colors)
+HoverLocator(p1, information = nuclei_curated@meta.data)
+```
+
+# Remove doublets
+
+```{r pK identification}
+sweep_results <- paramSweep(nuclei_curated, PCs = 1:10, sct = FALSE)
+sweep_stats <- summarizeSweep(sweep_results, GT = FALSE)
+pK_table <- find.pK(sweep_stats)
+```
+
+```{r model homotypic rate}
+homotypic.prop <- modelHomotypic(nuclei$seurat_clusters)
+nExp_poi <- round(0.075*nrow(nuclei_curated@meta.data))
+nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+```
+
+```{r find doublets}
+nuclei_curated <- doubletFinder(nuclei_curated,
+              sct = FALSE,
+              PCs = 1:30,
+              pK = 0.26,
+              nExp = nExp_poi
+              )
+nuclei_curated$doublet.class <- factor(nuclei_curated$DF.classifications_0.25_0.01_452, levels = c('Singlet', 'Doublet'))
+bc_doublets <- names(nuclei_curated$doublet.class[nuclei_curated$doublet.class == 'Doublet'])
+```
+
+```{r plot doublets}
+p <- DimPlot(nuclei_curated, 
+            group.by = 'doublet.class', 
+            pt.size = 1) + 
+  scale_color_manual(values = setNames(c('black','red'), c('Singlet', 'Doublet')))
+HoverLocator(p, information = nuclei_curated@meta.data)
+```
+
+# Save object
 
 ```{r save Seurat object}
 if (SAVE_NEW_SEURAT_OBJECT) {
