@@ -1,14 +1,8 @@
----
-title: "supp figure analysis"
-editor_options: 
-  chunk_output_type: console
----
-
-```{r setup}
+## ----setup------------------------------------------------------------------------------------------------------------------------------------
 SAVE_PLOTS = TRUE
-```
 
-```{r}
+
+## ---------------------------------------------------------------------------------------------------------------------------------------------
 source("03-scripts/R/seq_functions.R")
 
 library(tidyverse)
@@ -19,20 +13,20 @@ library(paletteer)
 
 library(Seurat)
 library(SeuratDisk)
-```
 
-```{r load colors}
+
+## ----load colors------------------------------------------------------------------------------------------------------------------------------
 activity_colors <- LoadActivityColors('Dec2024')
 subclass_colors <- LoadAllenColors('subclass')
 ZT_colors <- LoadZTColors(5)
 sex_colors <- LoadSexColors()
-```
 
-```{r load nuclei}
+
+## ----load nuclei------------------------------------------------------------------------------------------------------------------------------
 nuclei <- LoadDataset("Dec2024")
-```
 
-```{r plot Xist expression}
+
+## ----plot Xist expression---------------------------------------------------------------------------------------------------------------------
 # let's ascertain the sex of biological samples based on Xist expression
 nuclei <- nuclei |> 
   AddMetaData(metadata = nuclei@assays$RNA$counts['Xist',], col = 'Xist')
@@ -45,9 +39,9 @@ ggplot(meta) +
   labs(title = 'Xist expression') +
   facet_wrap(~sample, nrow = 4) +
   scale_fill_manual(values = activity_colors)
-```
 
-```{r relevel, filter subclasses}
+
+## ----relevel, filter subclasses---------------------------------------------------------------------------------------------------------------
 meta <- nuclei@meta.data
 
 cutoff_n <- 150
@@ -59,11 +53,9 @@ meta <- meta |>
   select(-count)
 
 subclasses_to_use <- LoadSubclassesToUse(nuclei, cell_cutoff = cutoff_n)
-```
 
-# plot by subclass
 
-```{r}
+## ---------------------------------------------------------------------------------------------------------------------------------------------
 my_theme <- theme(
   # text = element_text(family = 'Mono'),
   legend.position = 'none',
@@ -223,10 +215,9 @@ pMt <- ggplot(meta) +
 pNum + pActivity + pSex + pSublib + pZT + pReads + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 3, 3, 3, 25, 25, 25, 10))
 
 ggsave('quality_by_subclass.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 9, dpi = 600)
-```
 
-# plot by sample
-```{r}
+
+## ---------------------------------------------------------------------------------------------------------------------------------------------
 my_theme <- theme(
   legend.position = 'none',
   plot.margin = margin(0, 0, 0, 0),
@@ -338,9 +329,9 @@ pMt <- ggplot(meta) +
 pNum + pSex + pReads + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 25, 25, 25, 10), nrow = 1)
 
 ggsave('quality_by_sample.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 14)
-```
 
-```{r show disto for each class}
+
+## ----show disto for each class----------------------------------------------------------------------------------------------------------------
 class_colors <- LoadAllenColors('class')
 
 meta |> 
@@ -358,11 +349,9 @@ ggplot() +
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank()
   )
-```
 
-# plot reads, tscp, genes
 
-```{r distro for reads}
+## ----distro for reads-------------------------------------------------------------------------------------------------------------------------
 # plot reads by class
 pReads <- ggplot(meta) +
   aes(x = sample, y = mread_count, fill = class_name) +
@@ -402,10 +391,9 @@ ggplot() +
 pReads / pN + plot_layout(heights = c(10, 1))
 
 ggsave('reads_by_class.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 9, height = 18, dpi = 600)
-```
 
 
-```{r distro for UMIs}
+## ----distro for UMIs--------------------------------------------------------------------------------------------------------------------------
 # plot reads by class
 pUMI <- ggplot(meta) +
   aes(x = sample, y = tscp_count, fill = class_name) +
@@ -425,9 +413,9 @@ pUMI <- ggplot(meta) +
 pUMI / pN + plot_layout(heights = c(10, 1))
 
 ggsave('tscp_by_class.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 9, height = 18, dpi = 600)
-```
 
-```{r distro for genes}
+
+## ----distro for genes-------------------------------------------------------------------------------------------------------------------------
 # plot reads by class
 pGenes <- ggplot(meta) +
   aes(x = sample, y = gene_count, fill = class_name) +
@@ -447,4 +435,4 @@ pGenes <- ggplot(meta) +
 pGenes / pN + plot_layout(heights = c(10, 1))
 
 ggsave('genes_by_class.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 9, height = 18, dpi = 600)
-```
+
