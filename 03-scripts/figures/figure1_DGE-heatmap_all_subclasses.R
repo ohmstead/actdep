@@ -23,7 +23,7 @@ subclass_list <- LoadSubclassesToUse(nuclei) |>
 contrast_list <- c("EE30m_vs_SE", "EE6h_vs_SE")
 
 # load all DEGs from every subclass x contrast
-dir_deg <- "04-analysis/DEGs/Dec2024_pilot_activity_condition"
+dir_deg <- "04-analysis/DEGs/May2024_activity_condition"
 deg_files <- list.files(dir_deg, full.names = TRUE)
 
 # loop thru CSVs and load in DEGs
@@ -68,8 +68,8 @@ df_gene_classifications <- df_all_DEGs |>
     is_LRG ~ "LRG",
     TRUE ~ NA_character_
   )) |> print()
-# for each subclass, get expression for each activity_condition
 
+# for each subclass, get expression for each activity_condition
 df_distinct_DEGs <- df_all_DEGs |> 
   mutate(activity_condition = case_when(
     contrast == "EE30m_vs_SE" ~ "EE30m",
@@ -93,16 +93,16 @@ df_distinct_DEGs <- df_all_DEGs |>
 print("Normalizing expression data...")
 
 # calculate log2FC expression compared to SE
-# nuclei_subclass <- subset(nuclei, subclass_name %in% subclass_list)
+nuclei_subclass <- subset(nuclei, subclass_name %in% subclass_list)
 
 # get log2FC from SE for every gene x subclass x activity_condition combo
 df_expression <- AverageExpression(
     nuclei_subclass,
     features = df_distinct_DEGs$gene,
     group.by = c("subclass_name", "activity_condition"),
-    assays = 'RNA',
-    layer = 'data'
-  )$RNA |> 
+    assays = 'SCT',
+    layer = 'counts'
+  )$SCT |> 
   as.data.frame() |> 
   rownames_to_column(var = 'gene') |> 
   pivot_longer(cols = -gene, names_to = 'subclass_by_contrast', values_to = 'avg_expression_ln_scale') |> 
@@ -116,11 +116,19 @@ df_expression <- AverageExpression(
   ) |> 
   mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |> 
   mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |> 
-  mutate(activity_condition = factor(activity_condition, levels = c('SE', 'EE-30m', 'EE-6h', 'KA-30m', 'KA-6h'))) |> 
+  mutate(activity_condition = factor(activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA1h'))) |> 
   mutate(subclass = factor(subclass, levels = subclass_list)) |> 
   relocate(gene, subclass, activity_condition, avg_expression_ln_scale, avg_expression_log2_scale, log2fc_from_SE) |> 
   ungroup()
 
+# for genes in the "both" category, force into ERG or LRG
+df_expression <- df_expression |> 
+  mutate(classification = ifelse(classification == 'both', 
+    ifelse(
+      log2fc_from_SE > 0, 
+      'ERG', 
+      'LRG'), 
+    classification))
 
 # sort gene list ----
 print("Sorting gene list...")
@@ -134,17 +142,17 @@ print("Sorting gene list...")
 
 df_gene_levels_ERG <- df_expression |> 
   filter(classification == 'ERG') |> 
-  filter(activity_condition == 'EE-30m') |>
+  filter(activity_condition == 'EE30m') |>
   slice_max(order_by = log2fc_from_SE, by = gene) |> 
   arrange(desc(n_subclasses), subclass)
 df_gene_levels_LRG <- df_expression |> 
   filter(classification == 'LRG') |> 
-  filter(activity_condition == 'EE-6h') |>
+  filter(activity_condition == 'EE6h') |>
   slice_max(order_by = log2fc_from_SE, by = gene) |> 
   arrange(desc(n_subclasses), subclass)
 df_gene_levels_both <- df_expression |>
   filter(classification == 'both') |>
-  filter(activity_condition == 'EE-30m' | activity_condition == 'EE-6h') |>
+  filter(activity_condition == 'EE30m' | activity_condition == 'EE6h') |>
   slice_max(order_by = log2fc_from_SE, by = gene) |>
   arrange(desc(n_subclasses), subclass)
 
@@ -190,14 +198,14 @@ subclass_colors <- LoadAllenColors("subclass")
 
 # Ensure df_subclass_annotation has the same order as the rows in expression_matrix
 df_subclass_annotation <- df_expression |>
-  mutate(activity_condition = case_when(
-    activity_condition == 'SE'     ~ 'SE',
-    activity_condition == 'EE-30m' ~ 'EE_30m',
-    activity_condition == 'EE-6h'  ~ 'EE_6h',
-    activity_condition == 'KA-30m' ~ 'KA_30m',
-    activity_condition == 'KA-6h'  ~ 'KA_6h',
-    TRUE ~ NA_character_
-  )) |>
+  # mutate(activity_condition = case_when(
+  #   activity_condition == 'SE'     ~ 'SE',
+  #   activity_condition == 'EE30m' ~ 'EE30m',
+  #   activity_condition == 'EE6h'  ~ 'EE6h',
+  #   activity_condition == 'KA30m' ~ 'KA30m',
+  #   activity_condition == 'KA6h'  ~ 'KA6h',
+  #   TRUE ~ NA_character_
+  # )) |>
   filter(activity_condition != 'SE') |> 
   group_by(subclass_by_activity_condition, activity_condition, subclass) |>
   distinct(subclass_by_activity_condition) |> 

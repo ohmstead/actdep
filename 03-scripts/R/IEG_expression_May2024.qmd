@@ -8,14 +8,14 @@ title: "Plotting IEG expression"
 library(tidyverse)
 library(ggridges)
 library(Seurat)
+library(ggh4x)
 
 source("03-scripts/R/seq_functions.R")
 ```
 
 ```{r setup}
 nuclei <- LoadDataset("May2024")
-condition_colors <- LoadActivityColors("May2024")
-names(condition_colors) <- c("SE", "30m", "6h", "KA")
+activity_colors <- LoadActivityColors("May2024")
 ```
 
 ```{r}
@@ -51,13 +51,13 @@ LRG_symbols <- c(
 # )
 
 # up-regulated LRGs
-LRG_symbols <- read_csv("04-analysis/DEGs/condition/016_CA1-ProS_Glut_d6h_vs_dSE.csv") |> 
+LRG_symbols <- read_csv("04-analysis/DEGs/condition/016_CA1-ProS_Glut_d6h_vs_SE.csv") |> 
   filter(avg_log2FC > 0) |> 
   filter(!gene %in% c("4732440D04Rik", "9330162G02Rik", "5031425E22Rik", "Cyp2c52-ps", "0610043K17Rik", "2210408F21Rik", "Mir124a-1hg")) |> 
   pull(gene)
 
 # down-regulated LRGs
-LRG_symbols <- read_csv("04-analysis/DEGs/condition/016_CA1-ProS_Glut_d6h_vs_dSE.csv") |> 
+LRG_symbols <- read_csv("04-analysis/DEGs/condition/016_CA1-ProS_Glut_d6h_vs_SE.csv") |> 
   filter(avg_log2FC < 0) |> 
   filter(!gene %in% c("4732440D04Rik", "9330162G02Rik", "5031425E22Rik", "Cyp2c52-ps", "0610043K17Rik", "2210408F21Rik", "Mir124a-1hg", "1700057H15Rik", "2210408I21Rik", "Rpl29-ps2", "4930419G24Rik")) |> 
   pull(gene)
@@ -86,13 +86,13 @@ mati_df <- data.frame(mati) |>
 # change the condition labels
 mati_df <- mati_df |> 
   mutate(
-    condition = str_replace(condition, "dSE", "SE"),
+    condition = str_replace(condition, "SE", "SE"),
     condition = str_replace(condition, "d30m", "30m"),
     condition = str_replace(condition, "d6h", "6h"),
     condition = fct_relevel(condition, c("SE", "30m", "6h", "KA"))
   )
 
-mati_df$sample <- factor(mati_df$sample, levels = c("dSE1", "dSE2", "dSE3", 
+mati_df$sample <- factor(mati_df$sample, levels = c("SE1", "SE2", "SE3", 
                                                     "d30m1", "d30m2", "d30m3", 
                                                     "d6h1", "d6h2", "d6h3",
                                                     "KA1", "KA2", "KA3"))
@@ -102,7 +102,7 @@ mati_ca1 <- mati_df[mati_df$subclass_name == "016 CA1-ProS Glut", ]
 mati_ca1[, LRG_symbols] <- log1p(mati_ca1[, LRG_symbols])
 
 # Gather data into long format
-ca1_long <- pivot_longer(mati_ca1, cols = all_of(LRG_symbols), names_to = "gene", values_to = "expression")
+ca1_long <- pivot_longer(mati_ca1, cols = all_of(IEG_symbols), names_to = "gene", values_to = "expression")
 ```
 
 Now we have a tibble with IEG expression information and metadata for all cells. We can use this to plot IEG expression in different conditions and sublibraries.
@@ -142,19 +142,21 @@ Let's examine binary expression now: Proportion of cells in each replicate that 
 
 ```{r }
 # make a new col ca1_long$expressed where expression > 0 is 1 and expression = 0 is 0
-ca1_long$expressed <- ifelse(ca1_long$expression > 1, 1, 0)
+ca1_long$expressed <- ifelse(ca1_long$expression > 0, 1, 0)
 
-p <- ggplot(ca1_long, aes(x = condition, fill = condition)) +
+p <- ggplot(ca1_long, aes(x = activity_condition, fill = activity_condition)) +
   geom_bar(aes(y = ifelse(expressed > 0, 1, 0)), stat = "summary", fun = "mean", color = 'black') +
-  scale_fill_manual(values = condition_colors) +
+  scale_fill_manual(values = activity_colors) +
   facet_wrap(~gene, scales = "free_y") +
-  labs(title = "Proportion of cells expressing IEGs",
+  labs(title = "Proportion of CA1 cells expressing IEGs",
        x = '', y = 'Proportion', fontsize = 30) +
   theme(
     plot.title = element_text(size = 30),
-    strip.text = element_text(size = 15),
+    strip.text = element_text(size = 20),
     axis.title.y = element_text(size = 20),
-    legend.text = element_text(size = 20)
+    axis.text.y = element_text(size = 15),
+    axis.text.x = element_text(size = 20),
+    legend.position = 'none'
   )
 
 print(p)
@@ -168,7 +170,7 @@ Let's examine the SE replicates in-depth, visualizing the distribution for each 
 
 ```{r}
 # first, filter out all rows where condition is not "SE"
-ca1_long_SE <- ca1_long[ca1_long$condition == "dSE", ]
+ca1_long_SE <- ca1_long[ca1_long$condition == "SE", ]
 ```
 
 ```{r }

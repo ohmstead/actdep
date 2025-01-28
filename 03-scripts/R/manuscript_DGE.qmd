@@ -24,7 +24,7 @@ library(patchwork)
 
 source("03-scripts/R/seq_functions.R")
 
-nuclei <- LoadDataset("Dec2024_pilot")
+nuclei <- LoadDataset("Dec2024")
 
 csv_write_dir <- "04-analysis/DEGs/Dec2024_pilot_activity_condition"
 ```

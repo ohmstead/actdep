@@ -39,8 +39,6 @@ source("03-scripts/R/seq_functions.R")
 ```
 
 ```{r create basic Seurat obj}
-#| cache: true
-
 dataset <- 'May2024'
 sublibrary <- 'combined'
 
@@ -78,7 +76,7 @@ Convert(path_for_h5Seurat, dest = paste0(save_dir, "nuclei_MapMyCells.h5ad"), as
 At this point, upload the h5ad object to [MapMyCells](https://knowledge.brain-map.org/mapmycells/process/) and run the Hierarchical Clustering algorithm for 10X whole-brain mouse. Download the results folder and put inside 04-analysis/seurats/May2024/.
 
 ```{r load Allen meta}
-allen_meta_path = "04-analysis/Seurats/May2024/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1732080825686/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1732080825686.csv"
+allen_meta_path = "04-analysis/Seurats/May2024/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1736268824667/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1736268824667.csv"
 
 allen_meta <- read_csv(allen_meta_path, skip = 4)
 ```
@@ -152,7 +150,7 @@ nuclei <- AddMetaData(nuclei, meta)
 Finally, filter out sublibrary 2 cells, because they are low-quality. See `/actdep/03-scripts/R/compare_flattop_Seurat_May2024.qmd` for more information if you're curious.
 
 ```{r}
-nuclei <- subset(nuclei, sublibrary == 1)
+# nuclei <- subset(nuclei, sublibrary == 1)
 ```
 
 # Intermediate processing
