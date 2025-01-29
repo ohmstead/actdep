@@ -15,15 +15,17 @@ SAVE_NEW_SEURAT_OBJECT <- TRUE
 #| message: false
 
 library(Seurat)
-library(SeuratDisk)
 library(tidyverse)
 library(glue)
 library(reticulate)
 library(scCustomize)
 library(patchwork)
+library(future)
+
+plan("sequential")
+options(future.globals.maxSize = 400000 * 1024^2) # Allow large variables (300 GB)
 
 source("03-scripts/R/seq_functions.R")
-reticulate::use_condaenv("sc")
 ```
 
 ```{r create basic Seurat obj}
@@ -224,8 +226,6 @@ nuclei_intermediate <- AddMetaData(nuclei_trailmaker_filtered, meta)
 Normalize data, build UMAP embedding.
 
 ```{r process dataset with Seurat}
-options(future.globals.maxSize = 30000 * 1024^2) # allow variables to be 14 GB large
-
 # split object
 # nuclei_intermediate[['RNA']] <- split(nuclei_intermediate[['RNA']], f = nuclei_intermediate$sample)
 
@@ -233,11 +233,20 @@ nuclei_intermediate <- nuclei_intermediate |>
   # NormalizeData(normalization.method = 'LogNormalize', scale.factor = 10000) |> 
   # FindVariableFeatures() |> 
   # ScaleData() |> 
-  SCTransform(vars.to.regress = c('percent.mt', 'sublibrary'), return.only.var.genes = FALSE) |> 
-  RunPCA(npcs = 30) |> 
-  FindNeighbors(dims = 1:30) |> 
+  SCTransform(vars.to.regress = c('percent.mt', 'sublibrary'), 
+              return.only.var.genes = TRUE,
+              method = 'glmGamPoi',
+              conserve.memory = TRUE)
+
+# save nuclei_intermediate
+SaveSeuratRds(nuclei_intermediate, file = paste0(save_dir, "seurat_intermediate.Rds")) # local
+
+# keep going
+nuclei_intermediate <- nuclei_intermediate |> 
+  RunPCA(npcs = 50) |> 
+  FindNeighbors(dims = 1:41) |> 
   FindClusters(resolution = 0.8, random.seed = 17) |> 
-  RunUMAP(dims = 1:30, seed.use = 17)
+  RunUMAP(dims = 1:41, seed.use = 17)
 
 # make cell identities default to subclass_name
 Idents(nuclei_intermediate) <- nuclei_intermediate$subclass_name
@@ -260,6 +269,7 @@ VizDimLoadings(nuclei_intermediate, dims = 1:5, reduction = "pca")
 
 DimHeatmap(nuclei_intermediate, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
 ElbowPlot(nuclei_intermediate,ndims = 50)
+ggsave('elbow_plot.png', path = '04-analysis/')
 ```
 
 ```{r visualize UMAP}
@@ -268,18 +278,24 @@ subclass_colors <- LoadAllenColors()
 ZT_colors <- LoadZTColors(5)
 
 DimPlot(nuclei_intermediate, reduction = "pca", group.by = "class_name", raster = FALSE) + 
-  scale_color_manual(values = class_colors)
+  scale_color_manual(values = class_colors) +
+  theme(legend.position = 'none')
+ggsave(filename = 'pca_class.png', path = '04-analysis/')
 
 DimPlot(nuclei_intermediate, reduction = "pca", group.by = "subclass_name", raster = FALSE) + 
   scale_color_manual(values = subclass_colors) + 
   theme(legend.position = 'none')
+ggsave('pca_subclass.png', path = '04-analysis')
 
 DimPlot(nuclei_intermediate, reduction = "umap", group.by = "subclass_name", shuffle = TRUE, seed = 17, raster = FALSE) +
   scale_color_manual(values = subclass_colors) + 
   theme(legend.position = 'none')
+ggsave('umap_subclass.png', path = '04-analysis')
+
 
 DimPlot(nuclei_intermediate, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17, raster = FALSE) +
   scale_color_manual(values = activity_colors)
+ggsave('umap_activity.png', path = '04-analysis')
 ```
 
 ```{r save intermediate Seurat}
