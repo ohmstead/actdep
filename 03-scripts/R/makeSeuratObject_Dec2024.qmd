@@ -269,7 +269,6 @@ VizDimLoadings(nuclei_intermediate, dims = 1:5, reduction = "pca")
 
 DimHeatmap(nuclei_intermediate, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
 ElbowPlot(nuclei_intermediate,ndims = 50)
-ggsave('elbow_plot.png', path = '04-analysis/')
 ```
 
 ```{r visualize UMAP}
@@ -280,22 +279,17 @@ ZT_colors <- LoadZTColors(5)
 DimPlot(nuclei_intermediate, reduction = "pca", group.by = "class_name", raster = FALSE) + 
   scale_color_manual(values = class_colors) +
   theme(legend.position = 'none')
-ggsave(filename = 'pca_class.png', path = '04-analysis/')
 
 DimPlot(nuclei_intermediate, reduction = "pca", group.by = "subclass_name", raster = FALSE) + 
   scale_color_manual(values = subclass_colors) + 
   theme(legend.position = 'none')
-ggsave('pca_subclass.png', path = '04-analysis')
 
 DimPlot(nuclei_intermediate, reduction = "umap", group.by = "subclass_name", shuffle = TRUE, seed = 17, raster = FALSE) +
   scale_color_manual(values = subclass_colors) + 
   theme(legend.position = 'none')
-ggsave('umap_subclass.png', path = '04-analysis')
-
 
 DimPlot(nuclei_intermediate, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17, raster = FALSE) +
   scale_color_manual(values = activity_colors)
-ggsave('umap_activity.png', path = '04-analysis')
 ```
 
 ```{r save intermediate Seurat}
@@ -386,72 +380,52 @@ HoverLocator(
 The above graph has the following takeaways:
 
 -   Based on UMI count, the clusters that could be discarded:
-
-    -   0, astrocytes; keep
-    -   2; oligos; keep
-    -   5; OPCs; keep
-    -   27, microglia; keep
-    -   28, astrocytes 6h KA; keep
-    -   31, DG IMN; keep
-    -   37, astrocytes 30m KA; keep
-    -   40, random assortment; delete
-    -   41, cajal-retzius cells, keep
-    -   49, weird stretch of astrocytes; delete
+    -   1, legit astrocytes -- keep
+    -   2, legit oligos -- keep
+    -   4, kegit OPCs -- keep
+    -   15, legit OPC cluster -- keep
+    -   23, vascular cells -- keep
+    -   26, IMN, cajal-retzius, and astrocytes continuum -- keep
+    -   29, 6h KA astrocytes -- keep
+    -   37, real astrocytes -- keep
+    -   40, more cajal-retzius -- keep
+    -   47, random astrocytes -- delete
 
 -   Based on mt read count, the clusters that could be discarded:
-
-    -   0, astrocytes; keep
-    -   2, oligos; keep
-    -   21, CA1 6h KA; keep
-    -   27, microglia; keep
-    -   31, DG IMN; keep
-    -   37, astrocytes 30m KA; keep
-    -   40, random assortment; delete
-    -   42, random oligos, astros, and OPCs; delete
-    -   43, OPCs/OB IMNs; delete
-    -   48, OPCs/oligos/astros; delete
-    -   49, random astrocytes; delete
-    -   50, random OPCs; delete
+    -   15, legit OPC cluster -- keep
+    -   21, legit CA1 6h KA cluster -- keep
+    -   23, vascular cells -- keep
+    -   29, 6h KA astrocytes -- keep
+    -   35, all over the place -- delete
+    -   37, real astrocytes -- keep
+    -   43, random astrocytes and oligos -- delete
+    -   47, random astrocytes -- delete
 
 -   Based on the doublet scores, the clusters that could be discarded:
-
-    -   15, seems like a real cluster of CA1; keep
-    -   21, CA1 6h KA; keep
-    -   26, all over the map; delete
-    -   32, seems like a legit cluster of subiculum; keep
-    -   42, random oligos, astros, and OPCs; delete
-    -   47, random set of high-doublet CA1; delete
-    -   48, OPCs/oligos/astros; delete
-    -   49, random astrocytes; delete
+    -   20, CA1 cluster -- keep
+    -   21, legit CA1 6h KA cluster -- keep
+    -   24, somewhat large cluster of subiculum and CA1 -- delete
+    -   36, all over the place -- delete
+    -   43, random astrocytes and oligos -- delete
+    -   44, unsure of class right now -- keep
+    -   45, random CA1 -- delete
+    -   47, random astrocytes -- delete
 
 -   So the compiled list of clusters to delete is:
-
-    -   26
-
-    -   40
-
-    -   42
-
+    -   24
+    -   35
+    -   36
     -   43
-
+    -   45
     -   47
-
-    -   48
-
-    -   49
-
-    -   50
 
 ```{r isolate clusters in UMAP}
 clusters_to_plot <- c(
-  15, 
-  21, 
+  1,
+  2,
+  4,
   26,
-  32,
-  42, 
-  47, 
-  48, 
-  49
+  40
   )
 
 for (cluster in clusters_to_plot) {
@@ -469,14 +443,12 @@ for (cluster in clusters_to_plot) {
 
 ```{r}
 clusters_to_remove <- c(
-  26,
-  40,
-  42,
+  24,
+  35,
+  36,
   43,
-  47,
-  48,
-  49,
-  50
+  45,
+  47
 )
 
 # get list of accepted barcodes NOT in bad clusters
@@ -484,42 +456,18 @@ bc_to_keep <- nuclei_intermediate@meta.data |>
   filter(!seurat_clusters %in% clusters_to_remove) |> 
   pull(barcode)
 
-# remove bad bad clusters and doublets
+# remove bad clusters and doublets
 nuclei_curated <- nuclei_intermediate |> 
   subset(barcode %in% bc_to_keep) |> 
   subset(doublet_scores <= 0.02)
 
-# add metadata
-meta_temp <- meta |> 
-  right_join(nuclei_curated@meta.data) |> 
-  select(-starts_with('emptyDrops')) |> 
-  select(-starts_with('custom_cellset')) |> 
-  select(-ends_with('.x')) |> 
-  select(-ends_with('.y'))
-
-rownames(meta_temp) <- meta_temp$barcode
-nuclei_curated <- AddMetaData(nuclei_curated, meta_temp)
-
 # save this part of the process
-# SaveSeuratRds(object = nuclei_curated, file = paste0(save_dir, "seurat_curated.Rds"))
+SaveSeuratRds(object = nuclei_curated, file = paste0(save_dir, "seurat_curated.Rds"))
 ```
 
 ## Re-do intermediate processing object
 
 ```{r process dataset with Seurat}
-# nuclei <- nuclei_curated |> 
-#   RunPCA(npcs = 50) |> 
-#   IntegrateLayers(method = HarmonyIntegration, 
-#                   orig.reduction = 'pca', 
-#                   new.reduction = 'harmony') |> 
-#   FindNeighbors(reduction = 'harmony', dims = 1:41) |> 
-#   FindClusters(resolution = 0.8, cluster.name = 'harmony_cluster') |> 
-#   RunUMAP(reduction = 'harmony', dims = 1:41, reuduction.name = 'umap.harmony')
-
-# DimPlot(nuclei, reduction = "harmony", group.by = "subclass_name", raster = F) + 
-#   scale_color_manual(values = subclass_colors) +
-#   theme(legend.position = 'none')
-
 nuclei <- nuclei_curated |> 
   RunPCA(npcs = 50) |> 
   FindNeighbors(dims = 1:41) |> 
