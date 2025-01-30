@@ -324,7 +324,7 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
   activation_thresholds <- seurat_obj |> 
     subset(subclass_name == '016 CA1-ProS Glut') |> 
     subset(activity_condition == 'SE') |> 
-    GetAssayData('RNA', layer = 'data') |> 
+    GetAssayData('SCT', layer = 'data') |> 
     as.data.frame() |> 
     rownames_to_column(var = 'gene') |> 
     filter(gene %in% gene_list) |> 
@@ -341,7 +341,7 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
   # make a new df with only the expression for genes in gene_list
   df_ieg_expression <- seurat_obj |> 
     subset(subclass_name == '016 CA1-ProS Glut') |>
-    GetAssayData('RNA', layer = 'counts') |> 
+    GetAssayData('SCT', layer = 'data') |> 
     as.data.frame() |> 
     rownames_to_column(var = 'gene') |>
     filter(gene %in% gene_list) |> 
