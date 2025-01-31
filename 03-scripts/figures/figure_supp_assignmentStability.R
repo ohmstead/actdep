@@ -5,7 +5,7 @@ library(scCustomize)
 
 reticulate::use_condaenv("sc")
 source("03-scripts/R/seq_functions.R")
-plot_save_dir <- '05-results/figure1/raw_R_plots'
+plot_save_dir <- '05-results/figure_supp_assignmentStability/raw_R_plots'
 
 # load in seurat
 nuclei_with <- LoadDataset("Dec2024")
@@ -139,7 +139,7 @@ ggplot() +
       scale_fill_manual(values = class_colors) +
       theme_void() +
       theme(legend.position = 'none')
-ggsave(filename = 'reassignment_sankey_class.png', path = '05-results/figure1/raw_R_plots/', width = 4, height = 8, dpi = 900)
+ggsave(filename = 'reassignment_sankey_class.png', path = plot_save_dir, width = 4, height = 8, dpi = 900)
 
 # subclass sankey
 meta |> 
@@ -151,7 +151,7 @@ ggplot() +
       scale_fill_manual(values = subclass_colors) +
       theme_void() +
       theme(legend.position = 'none')
-ggsave(filename = 'reassignment_sankey_subclass.png', path = '05-results/figure1/raw_R_plots/', width = 4, height = 8, dpi = 900)
+ggsave(filename = 'reassignment_sankey_subclass.png', path = plot_save_dir, width = 4, height = 8, dpi = 900)
 
 # supertype sankey
 meta |> 
@@ -164,7 +164,7 @@ ggplot() +
       scale_fill_manual(values = supertype_colors) +
       theme_void() +
       theme(legend.position = 'none')
-ggsave(filename = 'reassignment_sankey_supertype.png', path = '05-results/figure1/raw_R_plots/', width = 4, height = 8, dpi = 900)
+ggsave(filename = 'reassignment_sankey_supertype.png', path = plot_save_dir, width = 4, height = 8, dpi = 900)
 
 # cluster sankey
 meta |> 
@@ -177,4 +177,4 @@ ggplot() +
       scale_fill_manual(values = cluster_colors) +
       theme_void() +
       theme(legend.position = 'none')
-ggsave(filename = 'reassignment_sankey_cluster.png', path = '05-results/figure1/raw_R_plots/', width = 4, height = 8, dpi = 900)
+ggsave(filename = 'reassignment_sankey_cluster.png', path = plot_save_dir, width = 4, height = 8, dpi = 900)
