@@ -136,7 +136,7 @@ LoadActivityColors <- function(dataset = 'Dec2024', palette='colorblind') {
 }
 
 
-LoadZTColors <- function(palette = 1) {
+LoadZTColors <- function(palette = 5) {
   if (palette == 1) {
     zt_colors <- c(
       'ZT0' = '#FADF7F',
@@ -180,7 +180,7 @@ LoadZTColors <- function(palette = 1) {
 
 LoadSubclassesToUse <- function(seurat_obj, cell_cutoff = 150) {
 # returns a list of subclass_names to use. 
-# subclasses with fewer than 100 cells are excluded.
+# subclasses with fewer than cell_cutoff are excluded.
   library(Seurat)
   library(tidyverse)
 
@@ -194,6 +194,38 @@ LoadSubclassesToUse <- function(seurat_obj, cell_cutoff = 150) {
     arrange(subclass_name)
   
   return(subclass_list)
+}
+
+
+GetSubclassContrasts <- function(seurat_obj, subclass, cell_cutoff = 30) {
+# returns a list of activity_condition contrasts to use
+# given they meet the cell_cutoff criterion
+  library(Seurat)
+  library(tidyverse)
+
+  acceptable_contrasts  <- c(
+    'EE30m_SE',
+    'EE6h_SE',
+    'KA30m_SE',
+    'KA6h_SE',
+    'KA30m_EE30m',
+    'KA6h_EE6h'
+  )
+
+  valid_conditions <- seurat_obj@meta.data |> 
+    filter(subclass_name == subclass) |> 
+    group_by(activity_condition) |> 
+    summarize(n = n()) |> 
+    filter(n >= 30) |> 
+    pull(activity_condition)
+  
+  # make and filter contrast df
+  df_contrasts <- expand.grid(group1 = valid_conditions, group2 = valid_conditions) |> 
+    filter(group1 != group2) |> 
+    mutate(pasted = glue('{group1}_{group2}')) |> 
+    filter(pasted %in% acceptable_contrasts)
+  
+  return(df_contrasts)
 }
 
 
