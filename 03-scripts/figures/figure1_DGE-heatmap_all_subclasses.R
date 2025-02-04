@@ -21,6 +21,29 @@ print("Getting DEGs for all subclasses and contrasts...")
 subclass_list <- LoadSubclassesToUse(nuclei) |> 
   pull(subclass_name)
 
+custom_subclass_list <- c(
+  '016 CA1-ProS Glut',
+  '025 CA2-FC-IG Glut',
+  '017 CA3 Glut',
+  '037 DG Glut',
+  '023 SUB-ProS Glut',
+  '031 CT SUB Glut',
+  '033 NP SUB Glut',
+  '046 Vip Gaba',
+  '047 Sncg Gaba',
+  '048 RHP-COA Ndnf Gaba',
+  '049 Lamp5 Gaba',
+  '050 Lamp5 Lhx6 Gaba',
+  '051 Pvalb chandelier Gaba',
+  '052 Pvalb Gaba',
+  '053 Sst Gaba',
+  '038 DG-PIR Ex IMN',
+  '319 Astro-TE NN',
+  '326 OPC NN',
+  '327 Oligo NN',
+  '334 Microglia NN'
+)
+
 # get list of contrasts to use
 contrast_list <- c("EE30m_vs_SE", "EE6h_vs_SE")
 
@@ -38,6 +61,7 @@ for (file in deg_files) {
   # Extract the subclass (everything before the contrast in filename)
   subclass <- str_remove(fname, paste0("_", contrast, "$"))
   subclass <- str_replace_all(subclass, "_", " ")
+  subclass <- str_sub(subclass, 1, -2)
   # skip excluded subclasses or contrasts
   if (!(contrast %in% contrast_list)) {
     next
@@ -75,6 +99,7 @@ df_gene_classifications <- df_all_DEGs |>
 
 # for each subclass, get expression for each activity_condition
 df_distinct_DEGs <- df_all_DEGs |> 
+  filter(subclass %in% custom_subclass_list) |> 
   mutate(activity_condition = case_when(
     contrast == "EE30m_vs_SE" ~ "EE30m",
     contrast == "EE6h_vs_SE" ~ "EE6h",
@@ -97,7 +122,7 @@ df_distinct_DEGs <- df_all_DEGs |>
 print("Normalizing expression data...")
 
 # calculate log2FC expression compared to SE
-nuclei_subclass <- subset(nuclei, subclass_name %in% subclass_list)
+nuclei_subclass <- subset(nuclei, subclass_name %in% custom_subclass_list)
 
 # try DESeq2 approach instead
 # Extract cell-level metadata and raw counts from your Seurat object:
@@ -150,14 +175,9 @@ df_expression <- df_norm |>
   mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |> 
   mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |> 
   mutate(activity_condition = factor(activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA30m', 'KA6h'))) |> 
-  mutate(subclass = factor(subclass, levels = subclass_list)) |> 
+  mutate(subclass = factor(subclass, levels = custom_subclass_list)) |> 
   relocate(gene, subclass, activity_condition, avg_expression_log2, log2fc_from_SE) |> 
   ungroup()
-
-df_expression |>
-  filter(activity_condition == 'EE30m' | activity_condition == 'EE6h') |> 
-  group_by(gene, subclass) |>
-  summarise(max_expr_condition = activity_condition[which.max(avg_expression_log2)])
 
 
 # for genes in the "both" category, refactor ----
@@ -192,6 +212,10 @@ df_expression <- df_expression |>
   mutate(classification = modal_classification) |>
   select(-modal_classification)
 
+
+# take out seizure conditions----
+df_expression <- df_expression |> 
+  filter(!str_detect(activity_condition, 'KA'))
 
 # sort gene list ----
 print("Sorting gene list...")
@@ -249,8 +273,8 @@ expression_matrix <- df_expression |>
   select(gene, subclass_by_activity_condition, log2fc_from_SE) |>
   pivot_wider(names_from = gene, values_from = log2fc_from_SE) |> 
   column_to_rownames(var = "subclass_by_activity_condition") |> 
-  # select(-subclass) |> 
-  as.matrix()
+  as.matrix() |> 
+  scale()  # z-score the columns 
 
 # re-order expression matrix
 # Ensure df_subclass_annotation has the same order as the rows in expression_matrix
@@ -299,10 +323,12 @@ col_anno_top <- HeatmapAnnotation(
 )
 
 ieg_symbols <- LoadGeneList("IEG")
+# re-arrange IEG symbols to match their order in the heatmap
+iegs_ordered = df_gene_levels$gene[which(df_gene_levels$gene %in% ieg_symbols)]
 col_anno_bottom <- HeatmapAnnotation(
   iegs = anno_mark(
     at = which(df_gene_levels$gene %in% ieg_symbols), 
-    labels = ieg_symbols, 
+    labels = iegs_ordered, 
     side = "bottom"
     ),
   show_annotation_name = FALSE
@@ -313,7 +339,7 @@ col_anno_bottom <- HeatmapAnnotation(
 p <- Heatmap(
   expression_matrix, # exclude the first column (subclass_by_activity_condition)
   name = "log2FC",
-  col = circlize::colorRamp2(c(-2,0,2), hcl_palette = "blue-red2"),
+  col = circlize::colorRamp2(c(-2.5, 0, 2.5), hcl_palette = 'Blue-Red 2'),
   cluster_rows = FALSE,
   cluster_columns = FALSE,
   left_annotation = row_anno,
@@ -334,7 +360,6 @@ htShiny(p, action = 'hover', output_ui_float = T)
 # save plot ----
 if (SAVE_PLOTS) {
   print("Saving plot...")
-  # ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'DGE-heatmap_all_subclasses.png', plot = p, width = 15, height = 5, dpi = 900)
   png("05-results/figure1/raw_R_plots/DGE-heatmap_all_subclasses.png", width = 15, height = 5, units = "in", res = 900)
   print(p)
   dev.off()
