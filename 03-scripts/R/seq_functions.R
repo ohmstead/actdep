@@ -253,7 +253,12 @@ LoadGeneList <- function(list_type = "IEG") {
       )
   } else if (list_type == "lncRNA") {
     gene_list <- c(
-      ""
+      read_csv("04-analysis/DEGs/Dec2024_activity_condition/016_CA1-ProS_Glut__EE30m_vs_SE.csv") |> 
+        left_join(gene_biotypes, by = c('gene' = 'name')) |> 
+        filter(biotype == 'lncRNA') |> 
+        filter(chrom != 'mm39_X' & chrom != 'mm39_Y') |> 
+        filter(abs(avg_log2FC) > 0.585) |> 
+        filter(p_val_adj < 0.05)
     )
   } else if (list_type == "tyssowski") {
     PRG_rapid <- read_excel("02-data/published_data/Tyssowski2018/tyssowski_gene_lists.xlsx", sheet = 1) |> 
