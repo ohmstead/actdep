@@ -1,0 +1,338 @@
+---
+title: "Create Seurat object for Dec2024_pilot dataset"
+editor_options: 
+  chunk_output_type: console
+---
+
+# Import data
+
+```{r setup}
+SAVE_PLOTS = FALSE
+SAVE_NEW_SEURAT_OBJECT <- TRUE
+```
+
+```{r load libs and functions}
+#| message: false
+
+library(Seurat)
+library(tidyverse)
+library(glue)
+library(reticulate)
+library(scCustomize)
+library(patchwork)
+library(future)
+
+plan("sequential")
+options(future.globals.maxSize = 400000 * 1024^2) # Allow large variables (300 GB)
+
+source("03-scripts/R/seq_functions.R")
+```
+
+```{r create basic Seurat obj}
+nuclei.dec <- readRDS('04-analysis/Seurats/Dec2024/seurat_curated.Rds')
+nuclei.may <- readRDS('04-analysis/Seurats/May2024/seurat.Rds')
+nuclei.may <- subset(nuclei.may, sublibrary == 1)
+
+nuclei.dec$dataset <- 'Dec2024'
+nuclei.may$dataset <- 'May2024'
+
+# align barcode varname
+nuclei.may$barcode  <- nuclei.may$bc_wells
+
+nuclei <- merge(nuclei.dec, nuclei.may,
+                add.cell.ids = c('dec', 'may'),
+                merge.data = FALSE)
+
+# nuclei[['RNA']] <- JoinLayers(nuclei[['RNA']])
+
+# ensure no duplicate barcodes
+nuclei$barcode <- paste(nuclei$barcode, nuclei$dataset, sep = '_')
+```
+
+Each sample has been SCT transformed independently. Try dimensionality reduction on this dataset to see how well they are together without integration
+```{r add exp metadata}
+nuclei <- nuclei |> 
+  SCTransform(vars.to.regress = c('percent.mt', 'sublibrary'), 
+              return.only.var.genes = TRUE,
+              method = 'glmGamPoi',
+              conserve.memory = TRUE)
+
+nuclei <- nuclei |>
+  RunPCA(npcs = 50, assay = 'SCT', seed.use = 17) |>
+  FindNeighbors(dims = 1:41) |>
+  FindClusters(resolution = 0.8, random.seed = 17) |>
+  RunUMAP(dims = 1:41, seed.use = 17)
+
+Idents(nuclei) <- nuclei$subclass_name
+DimPlot(nuclei, group.by = 'dataset')
+DimPlot(nuclei) +
+  theme(legend.position = 'none') +
+  scale_color_manual(values = LoadAllenColors('subclass'))
+DimPlot(nuclei) +
+  theme(legend.position = 'none') +
+  scale_color_manual(values = LoadAllenColors('subclass'))
+```
+
+
+So the UMAP is showing 
+# Intermediate processing
+
+```{r visualize variable genes}
+# Identify the 10 most highly variable genes
+top50 <- head(VariableFeatures(nuclei_intermediate), 50)
+p1 <- VariableFeaturePlot(nuclei_intermediate)
+LabelPoints(p1, points = top50, repel = TRUE)
+HoverLocator(p1)
+```
+
+```{r visualize PCs}
+class_colors <- LoadAllenColors('class')
+subclass_colors <- LoadAllenColors('subclass')
+  
+VizDimLoadings(nuclei_intermediate, dims = 1:5, reduction = "pca")
+
+DimHeatmap(nuclei_intermediate, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
+ElbowPlot(nuclei_intermediate,ndims = 50)
+```
+
+```{r visualize UMAP}
+activity_colors <- LoadActivityColors("Dec2024")
+subclass_colors <- LoadAllenColors()
+ZT_colors <- LoadZTColors(5)
+
+DimPlot(nuclei_intermediate, reduction = "pca", group.by = "class_name", raster = FALSE) + 
+  scale_color_manual(values = class_colors) +
+  theme(legend.position = 'none')
+
+DimPlot(nuclei_intermediate, reduction = "pca", group.by = "subclass_name", raster = FALSE) + 
+  scale_color_manual(values = subclass_colors) + 
+  theme(legend.position = 'none')
+
+DimPlot(nuclei_intermediate, reduction = "umap", group.by = "subclass_name", shuffle = TRUE, seed = 17, raster = FALSE) +
+  scale_color_manual(values = subclass_colors) + 
+  theme(legend.position = 'none')
+
+DimPlot(nuclei_intermediate, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17, raster = FALSE) +
+  scale_color_manual(values = activity_colors)
+```
+
+```{r save intermediate Seurat}
+# SaveSeuratRds(nuclei_intermediate, file = paste0(save_dir, "seurat_intermediate.Rds")) # local
+```
+
+# Filter low-quality clusters
+
+```{r static UMAPs}
+# static UMAP feature plots
+p1 <- FeaturePlot(nuclei_intermediate, reduction = 'umap', features = 'nCount_RNA', pt.size = 1, raster = F)
+p2 <- FeaturePlot(nuclei_intermediate, reduction = 'umap', features = 'percent.mt', pt.size = 1, raster = F)
+
+p1 / p2
+```
+
+```{r violin plots}
+pUMI <- ggplot(nuclei_intermediate@meta.data) +
+  aes(x = seurat_clusters, y = nCount_RNA, fill = seurat_clusters) +
+  geom_violin(width = 2) +
+  geom_boxplot(outliers = F, width = 0.2) +
+  ylim(0, 30000) + 
+  labs(y = 'UMI') +
+  theme(legend.position = 'none',
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pMt <- ggplot(nuclei_intermediate@meta.data) +
+  aes(x = seurat_clusters, y = percent.mt, fill = seurat_clusters) +
+  geom_jitter(shape = 21, width = 0.2, alpha = 0.2) +
+  geom_boxplot(position = 'dodge', outliers = F, alpha = 0.8, width = 0.2) +
+  labs(y = 'Percent mt reads') +
+  theme(legend.position = 'none',
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pD <- ggplot(nuclei_intermediate@meta.data) +
+  aes(x = seurat_clusters, y = doublet_scores, fill = seurat_clusters) +
+  geom_violin(width = 2) +
+  geom_boxplot(outliers = F, width = 0.2) +
+  labs(y = 'Doublet scores') +
+  theme(legend.position = 'none',
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pN <- nuclei_intermediate@meta.data |> 
+  group_by(seurat_clusters) |> 
+  summarize(n = n()) |> 
+ggplot() +
+  aes(x = seurat_clusters, y = n, fill = seurat_clusters) +
+  geom_col() +
+  scale_x_discrete(expand = expansion(mult = 0.013)) +
+  scale_y_log10() +
+  labs(y = 'log10(n)') +
+  theme(legend.position = 'none',
+        panel.grid.major.y = element_line(colour = "#808080"),
+        axis.title.y = element_text(size = 15),
+        axis.title.x = element_blank())
+
+pUMI / pMt / pD / pN + 
+  plot_layout(heights = c(7, 7, 7, 1)) +
+  plot_annotation(title = 'Naive Seurat clustering of Dec2024')
+
+# interactive plot for cross-referencing
+DimPlot(nuclei_intermediate, 
+        reduction = "umap", 
+        group.by = "activity_condition", 
+        shuffle = TRUE,
+        seed = 17, 
+        raster = FALSE) +
+  scale_color_manual(values = activity_colors)
+
+p1
+p2
+
+HoverLocator(
+  DimPlot(nuclei_intermediate, 
+        reduction = "umap", 
+        group.by = "subclass_name", 
+        shuffle = TRUE,
+        seed = 17, 
+        raster = FALSE) +
+  scale_color_manual(values = subclass_colors),
+  information = nuclei_intermediate@meta.data
+)
+```
+
+The above graph has the following takeaways:
+
+-   Based on UMI count, the clusters that could be discarded:
+    -   1, legit astrocytes -- keep
+    -   2, legit oligos -- keep
+    -   4, kegit OPCs -- keep
+    -   15, legit OPC cluster -- keep
+    -   23, vascular cells -- keep
+    -   26, IMN, cajal-retzius, and astrocytes continuum -- keep
+    -   29, 6h KA astrocytes -- keep
+    -   37, real astrocytes -- keep
+    -   40, more cajal-retzius -- keep
+    -   47, random astrocytes -- delete
+
+-   Based on mt read count, the clusters that could be discarded:
+    -   15, legit OPC cluster -- keep
+    -   21, legit CA1 6h KA cluster -- keep
+    -   23, vascular cells -- keep
+    -   29, 6h KA astrocytes -- keep
+    -   35, all over the place -- delete
+    -   37, real astrocytes -- keep
+    -   43, random astrocytes and oligos -- delete
+    -   47, random astrocytes -- delete
+
+-   Based on the doublet scores, the clusters that could be discarded:
+    -   20, CA1 cluster -- keep
+    -   21, legit CA1 6h KA cluster -- keep
+    -   24, somewhat large cluster of subiculum and CA1 -- delete
+    -   36, all over the place -- delete
+    -   43, random astrocytes and oligos -- delete
+    -   44, unsure of class right now -- keep
+    -   45, random CA1 -- delete
+    -   47, random astrocytes -- delete
+
+-   So the compiled list of clusters to delete is:
+    -   24
+    -   35
+    -   36
+    -   43
+    -   45
+    -   47
+
+```{r isolate clusters in UMAP}
+clusters_to_plot <- c(
+  1,
+  2,
+  4,
+  26,
+  40
+  )
+
+for (cluster in clusters_to_plot) {
+  p <- DimPlot(nuclei_intermediate, reduction = 'umap', group.by = 'seurat_clusters', pt.size = 1, raster = FALSE) + 
+    scale_color_manual(values = setNames('red', cluster)) +
+    labs(title = glue("cluster {cluster}")) +
+    theme(plot.title = element_text(size = 30),
+          legend.position = 'none')
+
+  print(p)
+}
+```
+
+## Remove low-quality clusters
+
+```{r}
+clusters_to_remove <- c(
+  24,
+  35,
+  36,
+  43,
+  45,
+  47
+)
+
+# get list of accepted barcodes NOT in bad clusters
+bc_to_keep <- nuclei_intermediate@meta.data |> 
+  filter(!seurat_clusters %in% clusters_to_remove) |> 
+  pull(barcode)
+
+# remove bad clusters and doublets
+nuclei_curated <- nuclei_intermediate |> 
+  subset(barcode %in% bc_to_keep) |> 
+  subset(doublet_scores <= 0.02)
+
+# save this part of the process
+SaveSeuratRds(object = nuclei_curated, file = paste0(save_dir, "seurat_curated.Rds"))
+```
+
+## Re-do intermediate processing object
+
+```{r process dataset with Seurat}
+nuclei <- nuclei_curated |> 
+  RunPCA(npcs = 50) |> 
+  FindNeighbors(dims = 1:41) |> 
+  FindClusters(resolution = 0.8, random.seed = 17) |> 
+  RunUMAP(dims = 1:41, seed.use = 17)
+
+# make cell identities default to subclass_name
+Idents(nuclei) <- nuclei$subclass_name
+```
+
+```{r visualize PCs}
+DimHeatmap(nuclei, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
+ElbowPlot(nuclei ,ndims = 50)
+```
+
+```{r visualize UMAP}
+DimPlot(nuclei, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17, pt.size = 1, raster = F) +
+  scale_color_manual(values = activity_colors) +
+  theme(legend.position = 'none')
+
+p1 <- DimPlot(nuclei, reduction = "umap", group.by = "subclass_name", shuffle = TRUE, seed = 17, pt.size = 1, raster = F) +
+  scale_color_manual(values = subclass_colors) +
+  theme(legend.position = 'none')
+
+HoverLocator(p1, information = nuclei_curated@meta.data)
+```
+
+# Re-join layers
+
+```{r}
+nuclei <- JoinLayers(nuclei)
+```
+
+# Save object
+
+```{r save Seurat object}
+if (SAVE_NEW_SEURAT_OBJECT) {
+  print('Saving Seurat object...')
+  
+  SaveSeuratRds(nuclei, file = paste0(save_dir, "seurat.Rds")) # local
+  
+  print('Done!')
+}
+```
