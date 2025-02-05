@@ -297,8 +297,18 @@ df_tf <- colnames(expression_matrix) |>
 
 
 # make annotation objects ----
-row_anno <- rowAnnotation(
+left_anno <- rowAnnotation(
   activity_condition = df_subclass_annotation$activity_condition,
+  subclass = df_subclass_annotation$subclass,
+  col = list(
+    activity_condition = activity_colors,
+    subclass = subclass_colors
+  ),
+  show_annotation_name = FALSE,
+  show_legend = FALSE
+)
+
+right_anno <- rowAnnotation(
   subclass = df_subclass_annotation$subclass,
   col = list(
     activity_condition = activity_colors,
@@ -338,11 +348,17 @@ col_anno_bottom <- HeatmapAnnotation(
 # plot ----
 p <- Heatmap(
   expression_matrix, # exclude the first column (subclass_by_activity_condition)
-  name = "log2FC",
+  name = "z-scored log2FC from SE",
+  heatmap_legend_param = list(
+    title_position = "topcenter",
+    at = c(-2, 0, 2),
+    direction = "horizontal"
+  ),
   col = circlize::colorRamp2(c(-2.5, 0, 2.5), hcl_palette = 'Blue-Red 2'),
   cluster_rows = FALSE,
   cluster_columns = FALSE,
-  left_annotation = row_anno,
+  left_annotation = left_anno,
+  right_annotation = right_anno,
   top_annotation = col_anno_top,
   bottom_annotation = col_anno_bottom,
   row_split = df_subclass_annotation$activity_condition,
@@ -353,7 +369,7 @@ p <- Heatmap(
   show_column_names = FALSE,
   use_raster = FALSE
 )
-draw(p)
+draw(p, heatmap_legend_side = 'bottom')
 htShiny(p, action = 'hover', output_ui_float = T)
 
 
@@ -361,9 +377,9 @@ htShiny(p, action = 'hover', output_ui_float = T)
 if (SAVE_PLOTS) {
   print("Saving plot...")
   png("05-results/figure1/raw_R_plots/DGE-heatmap_all_subclasses.png", width = 15, height = 5, units = "in", res = 900)
-  print(p)
+  draw(p, heatmap_legend_side = 'bottom')
   dev.off()
-} else {
+´} else {
   print("Plotting without saving...")
   print(p)
 }

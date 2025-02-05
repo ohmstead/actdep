@@ -40,46 +40,48 @@ p_ap <- ca1_merfish |>
   group_by(z, supertype_id_label) |> 
   summarise(n = n()) |>
   mutate(percent = n / sum(n)) |> 
-  ggplot() +
+ggplot() +
   geom_area(aes(x = z, y = percent, fill = supertype_id_label), position = 'fill') +
-  geom_vline(xintercept = seq(7.5,4,-0.2), color = 'white', linetype = 2, alpha = 0.3) +
+  geom_vline(xintercept = seq(7.5,4.2,-0.2), color = 'white', linetype = 2, alpha = 0.3) +
   scale_fill_manual(values = supertype_colors) +
   scale_x_reverse() +
-  labs(title = "Supertypes along A-P axis",
-       x = "<-- anterior / posterior -->", y = "Proportion of cells"
-  ) +
+  theme_void() +
   theme(
-    plot.title = element_text(size = 30),
-    axis.title.x = element_text(size = 30),
-    axis.title.y = element_text(size = 30),
-    legend.position = c(0.2, 0.25),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    legend.position = 'none',
   )
 
 
 # plot D-V (y) axis distro ----
-ca1_merfish <- ca1_merfish |> 
+p_dv <- ca1_merfish |>
   mutate(ycut = cut(y, breaks = seq(2.9, 8.1, 0.2))) |> 
-  mutate(yy = as.numeric(substr(as.character(ycut), 2, 4)))  # change to number
-
-p_dv <- ca1_merfish |>  
+  mutate(yy = as.numeric(substr(as.character(ycut), 2, 4))) |>   # change to number
   group_by(yy, supertype_id_label) |> 
   summarise(n = n()) |>
   mutate(percent = n / sum(n)) |> 
-  ggplot() +
+ggplot() +
   geom_area(aes(x = yy, y = percent, fill = supertype_id_label), position = 'fill') +
   geom_vline(xintercept = seq(7.8,3.2,-0.5), color = 'white', linetype = 2, alpha = 0.3) +
   scale_x_reverse() +
   coord_flip() +
   scale_fill_manual(values = supertype_colors) +
-  labs(title = "Supertypes along D-V axis",
-       x = "<-- ventral / dorsal -->", y = "Proportion of cells"
-  ) +
+  theme_void() +
   theme(
-    plot.title = element_text(size = 30),
-    axis.title.x = element_text(size = 30),
-    axis.title.y = element_text(size = 30),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
     legend.position = 'none',
   )
 
-
 print(p_ap + p_dv + plot_layout(widths = c(2,1)))
+
+if (SAVE_PLOTS) {
+  ggsave(plot = p_ap, 
+         path = "05-results/figure2/raw_R_plots", 
+         filename = "AP_supertype_distibution.png",
+         device = png, width = 6, height = 3.2, dpi = 900)
+  ggsave(plot = p_dv, 
+         path = "05-results/figure2/raw_R_plots", 
+         filename = "DV_supertype_distibution.png",
+         device = png, width = 4, height = 3.2, dpi = 900)
+}
