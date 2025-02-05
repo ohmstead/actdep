@@ -18,31 +18,8 @@ subclass_colors <- LoadAllenColors("subclass")
 print("Getting DEGs for all subclasses and contrasts...")
 
 # get list of subclasses to use
-subclass_list <- LoadSubclassesToUse(nuclei) |> 
+subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom') |> 
   pull(subclass_name)
-
-custom_subclass_list <- c(
-  '016 CA1-ProS Glut',
-  '025 CA2-FC-IG Glut',
-  '017 CA3 Glut',
-  '037 DG Glut',
-  '023 SUB-ProS Glut',
-  '031 CT SUB Glut',
-  '033 NP SUB Glut',
-  '046 Vip Gaba',
-  '047 Sncg Gaba',
-  '048 RHP-COA Ndnf Gaba',
-  '049 Lamp5 Gaba',
-  '050 Lamp5 Lhx6 Gaba',
-  '051 Pvalb chandelier Gaba',
-  '052 Pvalb Gaba',
-  '053 Sst Gaba',
-  '038 DG-PIR Ex IMN',
-  '319 Astro-TE NN',
-  '326 OPC NN',
-  '327 Oligo NN',
-  '334 Microglia NN'
-)
 
 # get list of contrasts to use
 contrast_list <- c("EE30m_vs_SE", "EE6h_vs_SE")

@@ -178,20 +178,43 @@ LoadZTColors <- function(palette = 5) {
 }
 
 
-LoadSubclassesToUse <- function(seurat_obj, cell_cutoff = 150) {
+LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', cell_cutoff = 150) {
 # returns a list of subclass_names to use. 
 # subclasses with fewer than cell_cutoff are excluded.
   library(Seurat)
   library(tidyverse)
 
-  subclass_list <- seurat_obj@meta.data |> 
-    group_by(subclass_name) |> 
-    summarize(n = n()) |> 
-    filter(n >= cell_cutoff)
-  
-  # sort list alphabetically
-  subclass_list <- subclass_list |> 
-    arrange(subclass_name)
+  if (ascertainment == 'custom') {
+    subclass_list <- c(
+      '016 CA1-ProS Glut',
+      '025 CA2-FC-IG Glut',
+      '017 CA3 Glut',
+      '037 DG Glut',
+      '023 SUB-ProS Glut',
+      '031 CT SUB Glut',
+      '033 NP SUB Glut',
+      '046 Vip Gaba',
+      '047 Sncg Gaba',
+      '048 RHP-COA Ndnf Gaba',
+      '049 Lamp5 Gaba',
+      '050 Lamp5 Lhx6 Gaba',
+      '051 Pvalb chandelier Gaba',
+      '052 Pvalb Gaba',
+      '053 Sst Gaba',
+      '038 DG-PIR Ex IMN',
+      '319 Astro-TE NN',
+      '326 OPC NN',
+      '327 Oligo NN',
+      '334 Microglia NN'
+    )
+  } else if (ascertainment == 'auto') {
+    subclass_list <- seurat_obj@meta.data |> 
+      group_by(subclass_name) |> 
+      summarize(n = n()) |> 
+      filter(n >= cell_cutoff) |> 
+      arrange(subclass_name) |> 
+      pull(subclass_name)
+  }
   
   return(subclass_list)
 }
