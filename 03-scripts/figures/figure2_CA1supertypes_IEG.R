@@ -8,13 +8,12 @@ library(ggridges)
 library(patchwork)
 library(ggplot2)
 library(ggh4x)
-library(plotly)
 
 condition_colors <- LoadActivityColors("May2024")
 subclass_colors <- LoadAllenColors("subclass")
 supertype_colors <- LoadAllenColors("supertype")
 
-nuclei <- LoadDataset("Dec2024", "combined")
+nuclei <- LoadDataset("Dec2024")
 
 # load MERFISH and metadata ----
 allen_taxonomy <- read_excel("02-data/published_data/allen_taxonomy_metadata.xlsx")
@@ -36,21 +35,21 @@ ca1_merfish <- meta_merfish |>
   filter(y < 8.1 | y > 2.9 ) |>   # anything outside is mis-classified
   filter(z < 8 & z > 4)           # anything outside is mis-classified
 
+gene_list <- LoadGeneList("IEG")
+
 
 # find IEG activated cells ----
-gene_list <- LoadGeneList("lncRNA")
 fxn_outputs <- FindActiveCells(nuclei, gene_list = gene_list, gene_threshold = 3)
-df_active_cells_lncRNA <- fxn_outputs$df_active_cells |>
+df_active_cells_IEGs <- fxn_outputs$df_active_cells |>
   pivot_longer(cols = c(num_upregd_genes:last_col(), -num_upregd_genes), names_to = "gene", values_to = "expression") |> 
-  mutate(is_expressing = expression > 0) |> 
-  right_join(nuclei@meta.data, by = c("cell" = "barcode", "activity_condition" = "activity_condition")) |> 
+  left_join(nuclei@meta.data, by = c("cell" = "barcode", "activity_condition" = "activity_condition")) |> 
   filter(subclass_name == '016 CA1-ProS Glut')
 
-df_supertype_active  <- df_active_cells_lncRNA |>
+df_supertype_active  <- df_active_cells_IEGs |>
   group_by(supertype_name, activity_condition) |> 
   summarise(fraction_active = sum(active_binary) / n())
 
- df_activity_plotting_lncRNA <- df_active_cells_lncRNA |> 
+df_activity_plotting_IEGs <- df_active_cells_IEGs |> 
   left_join(df_supertype_active, by = c("supertype_name", "activity_condition")) |> 
   summarize(
     .by = cell,
@@ -62,12 +61,13 @@ df_supertype_active  <- df_active_cells_lncRNA |>
 
 # plot IEG activation ---- 
 strip <- strip_themed(background_x = elem_list_rect(fill = supertype_colors[c(101, 107, 102, 108, 106, 97)]))
-p_lncRNA <- ggplot(df_activity_plotting_lncRNA) + 
-  aes(y = num_upregd_genes, x = activity_condition, fill = activity_condition) +
+strip <- strip_themed(background_x = elem_list_rect(fill = activity_colors))
+p_supertypes_IEG <- ggplot(df_activity_plotting_IEGs) + 
+  aes(y = num_upregd_genes, x = supertype_name, fill = supertype_name) +
   geom_jitter(width = 0.3, height = 0.25, shape = 21, alpha = 0.3, set.seed(17)) +
   geom_boxplot(width = 0.3, alpha = 0.5, outlier.shape = NA) +
   geom_hline(yintercept = 2.5, linetype = 'dotted') +
-  scale_fill_manual(values = activity_colors) +
+  scale_fill_manual(values = supertype_colors) +
   scale_y_continuous(breaks = c(0, 3, 5, 10, 15)) +
   theme(
     plot.title = element_text(size = 30),
@@ -78,13 +78,13 @@ p_lncRNA <- ggplot(df_activity_plotting_lncRNA) +
     strip.text = element_text(size = 15, color = 'white'),
     legend.text = element_text(size = 15)
   ) +
-  facet_wrap2(~supertype_name, strip = strip, nrow = 2)
+  facet_wrap2(~activity_condition, strip = strip, nrow = 1)
   
-print(p_lncRNA)
+print(p_supertypes_IEG)
 
 
 # plot activation along anatomical axes ----
-p_spatial_lncRNA <- ca1_merfish |> 
+p_IEG_spatial <- ca1_merfish |> 
   group_by(z, supertype_id_label) |>  
   summarise(n = n()) |> 
   mutate(composition = n / sum(n)) |> 
@@ -108,35 +108,16 @@ ggplot() +
   ) +
   facet_wrap2(~activity_condition, strip = strip, nrow = 1)
 
-print(p_spatial_lncRNA)
+print(p_IEG_spatial)
 
 
 if (SAVE_PLOTS == TRUE) {
-  ggsave(plot = p_lncRNA, 
+  ggsave(plot = p_supertypes_IEG, 
          path = "05-results/figure2/raw_R_plots", 
-         filename = "lncRNA_activation_by_supertype.png",
+         filename = "IEG_activation_by_supertype.png",
          device = png, width = 16, height = 5, dpi = 900)
-  ggsave(plot = p_spatial_lncRNA,
+  ggsave(plot = p_IEG_spatial,
          path = "05-results/figure2/raw_R_plots",
-         filename = "lncRNA_activation_by_APaxis.png",
+         filename = "IEG_activation_by_APaxis.png",
          device = png, width = 16, height = 5, dpi = 900)
 }
-
-
-# plot co-expression by supertype ----
-EE30m_6iegs <- df_active_cells |> 
-  filter(activity_condition == 'EE30m') |>
-  # filter(num_upregd_genes == 6) |> 
-  filter(supertype_name == '0072 CA1-ProS Glut_4')
-
-df_active_cells |> 
-  group_by(cell) |> 
-  summarize(
-    type = first(supertype_name),
-    n.genes = first(num_upregd_genes),
-    cond = first(activity_condition)
-  ) |> 
-ggplot() +
-  aes(x = n.genes, fill = cond) +
-  geom_histogram() +
-  facet_grid(vars(type), vars(cond), scales = 'free_y')
