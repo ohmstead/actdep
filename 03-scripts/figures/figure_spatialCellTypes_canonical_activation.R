@@ -4,7 +4,7 @@ source("03-scripts/R/seq_functions.R")
 library(dplyr)
 library(readr)
 library(readxl)
-
+library(ggridges)
 library(patchwork)
 library(ggplot2)
 library(ggh4x)
@@ -37,90 +37,97 @@ ca1_merfish <- meta_merfish |>
   filter(z < 8 & z > 4)           # anything outside is mis-classified
 
 
-# find percent_activated cells ----
+# find IEG activated cells ----
 gene_list <- LoadGeneList("IEG")
-fxn_outputs <- FindActiveCells(nuclei, gene_list = gene_list)
-df_active_cells <- fxn_outputs$df_active_cells |>
+fxn_outputs <- FindActiveCells(nuclei, gene_list = gene_list, gene_threshold = 3)
+df_active_cells_IEGs <- fxn_outputs$df_active_cells |>
   pivot_longer(cols = c(num_upregd_genes:last_col(), -num_upregd_genes), names_to = "gene", values_to = "expression") |> 
   mutate(is_expressing = expression > 0) |> 
   right_join(nuclei@meta.data, by = c("cell" = "barcode", "activity_condition" = "activity_condition")) |> 
   filter(subclass_name == '016 CA1-ProS Glut')
 
-df_supertype_active  <- df_active_cells |>
+df_supertype_active  <- df_active_cells_IEGs |>
   group_by(supertype_name, activity_condition) |> 
   summarise(fraction_active = sum(active_binary) / n())
 
-
-# plot activation in panels ----
-strip <- strip_themed(background_x = elem_list_rect(fill = activity_colors[c(1,2,3,5)]))
-p1 <- df_active_cells |> 
+df_activity_plotting_IEGs <- df_active_cells_IEGs |> 
   left_join(df_supertype_active, by = c("supertype_name", "activity_condition")) |> 
   summarize(
     .by = cell,
     supertype_name = dplyr::first(supertype_name), 
     num_upregd_genes = dplyr::first(num_upregd_genes), 
     activity_condition = dplyr::first(activity_condition)
-  ) |> 
-ggplot() +
-  aes(x = supertype_name, y = num_upregd_genes, fill = supertype_name) +
-  geom_jitter(shape = 21, size = 1, alpha = 0.5, height = 0.175, width = 0.3) +
-  geom_hline(yintercept = 2.5) +
+  )
+
+
+# plot IEG activation ---- 
+strip <- strip_themed(background_x = elem_list_rect(fill = supertype_colors[c(101, 107, 102, 108, 106, 97)]))
+strip <- strip_themed(background_x = elem_list_rect(fill = activity_colors))
+p_IEG_active_supertype <- ggplot(df_activity_plotting_IEGs) + 
+  aes(y = num_upregd_genes, x = supertype_name, fill = supertype_name) +
+  geom_jitter(width = 0.3, height = 0.25, shape = 21, alpha = 0.3, set.seed(17)) +
+  geom_boxplot(width = 0.3, alpha = 0.5, outlier.shape = NA) +
+  geom_hline(yintercept = 2.5, linetype = 'dotted') +
   scale_fill_manual(values = supertype_colors) +
-  scale_y_continuous(limits = c(-0.5, 15)) +
-  labs(x = "Supertype", y = "# Induced IEGS") +
+  scale_y_continuous(breaks = c(0, 3, 5, 10, 15)) +
   theme(
     plot.title = element_text(size = 30),
-    axis.title.x = element_text(size = 30),
-    axis.title.y = element_text(size = 30),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
     axis.text.x = element_blank(),
-    # axis.text.x = element_text(size = 20, angle = 45, hjust = 1),
     legend.position = 'none',
-    strip.text = element_text(size = 25),
+    strip.text = element_text(size = 15, color = 'white'),
     legend.text = element_text(size = 15)
   ) +
   facet_wrap2(~activity_condition, strip = strip, nrow = 1)
   
-print(p1)
+print(p_IEG_active_supertype)
+
+nuclei@meta.data |> 
+  filter(subclass_name %in% subclass_list$subclass_name) |> 
+  summarize(n = n(), .by = c('subclass_name', 'activity_condition')) |> 
+  arrange(subclass_name, n)
+
 
 # plot activation along anatomical axes ----
-p2 <- ca1_merfish |> 
+p_IEG_spatial <- ca1_merfish |> 
   group_by(z, supertype_id_label) |>  
   summarise(n = n()) |> 
   mutate(composition = n / sum(n)) |> 
+  arrange(z, supertype_id_label) |> 
   left_join(df_supertype_active, by = c("supertype_id_label" = "supertype_name")) |> 
   mutate(height = composition * fraction_active) |> 
 ggplot() +
   geom_area(aes(x = z, y = height, fill = supertype_id_label), position = 'stack') +
-  geom_vline(xintercept = seq(7.5, 4, -0.2), color = 'white', linetype = 2, alpha = 0.3) +
+  geom_vline(xintercept = seq(7.5, 4.2, -0.2), color = 'white', linetype = 2, alpha = 0.3) +
   scale_fill_manual(values = supertype_colors) +
   scale_x_reverse() +
-  labs(title = "Active CA1 cells along A-P axis",
-       x = "<-- anterior / posterior -->", y = "Proportion of active cells by supertype"
-  ) +
   theme(
-    plot.title = element_text(size = 30),
-    axis.title.x = element_text(size = 30),
-    axis.title.y = element_text(size = 30),
-    strip.text = element_text(size = 20),
-    # legend.position = c(0.9, 0.85),
+    strip.text = element_text(size = 20, color = 'white'),
+    plot.title = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
     legend.position = 'none',
     legend.text = element_text(size = 20)
   ) +
   facet_wrap2(~activity_condition, strip = strip, nrow = 1)
-print(p2)
+
+print(p_IEG_spatial)
 
 
 if (SAVE_PLOTS == TRUE) {
-  ggsave(plot = p1, 
-         path = "05-results/figure_spatialCellTypes_canonical/raw_R_plots", 
-         filename = "activation_by_supertype.png",
+  ggsave(plot = p_IEG_active_supertype, 
+         path = "05-results/figure2/raw_R_plots", 
+         filename = "IEG_activation_by_supertype.png",
          device = png, width = 16, height = 5, dpi = 900)
-  ggsave(plot = p2,
-         path = "05-results/figure_spatialCellTypes_canonical/raw_R_plots",
-         filename = "activation_by_APaxis.png",
+  ggsave(plot = p_IEG_spatial,
+         path = "05-results/figure2/raw_R_plots",
+         filename = "IEG_activation_by_APaxis.png",
          device = png, width = 16, height = 5, dpi = 900)
   
-} 
+}
 
 
 # plot co-expression by supertype ----
