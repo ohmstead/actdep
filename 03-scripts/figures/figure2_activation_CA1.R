@@ -6,6 +6,7 @@ library(ggplot2)
 library(tidyverse)
 library(patchwork)
 library(glue)
+library(ggridges)
 
 source("03-scripts/R/seq_functions.R")
 nuclei <- LoadDataset("Dec2024")
@@ -72,18 +73,18 @@ print(lncRNA_symbols)
 # ---- plot KDE inset ----
 print("Plotting KDE example insets...")
 
-p_inset_Npas4 <- df_active_cells_IEGs |> 
+p_inset_Fos <- df_active_cells_IEGs |> 
   filter(activity_condition %in% c('SE', 'EE30m', 'KA30m')) |>
   mutate(activity_condition = factor(activity_condition, levels = rev(c('SE', 'EE30m', 'KA30m')))) |> 
 ggplot() +
-  aes(x = Npas4, y = activity_condition, fill = activity_condition) +
+  aes(x = Fos, y = activity_condition, fill = activity_condition) +
   geom_density_ridges(scale = 3, alpha = 0.8) +
-  geom_vline(xintercept = 0.5, color = 'black', linetype = 'dotted', lwd=1) +
+  geom_vline(xintercept = outputs_IEG$activation_thresholds['Fos'], color = 'black', linetype = 'dotted', lwd=1) +
   scale_fill_manual(values = activity_colors) +
   coord_cartesian(xlim = c(0, 5), expand = FALSE) +
   theme_void() +
   theme(legend.position = 'none')
-print(p_inset_Npas4)
+print(p_inset_Fos)
 
 p_inset_Arc <- df_active_cells_IEGs |> 
   filter(activity_condition %in% c('SE', 'EE30m', 'KA30m')) |>
@@ -91,7 +92,7 @@ p_inset_Arc <- df_active_cells_IEGs |>
 ggplot() +
   aes(x = Arc, y = activity_condition, fill = activity_condition) +
   geom_density_ridges(scale = 3, alpha = 0.8) +
-  geom_vline(xintercept = 0.5, color = 'black', linetype = 'dotted', lwd=1) +
+  geom_vline(xintercept = outputs_IEG$activation_thresholds['Arc'], color = 'black', linetype = 'dotted', lwd=1) +
   scale_fill_manual(values = activity_colors) +
   coord_cartesian(xlim = c(0, 5), expand = FALSE) +
   theme_void() +
@@ -104,7 +105,7 @@ p_inset_Nr4a1 <- df_active_cells_IEGs |>
 ggplot() +
   aes(x = Nr4a1, y = activity_condition, fill = activity_condition) +
   geom_density_ridges(scale = 3, alpha = 0.8) +
-  geom_vline(xintercept = 0.5, color = 'black', linetype = 'dotted', lwd=1) +
+  geom_vline(xintercept = outputs_IEG$activation_thresholds['Nr4a1'], color = 'black', linetype = 'dotted', lwd=1) +
   scale_fill_manual(values = activity_colors) +
   coord_cartesian(xlim = c(0, 5), expand = FALSE) +
   theme_void() +
@@ -124,17 +125,17 @@ if (SAVE_PLOTS) {
          filename = 'activation_lncRNAs.png', 
          width = 7, height = 3, dpi = 900)
   # inset plots
-  ggsave(plot = p_inset_Npas4, 
+  ggsave(plot = p_inset_Fos, 
          path = '05-results/figure2/raw_R_plots/', 
-         filename = 'inset_Npas4.png', 
+         filename = 'inset_Fos.png', 
          width = 8, height = 2.5, dpi = 900)
   ggsave(plot = p_inset_Arc, 
          path = '05-results/figure2/raw_R_plots/', 
-         filename = 'inset_Npas4.png', 
+         filename = 'inset_Arc.png', 
          width = 8, height = 2.5, dpi = 900)
   ggsave(plot = p_inset_Nr4a1, 
          path = '05-results/figure2/raw_R_plots/', 
-         filename = 'inset_Npas4.png', 
+         filename = 'inset_Nr4a1.png', 
          width = 8, height = 2.5, dpi = 900)
 } else {
   print("Plotted without saving...")
