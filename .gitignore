@@ -40,4 +40,5 @@
 *.fna
 *.ffn
 *fa
+*.nfs*
 /.quarto/
