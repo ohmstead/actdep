@@ -31,8 +31,8 @@ print("Plotting percent of cells active using IEGs...")
 
 p_activation_IEG <- ggplot(df_active_cells_IEGs) +
   aes(x = activity_condition, y = num_upregd_genes, fill = activity_condition) +
-  geom_jitter(width = 0.3, height = 0.25, shape = 21, alpha = 0.3, set.seed(17)) +
-  geom_boxplot(width = 0.3, alpha = 0.5, outlier.shape = NA) +
+  geom_jitter(alpha = 0.3, size = 0.25, width = 0.3, height = 0.25, shape = 21, set.seed(17)) +
+  geom_boxplot(width = 0.3, outlier.shape = NA) +
   geom_hline(yintercept = 2.5, linewidth = 0.5, linetype = 'dashed', color = 'black') +
   scale_fill_manual(values = activity_colors) +
   theme_minimal() +
@@ -53,8 +53,8 @@ print("Plotting percent of cells active using lncRNA...")
 
 p_activation_lncRNA <- ggplot(df_active_cells_lncRNA) +
   aes(x = activity_condition, y = num_upregd_genes, fill = activity_condition) +
-  geom_jitter(width = 0.3, height = 0.25, shape = 21, alpha = 0.3, set.seed(17)) +
-  geom_boxplot(width = 0.3, alpha = 0.5, outlier.shape = NA) +
+  geom_jitter(alpha = 0.3, size = 0.25, width = 0.3, height = 0.25, shape = 21, set.seed(17)) +
+  geom_boxplot(width = 0.3, outlier.shape = NA) +
   geom_hline(yintercept = 2.5, linewidth = 0.5, linetype = 'dashed', color = 'black') +
   scale_fill_manual(values = activity_colors) +
   theme_minimal() +
