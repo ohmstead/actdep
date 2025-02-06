@@ -2,140 +2,109 @@
 print("Loading libraries and data...")
 
 library(Seurat)
-library(ggplot2)
 library(tidyverse)
 library(patchwork)
 library(glue)
+library(ggh4x)
 
 source("03-scripts/R/seq_functions.R")
+
 nuclei <- LoadDataset("Dec2024")
+
 activity_colors <- LoadActivityColors("Dec2024")
+subclass_colors <- LoadAllenColors('subclass')
+subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
+IEG_symbols <- LoadGeneList("IEG")
 
-
-# ---- get active cells ----
+# get active cells in each subclass ----
 print("Getting percent of cells active using IEGs...")
 
-IEG_symbols <- LoadGeneList("IEG")
-lncRNA_symbols <- LoadGeneList("lncRNA")
+df_percent_active_all = tibble()
+counter = 1
 
-outputs_IEG <- FindActiveCells(nuclei, gene_list = IEG_symbols, gene_threshold = 3)
-outputs_lncRNA <- FindActiveCells(nuclei, gene_list = lncRNA_symbols, gene_threshold = 3)
+for(subclass in subclass_list) {
+  print(glue("{subclass} ({counter}/{length(subclass_list)})"))
 
-df_active_cells_IEGs <- outputs_IEG$df_active_cells
-df_active_cells_lncRNA <- outputs_lncRNA$df_active_cells
+  outputs <- FindActiveCells(nuclei, subclass = subclass, gene_list = IEG_symbols, gene_threshold = 3)
+  
+  # extract and aggregate outputs
+  df_active_cells   <- outputs$df_active_cells
+  df_percent_active <- outputs$df_percent_active
+  df_percent_active_all <- bind_rows(df_percent_active_all, df_percent_active)
+
+  counter <- counter+1
+}
+
+df_percent_active_all$subclass <- factor(df_percent_active_all$subclass, levels = subclass_list)
 
 
-# ---- plot % active IEGs ----
-print("Plotting percent of cells active using IEGs...")
+# plot activation within each subclass ----
+subclass_colors_strip <- subclass_colors[names(subclass_colors) %in% subclass_list]
+subclass_colors_strip <- subclass_colors_strip[match(subclass_list, names(subclass_colors_strip))]
+strip = strip_themed(background_x = elem_list_rect(fill = subclass_colors_strip))
 
-p_activation_IEG <- ggplot(df_active_cells_IEGs) +
-  aes(x = activity_condition, y = num_upregd_genes, fill = activity_condition) +
-  geom_jitter(width = 0.3, height = 0.25, shape = 21, alpha = 0.3, set.seed(17)) +
-  geom_boxplot(width = 0.3, alpha = 0.5, outlier.shape = NA) +
-  geom_hline(yintercept = 2.5, linewidth = 0.5, linetype = 'dashed', color = 'black') +
+ggplot(df_percent_active_all) +
+  aes(x = activity_condition, y = percent_active, fill = activity_condition) +
+  geom_col(position = 'dodge') +
+  geom_text(aes(label = scales::percent(percent_active, accuracy = 0.1),
+                color = activity_condition), 
+            vjust = -0.2,  # Positions text slightly above bars
+            size = 4) +
+  facet_wrap2(~subclass, strip = strip, nrow = 4, ncol = 5) +
+  scale_y_continuous(labels = scales::percent_format()) +
   scale_fill_manual(values = activity_colors) +
-  theme_minimal() +
-  scale_y_continuous(breaks = c(0, 3, 5, 10)) +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_text(size = 12),
-        panel.grid = element_blank(),
-        legend.position = 'none'
-  ) +
-  labs(x = '', y = '', fill = 'Condition')
-
-print(p_activation_IEG)
-print(IEG_symbols)
+  scale_color_manual(values = activity_colors) +
+  theme(legend.position = 'none',
+        strip.text = element_text(size = 12, color = 'white'))
 
 
-# ---- plot % active lncRNA ----
-print("Plotting percent of cells active using lncRNA...")
-
-p_activation_lncRNA <- ggplot(df_active_cells_lncRNA) +
-  aes(x = activity_condition, y = num_upregd_genes, fill = activity_condition) +
-  geom_jitter(width = 0.3, height = 0.25, shape = 21, alpha = 0.3, set.seed(17)) +
-  geom_boxplot(width = 0.3, alpha = 0.5, outlier.shape = NA) +
-  geom_hline(yintercept = 2.5, linewidth = 0.5, linetype = 'dashed', color = 'black') +
-  scale_fill_manual(values = activity_colors) +
-  theme_minimal() +
-  scale_y_continuous(breaks = c(0, 3, 5, 10)) +
-  theme(axis.text.x = element_blank(),
-        axis.text.y = element_text(size = 12),
-        panel.grid = element_blank(),
-        legend.position = 'none'
-  ) +
-  labs(x = '', y = '', fill = 'Condition')
-
-print(p_activation_lncRNA)
-print(lncRNA_symbols)
-
-
-# ---- plot KDE inset ----
-print("Plotting KDE example insets...")
-
-p_inset_Npas4 <- df_active_cells_IEGs |> 
-  filter(activity_condition %in% c('SE', 'EE30m', 'KA30m')) |>
-  mutate(activity_condition = factor(activity_condition, levels = rev(c('SE', 'EE30m', 'KA30m')))) |> 
-ggplot() +
-  aes(x = Npas4, y = activity_condition, fill = activity_condition) +
-  geom_density_ridges(scale = 3, alpha = 0.8) +
-  geom_vline(xintercept = 0.5, color = 'black', linetype = 'dotted', lwd=1) +
-  scale_fill_manual(values = activity_colors) +
-  coord_cartesian(xlim = c(0, 5), expand = FALSE) +
-  theme_void() +
-  theme(legend.position = 'none')
-print(p_inset_Npas4)
-
-p_inset_Arc <- df_active_cells_IEGs |> 
-  filter(activity_condition %in% c('SE', 'EE30m', 'KA30m')) |>
-  mutate(activity_condition = factor(activity_condition, levels = rev(c('SE', 'EE30m', 'KA30m')))) |> 
-ggplot() +
-  aes(x = Arc, y = activity_condition, fill = activity_condition) +
-  geom_density_ridges(scale = 3, alpha = 0.8) +
-  geom_vline(xintercept = 0.5, color = 'black', linetype = 'dotted', lwd=1) +
-  scale_fill_manual(values = activity_colors) +
-  coord_cartesian(xlim = c(0, 5), expand = FALSE) +
-  theme_void() +
-  theme(legend.position = 'none')
-print(p_inset_Arc)
-
-p_inset_Nr4a1 <- df_active_cells_IEGs |> 
-  filter(activity_condition %in% c('SE', 'EE30m', 'KA30m')) |>
-  mutate(activity_condition = factor(activity_condition, levels = rev(c('SE', 'EE30m', 'KA30m')))) |> 
-ggplot() +
-  aes(x = Nr4a1, y = activity_condition, fill = activity_condition) +
-  geom_density_ridges(scale = 3, alpha = 0.8) +
-  geom_vline(xintercept = 0.5, color = 'black', linetype = 'dotted', lwd=1) +
-  scale_fill_manual(values = activity_colors) +
-  coord_cartesian(xlim = c(0, 5), expand = FALSE) +
-  theme_void() +
-  theme(legend.position = 'none')
-print(p_inset_Nr4a1)
-
-
-# ---- save plots ----
+# save plots ----
 if (SAVE_PLOTS) {
   print("Saving plots...")
-  ggsave(plot = p_activation_IEG,
+  ggsave(plot = ,
          path = '05-results/figure2/raw_R_plots/', 
-         filename = 'activation_IEGs.png', 
+         filename = '', 
          width = 7, height = 3, dpi = 900)
-  ggsave(plot = p_activation_lncRNA,
-         path = '05-results/figure2/raw_R_plots/', 
-         filename = 'activation_lncRNAs.png', 
-         width = 7, height = 3, dpi = 900)
-  # inset plots
-  ggsave(plot = p_inset_Npas4, 
-         path = '05-results/figure2/raw_R_plots/', 
-         filename = 'inset_Npas4.png', 
-         width = 8, height = 2.5, dpi = 900)
-  ggsave(plot = p_inset_Arc, 
-         path = '05-results/figure2/raw_R_plots/', 
-         filename = 'inset_Npas4.png', 
-         width = 8, height = 2.5, dpi = 900)
-  ggsave(plot = p_inset_Nr4a1, 
-         path = '05-results/figure2/raw_R_plots/', 
-         filename = 'inset_Npas4.png', 
-         width = 8, height = 2.5, dpi = 900)
 } else {
   print("Plotted without saving...")
 }
+
+
+# examine dentate cells bc they're fishy
+outputs <- FindActiveCells(nuclei, subclass = '037 DG Glut', gene_list = IEG_symbols, gene_threshold = 3)
+dentate <- outputs$df_active_cells
+
+ggplot(dentate) +
+  aes(y = num_upregd_genes, fill = activity_condition) +
+  geom_histogram(position = 'dodge')
+
+mat <- GetAssayData(nuclei, 'SCT', layer = 'data')
+
+corr_mat <- GetCorrData(nuclei, 'SE', IEG_symbols)
+hm <- PlotComplexHeatmap(corr_mat, plot_title = 'Dentate EE 30m')
+draw(hm)
+
+mat <- mat[
+  rownames(mat) %in% IEG_symbols,  # get genes
+  colnames(mat) %in% dentate$cell   # get dentate cells
+] |> 
+as.matrix()
+
+hm <- ComplexHeatmap::Heatmap(t(mat))
+
+# get SE and EE30m cell names
+cells.30m <- dentate |> 
+  filter(activity_condition == 'EE30m') |> 
+  pull(cell)
+cells.se <- dentate |> 
+  filter(activity_condition == 'SE') |> 
+  pull(cell)
+
+# plot for SE and 30m independently
+mat.30m <- mat[,colnames(mat) %in% cells.30m]
+mat.se <- mat[,colnames(mat) %in% cells.se]
+
+hm.30m <- ComplexHeatmap::Heatmap(t(mat.30m))
+hm.se  <- ComplexHeatmap::Heatmap(t(mat.se))
+draw(hm.30m)
+draw(hm.se)

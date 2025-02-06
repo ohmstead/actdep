@@ -373,16 +373,18 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, save_path = NULL) {
   print(hm)
   
   if (!is.null(save_path)) {dev.off()}
+
+  return(hm)
 }
 
 
-FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
+FindActiveCells <- function(seurat_obj, subclass = '016 CA1-ProS Glut', gene_list, gene_threshold = 3) {
 # Returns a tibble of cells that are "active" according to the following
 # criterion: >= gene_threshold IEGs in a cell are expressed at counts >= 90th
 # percentile of expression in the standard-environment condition.
   # find the 90th percentile of IEG expression in the dSE cells
   activation_thresholds <- seurat_obj |> 
-    subset(subclass_name == '016 CA1-ProS Glut') |> 
+    subset(subclass_name == subclass) |> 
     subset(activity_condition == 'SE') |> 
     GetAssayData('SCT', layer = 'data') |> 
     as.data.frame() |> 
@@ -399,8 +401,8 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
     rownames_to_column(var = "cell")
   
   # make a new df with only the expression for genes in gene_list
-  df_ieg_expression <- seurat_obj |> 
-    subset(subclass_name == '016 CA1-ProS Glut') |>
+  df_gene_expression <- seurat_obj |> 
+    subset(subclass_name == subclass) |>
     GetAssayData('SCT', layer = 'data') |> 
     as.data.frame() |> 
     rownames_to_column(var = 'gene') |>
@@ -408,10 +410,10 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
     pivot_longer(cols = -gene, names_to = 'cell', values_to = 'expression') |> 
     pivot_wider(names_from = gene, values_from = expression)
   
-  # confirm whether colnames in df_ieg_expression are the same order as 
+  # confirm whether colnames in df_gene_expression are the same order as 
   # elements in activation_thresholds. this is important for comparing 
   # whether IEG expression exceeds 90th percentile ascertained thru SE
-  df_colnames <- df_ieg_expression |> 
+  df_colnames <- df_gene_expression |> 
     dplyr::select(-cell) |>
     colnames()
   
@@ -421,7 +423,7 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
   }
   
   # find out how many cells have at least 3 genes above activation_thresholds$percentile_90th
-  df_active_cells <- df_ieg_expression |> 
+  df_active_cells <- df_gene_expression |> 
     rowwise() |> 
     mutate(num_upregd_genes = sum(c_across(-cell) > activation_thresholds)) |>
     left_join(cell_conditions, by = 'cell') |>
@@ -429,15 +431,18 @@ FindActiveCells <- function(seurat_obj, gene_list, gene_threshold = 3) {
     relocate(activity_condition, active_binary, num_upregd_genes, .after = cell)
   
   # print percentages for each condition
-  df_active_cells |>
+  df_percent_active <- df_active_cells |>
     group_by(activity_condition) |> 
     summarize(percent_active = sum(active_binary) / n()) |> 
     ungroup() |> 
+    mutate(subclass = subclass) |> 
+    relocate(subclass) |> 
     print()
   
   # package outputs
   results <- list(
     df_active_cells = df_active_cells,
+    df_percent_active = df_percent_active,
     activation_thresholds = activation_thresholds
   )
   
