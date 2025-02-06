@@ -14,7 +14,7 @@ nuclei <- LoadDataset("Dec2024")
 activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors('subclass')
 subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
-IEG_symbols <- LoadGeneList("IEG")
+df_degs <- read_csv('04-analysis/DEGs/Dec2024_activity_condition/0_sorted_DEG_list.csv')
 
 # get active cells in each subclass ----
 print("Getting percent of cells active using IEGs...")
@@ -22,10 +22,20 @@ print("Getting percent of cells active using IEGs...")
 df_percent_active_all = tibble()
 counter = 1
 
-for(subclass in subclass_list) {
-  print(glue("{subclass} ({counter}/{length(subclass_list)})"))
+for(current_subclass in subclass_list) {
+  print(glue("{current_subclass} ({counter}/{length(subclass_list)})"))
 
-  outputs <- FindActiveCells(nuclei, subclass = subclass, gene_list = IEG_symbols, gene_threshold = 3)
+  # get genes specific to this subclass
+  subclass_genes <- df_degs |> 
+    filter(n_subclasses == 1) |> 
+    filter(subclass == current_subclass) |> 
+    filter(classification == 'ERG') |> 
+    pull(gene)
+
+  # find the threshold based on the number of genes in the subclass-specific list
+  threshold = round(0.2*length(subclass_genes))
+  if (threshold < 2) {threshold <- 2}
+  outputs <- FindActiveCells(nuclei, subclass = current_subclass, gene_list = subclass_genes, gene_threshold = threshold)
   
   # extract and aggregate outputs
   df_active_cells   <- outputs$df_active_cells
@@ -41,9 +51,9 @@ df_percent_active_all$subclass <- factor(df_percent_active_all$subclass, levels 
 # plot activation within each subclass ----
 subclass_colors_strip <- subclass_colors[names(subclass_colors) %in% subclass_list]
 subclass_colors_strip <- subclass_colors_strip[match(subclass_list, names(subclass_colors_strip))]
-strip = strip_themed(background_x = elem_list_rect(fill = subclass_colors_strip))
+# strip = strip_themed(background_x = elem_list_rect(fill = subclass_colors_strip))
 
-p <- ggplot(df_percent_active_all) +
+p_subclass <- ggplot(df_percent_active_all) +
   aes(x = activity_condition, y = percent_active, fill = activity_condition) +
   geom_col(position = 'dodge') +
   geom_text(aes(label = scales::percent(percent_active, accuracy = 1),
@@ -65,9 +75,9 @@ p <- ggplot(df_percent_active_all) +
 # save plots ----
 if (SAVE_PLOTS) {
   print("Saving plots...")
-  ggsave(plot = p,
+  ggsave(plot = p_subclass,
          path = '05-results/figure2/raw_R_plots/', 
-         filename = 'activation_subclass_IEG.png', 
+         filename = 'activation_by_subclass.png', 
          width = 18, height = 12, dpi = 900)
 } else {
   print("Plotted without saving...")
