@@ -39,8 +39,8 @@ gene_list <- LoadGeneList("IEG")
 
 
 # find IEG activated cells ----
-fxn_outputs <- FindActiveCells(nuclei, gene_list = gene_list, gene_threshold = 3)
-df_active_cells_IEGs <- fxn_outputs$df_active_cells |>
+outputs <- FindActiveCells(nuclei, gene_list = gene_list, gene_threshold = 3)
+df_active_cells_IEGs <- outputs$df_active_cells |>
   pivot_longer(cols = c(num_upregd_genes:last_col(), -num_upregd_genes), names_to = "gene", values_to = "expression") |> 
   left_join(nuclei@meta.data, by = c("cell" = "barcode", "activity_condition" = "activity_condition")) |> 
   filter(subclass_name == '016 CA1-ProS Glut')
@@ -114,10 +114,10 @@ print(p_IEG_spatial)
 if (SAVE_PLOTS == TRUE) {
   ggsave(plot = p_supertypes_IEG, 
          path = "05-results/figure2/raw_R_plots", 
-         filename = "IEG_activation_by_supertype.png",
+         filename = "CA1_supertypes_IEG.png",
          device = png, width = 16, height = 5, dpi = 900)
   ggsave(plot = p_IEG_spatial,
          path = "05-results/figure2/raw_R_plots",
-         filename = "IEG_activation_by_APaxis.png",
+         filename = "CA1_supertypes_APaxis_IEG.png",
          device = png, width = 16, height = 5, dpi = 900)
 }
