@@ -20,6 +20,7 @@ df_degs <- read_csv('04-analysis/DEGs/Dec2024_activity_condition/0_sorted_DEG_li
 print("Getting percent of cells active using IEGs...")
 
 df_percent_active_all = tibble()
+df_threshold_finding_all = tibble()
 counter = 1
 
 for(current_subclass in subclass_list) {
@@ -33,19 +34,63 @@ for(current_subclass in subclass_list) {
     pull(gene)
 
   # find the threshold based on the number of genes in the subclass-specific list
-  threshold = round(0.2*length(subclass_genes))
-  if (threshold < 2) {threshold <- 2}
-  outputs <- FindActiveCells(nuclei, subclass = current_subclass, gene_list = subclass_genes, gene_threshold = threshold)
+  outputs <- FindActiveCells(nuclei, subclass = current_subclass, gene_list = subclass_genes)
   
   # extract and aggregate outputs
   df_active_cells   <- outputs$df_active_cells
-  df_percent_active <- outputs$df_percent_active
-  df_percent_active_all <- bind_rows(df_percent_active_all, df_percent_active)
+
+  # define range of thresholds to test
+  threshold_values <- seq(1, max(df_active_cells$num_upregd_genes, na.rm = TRUE), by = 1)
+
+  # calculate percent activated at each threshold
+  df_threshold_finding <- map_df(threshold_values, function(thresh) {
+    percent_active <- df_active_cells |> 
+      group_by(activity_condition) |> 
+      summarize(percent_active = mean(num_upregd_genes >= thresh)) |> 
+      mutate(threshold = thresh) |> 
+      mutate(subclass = current_subclass)
+  })
+
+  # find the threshold where the percent active is closest to target_pct
+  target_pct <- 0.15
+  target_threshold <- df_threshold_finding |> 
+    filter(activity_condition == 'SE') |> 
+    filter(abs(percent_active - target_pct) == min(abs(percent_active - target_pct))) |> 
+    pull(threshold)
+
+  df_percent_active_final <- df_threshold_finding |> 
+    filter(threshold == target_threshold) |> 
+    print()
+  
+  df_threshold_finding_all <- bind_rows(df_threshold_finding_all, df_threshold_finding)
+  df_percent_active_all    <- bind_rows(df_percent_active_all, df_percent_active_final)
 
   counter <- counter+1
 }
 
 df_percent_active_all$subclass <- factor(df_percent_active_all$subclass, levels = subclass_list)
+
+
+
+
+# se_df <- df_percent_active_all |>
+  # filter(activity_condition == "SE") |>
+  # select(threshold, subclass, se_percent = percent_active)
+
+# Join back to the original data frame and compute the fold-change.
+df_threshold_finding_all |>
+  group_by(threshold, subclass) |> 
+  mutate(fold_change = percent_active / first(percent_active[activity_condition == "SE"])) |> 
+  mutate(threshold = factor(threshold)) |> 
+filter(activity_condition == 'EE30m') |> 
+ggplot() +
+  aes(x = threshold, y = fold_change, fill = threshold) +
+  geom_col(position = 'dodge') +
+  facet_wrap(~subclass)
+  scale_fill_brewer()
+
+
+
 
 
 # plot activation within each subclass ----
