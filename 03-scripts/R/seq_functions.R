@@ -275,6 +275,7 @@ LoadGeneList <- function(list_type = "IEG") {
         'Nr4a3'
       )
   } else if (list_type == "lncRNA") {
+    gene_biotypes <- read_csv("04-analysis/all_gene_stats.csv")
     gene_list <- c(
       read_csv("04-analysis/DEGs/Dec2024_activity_condition/016_CA1-ProS_Glut__EE30m_vs_SE.csv") |> 
         left_join(gene_biotypes, by = c('gene' = 'name')) |> 
@@ -436,9 +437,8 @@ FindActiveCells <- function(seurat_obj, subclass = '016 CA1-ProS Glut', gene_lis
     summarize(percent_active = sum(active_binary) / n()) |> 
     ungroup() |> 
     mutate(subclass = subclass) |> 
-    relocate(subclass) |> 
-    print()
-  
+    relocate(subclass)
+ 
   # package outputs
   results <- list(
     df_active_cells = df_active_cells,
