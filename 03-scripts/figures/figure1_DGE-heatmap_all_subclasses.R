@@ -18,8 +18,7 @@ subclass_colors <- LoadAllenColors("subclass")
 print("Getting DEGs for all subclasses and contrasts...")
 
 # get list of subclasses to use
-subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom') |> 
-  pull(subclass_name)
+subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
 
 # get list of contrasts to use
 contrast_list <- c("EE30m_vs_SE", "EE6h_vs_SE")
@@ -46,14 +45,14 @@ for (file in deg_files) {
   
   # add gene list to df
   deg <- read_csv(file) |> 
-    arrange(desc(avg_log2FC))
+    arrange(desc(avg_log2FC)) |> 
+    filter(p_val_adj < 0.05)
+  
   deg$subclass <- subclass
   deg$contrast <- contrast
+  
   df_all_DEGs <- rbind(df_all_DEGs, deg)
 }
-
-df_all_DEGs <- df_all_DEGs |> 
-  filter(p_val_adj < 0.05)
 
 
 # classify DEGs ----
@@ -76,7 +75,7 @@ df_gene_classifications <- df_all_DEGs |>
 
 # for each subclass, get expression for each activity_condition
 df_distinct_DEGs <- df_all_DEGs |> 
-  filter(subclass %in% custom_subclass_list) |> 
+  filter(subclass %in% subclass_list) |> 
   mutate(activity_condition = case_when(
     contrast == "EE30m_vs_SE" ~ "EE30m",
     contrast == "EE6h_vs_SE" ~ "EE6h",
@@ -99,7 +98,7 @@ df_distinct_DEGs <- df_all_DEGs |>
 print("Normalizing expression data...")
 
 # calculate log2FC expression compared to SE
-nuclei_subclass <- subset(nuclei, subclass_name %in% custom_subclass_list)
+nuclei_subclass <- subset(nuclei, subclass_name %in% subclass_list)
 
 # try DESeq2 approach instead
 # Extract cell-level metadata and raw counts from your Seurat object:
@@ -152,7 +151,7 @@ df_expression <- df_norm |>
   mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |> 
   mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |> 
   mutate(activity_condition = factor(activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA30m', 'KA6h'))) |> 
-  mutate(subclass = factor(subclass, levels = custom_subclass_list)) |> 
+  mutate(subclass = factor(subclass, levels = subclass_list)) |> 
   relocate(gene, subclass, activity_condition, avg_expression_log2, log2fc_from_SE) |> 
   ungroup()
 
@@ -356,7 +355,7 @@ if (SAVE_PLOTS) {
   png("05-results/figure1/raw_R_plots/DGE-heatmap_all_subclasses.png", width = 15, height = 5, units = "in", res = 900)
   draw(p, heatmap_legend_side = 'bottom')
   dev.off()
-´} else {
+} else {
   print("Plotting without saving...")
   print(p)
 }
