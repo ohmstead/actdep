@@ -33,7 +33,7 @@ removeSexSpecificGenes <- function(subclass, naive_gene_list) {
 
 # findDEG() ----
 # uses MAST to find DEGs between conditions within a subclass and removes sex-specific DEGs
-findDEG <- function(seurat_obj, subclass, group1, group2, logFC_threshold=0.25) {
+findDEG <- function(seurat_obj, subclass, group1, group2, logFC_threshold=0.25, pct = 0.01) {
   # print report statement
   print(glue("{subclass} between {group1} and {group2}."))
 
@@ -50,6 +50,7 @@ findDEG <- function(seurat_obj, subclass, group1, group2, logFC_threshold=0.25) 
     seurat_obj, 
     logfc.threshold = logFC_threshold,
     test.use = 'MAST',
+    min.pct = pct,
     ident.1 = group1, ident.2 = group2,
     latent.vars = c('sublibrary', 'percent.mt'),
   ) |> 
@@ -62,9 +63,7 @@ findDEG <- function(seurat_obj, subclass, group1, group2, logFC_threshold=0.25) 
 
 # run DEG analysis within each subclasses ----
 # select major subclasses ----
-subclass_list <- LoadSubclassesToUse(nuclei) |> 
-  print(n = 30) |>  # print n before pulling just the list of names
-  pull(subclass_name)
+subclass_list <- LoadSubclassesToUse(nuclei)
 
 log2FC_threshold <- 0.585  # corresponding to 50% change
 
@@ -85,8 +84,54 @@ for (i in seq_along(subclass_list)) {
     group1 = df_contrasts$group1[i]
     group2 = df_contrasts$group2[i]
 
-    DGE_results <- findDEG(nuclei_subclass, subclass, group1, group2, log2FC_threshold)
-    write_csv(DGE_results, glue("{csv_write_dir}/{subclass_fname}__{group1}_vs_{group2}.csv"))
+    DGE_results <- findDEG(nuclei_subclass, subclass, group1, group2, log2FC_threshold, pct=0.01)
+    write_csv(DGE_results, glue("04-analysis/DEGs/Dec2024_activity_condition_minPct1/{subclass_fname}__{group1}_vs_{group2}.csv"))
   }
 }
 
+# 0.025
+for (i in seq_along(subclass_list)) {
+  subclass <- subclass_list[i]
+  print(glue("subclass {i}/{length(subclass_list)}"))
+
+  # subset nuclei before passing to fxn
+  nuclei_subclass <- subset(nuclei, subclass_name == subclass)
+  Idents(nuclei_subclass) <- nuclei_subclass$activity_condition
+  subclass_fname <- ShrinkSubclassName(subclass)
+
+  # get contrasts available for this subclass
+  df_contrasts <- GetSubclassContrasts(nuclei, subclass, cell_cutoff = 30)
+  
+  # run contrasts for cell groups that meet cell_cutoff
+  for (i in seq_along(df_contrasts$group1)) {
+    group1 = df_contrasts$group1[i]
+    group2 = df_contrasts$group2[i]
+
+    DGE_results <- findDEG(nuclei_subclass, subclass, group1, group2, log2FC_threshold, pct=0.025)
+    write_csv(DGE_results, glue("04-analysis/DEGs/Dec2024_activity_condition_minPct25/{subclass_fname}__{group1}_vs_{group2}.csv"))
+  }
+}
+
+
+# 0.05
+for (i in seq_along(subclass_list)) {
+  subclass <- subclass_list[i]
+  print(glue("subclass {i}/{length(subclass_list)}"))
+
+  # subset nuclei before passing to fxn
+  nuclei_subclass <- subset(nuclei, subclass_name == subclass)
+  Idents(nuclei_subclass) <- nuclei_subclass$activity_condition
+  subclass_fname <- ShrinkSubclassName(subclass)
+
+  # get contrasts available for this subclass
+  df_contrasts <- GetSubclassContrasts(nuclei, subclass, cell_cutoff = 30)
+  
+  # run contrasts for cell groups that meet cell_cutoff
+  for (i in seq_along(df_contrasts$group1)) {
+    group1 = df_contrasts$group1[i]
+    group2 = df_contrasts$group2[i]
+
+    DGE_results <- findDEG(nuclei_subclass, subclass, group1, group2, log2FC_threshold, pct = 0.05)
+    write_csv(DGE_results, glue("04-analysis/DEGs/Dec2024_activity_condition_minPct5/{subclass_fname}__{group1}_vs_{group2}.csv"))
+  }
+}
