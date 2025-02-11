@@ -24,7 +24,7 @@ subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
 contrast_list <- c("EE30m_vs_SE", "EE6h_vs_SE")
 
 # load all DEGs from every subclass x contrast
-dir_deg <- "04-analysis/DEGs/Dec2024_activity_condition"
+dir_deg <- "04-analysis/DEGs/Dec2024_activity_condition_minPct5"
 deg_files <- list.files(dir_deg, full.names = TRUE)
 
 # loop thru CSVs and load in DEGs
@@ -214,7 +214,6 @@ df_gene_levels_LRG <- df_expression |>
   slice_max(order_by = log2fc_from_SE, by = gene) |> 
   arrange(desc(n_subclasses), subclass)
 
-# df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG, df_gene_levels_both) |> 
 df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG) |> 
   arrange(classification, desc(n_subclasses), subclass, desc(log2fc_from_SE))
 
