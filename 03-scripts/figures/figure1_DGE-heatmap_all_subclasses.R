@@ -99,21 +99,63 @@ print("Normalizing expression data...")
 
 # calculate log2FC expression compared to SE
 nuclei_subclass <- subset(nuclei, subclass_name %in% subclass_list)
+Idents(nuclei_subclass) <- nuclei_subclass$subclass_name
 
-# try DESeq2 approach instead
+# Seurat log2FC ----
+comparisons <- list(
+  "EE30m_vs_SE" = c("EE30m", "SE"),
+  "EE6h_vs_SE" = c("EE6h", "SE")
+)
+
+# Function to calculate log2FC for a given subclass and comparison
+calculate_fc <- function(subclass, comparison_name, ident1, ident2) {
+  nuclei_subclass |>
+    FoldChange(group.by = 'activity_condition',
+               ident.1 = ident1,
+               ident.2 = ident2,
+               subset.ident = subclass,
+               features = df_distinct_DEGs$gene,
+               fc.name = 'log2fc_from_SE',
+               base = 2) |>
+    rownames_to_column('gene') |>
+    mutate(subclass = subclass,
+           contrast = comparison_name) |>
+    select(gene, log2fc_from_SE, subclass, contrast) # Keep necessary columns
+}
+
+# Iterate over all subclasses and comparisons, storing results in a single tibble
+df_fc <- expand_grid(subclass = subclass_list, comparison = names(comparisons)) |>
+  mutate(ident1 = map_chr(comparison, ~ comparisons[[.x]][1]),
+         ident2 = map_chr(comparison, ~ comparisons[[.x]][2])) |>
+  pmap_dfr(~ calculate_fc(..1, ..2, ..3, ..4)) |>
+  tibble()
+
+df_expression.seurat <- df_fc |>
+  separate(contrast, into = c('group1', 'group2'), sep = '_vs_') |>
+  mutate(activity_condition = factor(group1, levels = c('EE30m', 'EE6h'))) |>
+  select(-c(group1, group2)) |>
+  mutate(subclass = factor(subclass, levels = subclass_list)) |>
+  mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |>
+  left_join(df_distinct_DEGs, by = 'gene') |>
+  mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |>
+  print()
+  
+
+# DESeq log2FC ----
 # Extract cell-level metadata and raw counts from your Seurat object:
 pseudobulk_counts <- AggregateExpression(
     nuclei_subclass,
     assays = 'RNA',
     features = df_distinct_DEGs$gene,
     group.by = c("subclass_name", "activity_condition")
-  )$RNA
+  )$RNA |>
+  as.matrix()
 
 coldata <- data.frame(
   group = colnames(pseudobulk_counts),
   stringsAsFactors = FALSE
 )
-coldata <- coldata |> 
+coldata <- coldata |>
   mutate(
     subclass = sapply(strsplit(group, "_"), `[`, 1),
     activity_condition = sapply(strsplit(group, "_"), `[`, 2)
@@ -133,41 +175,41 @@ dds <- DESeq(dds)
 # log-transform normalized counts
 norm_counts <- counts(dds, normalized = TRUE)
 norm_log2 <- log2(norm_counts + 1)  # Adding a pseudocount to avoid log(0)
-df_norm <- as.data.frame(norm_log2) |> 
-  rownames_to_column(var = "gene") |> 
+df_norm <- as.data.frame(norm_log2) |>
+  rownames_to_column(var = "gene") |>
   pivot_longer(cols = -gene, names_to = "group", values_to = "avg_expression_log2")
 
 # re-extract variables
-df_norm <- df_norm |> 
-  separate(group, into = c("subclass", "activity_condition"), sep = "_") |> 
+df_norm <- df_norm |>
+  separate(group, into = c("subclass", "activity_condition"), sep = "_") |>
   mutate(subclass = str_sub(subclass, 2, -1))
 
 # calculate log2fc_from_SE for each gene x subclass combo
-df_expression <- df_norm |> 
-  group_by(gene, subclass) |> 
-  mutate(log2fc_from_SE = avg_expression_log2 - avg_expression_log2[activity_condition == "SE"]) |> 
+df_expression.DESeq <- df_norm |>
+  filter(!str_detect(activity_condition, 'KA')) |>
+  group_by(gene, subclass) |>
+  mutate(log2fc_from_SE = avg_expression_log2 - avg_expression_log2[activity_condition == "SE"]) |>
   left_join(df_distinct_DEGs, by = 'gene') |>
-  group_by(gene, subclass) |> 
-  mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |> 
-  mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |> 
-  mutate(activity_condition = factor(activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA30m', 'KA6h'))) |> 
-  mutate(subclass = factor(subclass, levels = subclass_list)) |> 
-  relocate(gene, subclass, activity_condition, avg_expression_log2, log2fc_from_SE) |> 
+  group_by(gene, subclass) |>
+  mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |>
+  mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |>
+  mutate(activity_condition = factor(activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA30m', 'KA6h'))) |>
+  mutate(subclass = factor(subclass, levels = subclass_list)) |>
+  relocate(gene, subclass, activity_condition, avg_expression_log2, log2fc_from_SE) |>
   ungroup()
 
 
 # for genes in the "both" category, refactor ----
-expr_range <- df_expression |>
-  filter(activity_condition == 'EE30m' | activity_condition == 'EE6h') |> 
+expression_range <- df_expression |>
   group_by(gene, subclass) |>
   summarise(
-    max_expr_condition = activity_condition[which.max(avg_expression_log2)],
-    min_expr_condition = activity_condition[which.min(avg_expression_log2)]
+    max_expr_condition = activity_condition[which.max(log2fc_from_SE)],
+    min_expr_condition = activity_condition[which.min(log2fc_from_SE)]
   )
 
 # re-classify as ERG or LRG
 df_expression <- df_expression |>
-left_join(expr_range, by = c("gene", "subclass")) |>
+left_join(expression_range, by = c("gene", "subclass")) |>
 mutate(classification = if_else(
   classification == "both",
   if_else(
@@ -189,10 +231,6 @@ df_expression <- df_expression |>
   select(-modal_classification)
 
 
-# take out seizure conditions----
-df_expression <- df_expression |> 
-  filter(!str_detect(activity_condition, 'KA'))
-
 # sort gene list ----
 print("Sorting gene list...")
 
@@ -205,17 +243,21 @@ print("Sorting gene list...")
 
 df_gene_levels_ERG <- df_expression |> 
   filter(classification == 'ERG') |> 
-  filter(activity_condition == 'EE30m') |>
-  slice_max(order_by = log2fc_from_SE, by = gene) |> 
-  arrange(desc(n_subclasses), subclass)
+  filter(activity_condition == 'EE30m') |> 
+  separate(subclass_by_contrast, into = c("subclass.ascertainment", "contrast"), sep = " x ", remove = FALSE) |>
+  filter(subclass == subclass.ascertainment)
+  # slice_max(order_by = log2fc_from_SE, by = gene)
+    
 df_gene_levels_LRG <- df_expression |> 
   filter(classification == 'LRG') |> 
-  filter(activity_condition == 'EE6h') |>
-  slice_max(order_by = log2fc_from_SE, by = gene) |> 
-  arrange(desc(n_subclasses), subclass)
+  filter(activity_condition == 'EE6h') |> 
+  separate(subclass_by_contrast, into = c("subclass.ascertainment", "contrast"), sep = " x ", remove = FALSE) |>
+  filter(subclass == subclass.ascertainment)
+  # slice_max(order_by = log2fc_from_SE, by = gene)
 
 df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG) |> 
-  arrange(classification, desc(n_subclasses), subclass, desc(log2fc_from_SE))
+  mutate(subclass.ascertainment = factor(subclass.ascertainment, levels = subclass_list)) |>
+  arrange(classification, desc(n_subclasses), subclass.ascertainment, desc(log2fc_from_SE))
 
 # determine whether genes are TFs
 mouse_TFs <- read_excel("02-data/published_data/Mus_musculus_TF.xlsx") |> 
@@ -249,7 +291,7 @@ expression_matrix <- df_expression |>
   pivot_wider(names_from = gene, values_from = log2fc_from_SE) |> 
   column_to_rownames(var = "subclass_by_activity_condition") |> 
   as.matrix() |> 
-  scale()  # z-score the columns 
+  scale()  # z-score the columns
 
 # re-order expression matrix
 # Ensure df_subclass_annotation has the same order as the rows in expression_matrix
@@ -295,7 +337,6 @@ right_anno <- rowAnnotation(
 
 col_anno_top <- HeatmapAnnotation(
   classification = df_gene_levels$classification_TF,
-  # subclass = df_gene_levels$subclass,
   col = list(
     classification = c(
       "ERG_0" = "#BB4430", "LRG_0" = "#F2B880", "both_0" = "#82A6B1", 
@@ -329,7 +370,7 @@ p <- Heatmap(
     at = c(-2, 0, 2),
     direction = "horizontal"
   ),
-  col = circlize::colorRamp2(c(-2.5, 0, 2.5), hcl_palette = 'Blue-Red 2'),
+  col = circlize::colorRamp2(c(-2, 0, 2), hcl_palette = 'Blue-Red 2'),
   cluster_rows = FALSE,
   cluster_columns = FALSE,
   left_annotation = left_anno,
