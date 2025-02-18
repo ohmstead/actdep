@@ -1,63 +1,19 @@
 # Load required libraries
 library(Seurat)
 library(DESeq2)
+library(readr)
 library(ggrepel)
 library(tidyverse)
+library(MAST)
 library(SingleCellExperiment)
 library(ComplexHeatmap)
+library(rpca)
 source("03-scripts/R/seq_functions.R")
 
-# Load the Seurat object
-nuclei <- LoadDataset('Dec2024')
-celltype <- subset(nuclei, 
-                   (subclass_name == '016 CA1-ProS Glut' &
-                    activity_condition == 'SE'))
-
-# prep data ----
-# scrambled_indices <- sample(seq_len(nrow(celltype@meta.data)))   # scramble cell identities!!
-# celltype@meta.data$sample <- celltype@meta.data$sample[scrambled_indices]
-# celltype@meta.data$ZT <- celltype@meta.data$ZT[scrambled_indices]
-
-celltype$Condition <- factor(celltype$activity_condition, levels = c("SE", "EE30m", "EE6h"))
-celltype$ZT <- factor(celltype$ZT, levels = c("ZT0", "ZT4", "ZT12", "ZT16"))
-celltype$sample <- factor(celltype$sample)
-
-
-
-pseudobulk_counts <- AggregateExpression(celltype, group.by = "sample", return.seurat = FALSE)$RNA
-
-col_data <- celltype@meta.data |> 
-  as_tibble() |> 
-  distinct(sample, Condition, ZT) |> 
-  mutate(sample = str_replace(sample, '_', '-')) |> 
-  column_to_rownames("sample") |> 
-  filter(!is.na(Condition)) |> 
-  arrange(ZT, Condition)
-
-col_data <- col_data[colnames(pseudobulk_counts),]
+ZT_colors <- LoadZTColors()
 
 
 # define fxns ----
-thresh <- 1
-getConstrastResults <- function(dds, contrast, threshold) {
-  res <- results(dds, contrast = contrast) |> 
-    as.data.frame() |> 
-    rownames_to_column("gene") |> 
-    relocate(gene) |> 
-    mutate(
-      classification = 
-        ifelse(log2FoldChange > thresh & padj < 0.05, "upregulated", 
-               ifelse(log2FoldChange < -thresh & padj < 0.05, "downregulated", 
-                      "no_change")
-        )
-    ) |> 
-    filter(padj < 0.05)
-  rownames(res) <- res$gene
-  
-  return(res)
-}
-
-
 volcanoPlot <- function(res, title) {
   point_color <- setNames(c("red", "blue", "black"), c("upregulated", "downregulated", "no_change"))
   
@@ -80,90 +36,280 @@ volcanoPlot <- function(res, title) {
   return(p)
 }
 
+plotPCA <- function(sca_obj){
+  set.seed(17)
+  projection <- rpca(t(assay(sca_obj)))$x
+  colnames(projection)=c("PC1","PC2","PC3","PC4")
+  pca <- data.table(projection,  as.data.frame(colData(sca_obj)))
+  print(ggpairs(pca, columns=c('PC1', 'PC2', 'PC3', 'libSize', 'PercentToHuman', 'nGeneOn', 'exonRate'),
+          mapping=aes(color=condition), upper=list(continuous='blank')))
+  invisible(pca)
+}
 
-# run DE ----
-dds <- DESeqDataSetFromMatrix(countData = as.matrix(pseudobulk_counts), 
-                              colData = col_data, 
-                              design = ~ ZT)
-dds <- DESeq(dds)
+quickViolin <- function(genes) {
+  p <- VlnPlot(celltype, group.by = 'ZT', features = genes) +
+    scale_fill_manual(values = ZT_colors)
+  print(p)
 
-
-# ZT4 vs ZT0 ----
-contrast = c("ZT", "ZT4", "ZT0")
-res_ZT4_vs_ZT0 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT4_vs_ZT0, "ZT4 vs ZT0")
-
-
-# ZT12 vs ZT0 ----
-contrast = c("ZT", "ZT12", "ZT0")
-res_ZT12_vs_ZT0 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT12_vs_ZT0, "ZT12 vs ZT0")
-
-
-# ZT16_vs_ZT0 ----
-contrast = c("ZT", "ZT16", "ZT0")
-res_ZT16_vs_ZT0 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT16_vs_ZT0, "ZT16 vs ZT0")
+  return(p)
+}
 
 
-# ZT12 vs ZT4 ----
-contrast = c("ZT", "ZT12", "ZT4")
-res_ZT12_vs_ZT4 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT12_vs_ZT4, "ZT12 vs ZT4")
+# load data ----
+valid_conditions <- c('SE', 'EE30m', 'EE6h')
+nuclei <- LoadDataset('Dec2024')
+celltype <- subset(
+  nuclei, 
+  (
+    subclass_name == '016 CA1-ProS Glut' & 
+    # activity_condition %in% valid_conditions
+    activity_condition == 'SE'
+  )
+)
+
+# convert to SingleCellAssay
+mat <- celltype[["SCT"]]@data
+
+# remove rows from mat that have nonzeros in fewer than 5% of cells
+mat <- mat[rowMeans(mat > 0) > 0.05, ]
+cell_metadata <- celltype@meta.data
+gene_metadata <- data.frame(gene = rownames(mat))
+sca <- FromMatrix(exprsArray = as.matrix(mat),
+                  cData = cell_metadata,
+                  fData = gene_metadata)
+
+# calcualte the cellular detection rate after gene filt
+cdr <-colSums(assay(sca)>0)
+colData(sca)$cdr <- scale(cdr)
+
+# save genes tested
+genes_tested <- rownames(mat)
+csv_write(genes_tested, "04-analysis/DEGs/Dec2024_ZT/genes_tested.csv")
 
 
-# ZT16 vs ZT4 ----
-contrast = c("ZT", "ZT16", "ZT4")
-res_ZT16_vs_ZT4 <- getConstrastResults(dds, contrast, thresh)
-volcanoPlot(res_ZT16_vs_ZT4, "ZT16 vs ZT4")
+# viz data ----
+# plotPCA(sca)
 
 
-# ZT16 vs ZT12 ----
-contrast = c("ZT", "ZT16", "ZT12")
-res_ZT16_vs_ZT12 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT16_vs_ZT12, "ZT16 vs ZT12")
+# run DE with ZT0 as the base level ----
+options(mc.cores = 16)
+zlm_model.ZT0 <- zlm(~ZT + cdr + (1|sample), 
+                 data = sca,
+                 method = 'glmer',
+                 ebayes = FALSE,
+                 parallel = TRUE)
 
+
+# run DE with ZT4 as the base level ----
+sca$ZT <- factor(sca$ZT, levels = c("ZT4", "ZT0", "ZT12", "ZT16"))
+zlm_model.ZT4 <- zlm(~ZT + cdr + (1|sample), 
+                 data = sca,
+                 method = 'glmer',
+                 ebayes = FALSE,
+                 parallel = TRUE)
+
+
+# run DE with ZT12 as the base level ----
+sca$ZT <- factor(sca$ZT, levels = c("ZT12", "ZT0", "ZT4", "ZT16"))
+zlm_model.ZT12 <- zlm(~ZT + cdr + (1|sample), 
+                 data = sca,
+                 method = 'glmer',
+                 ebayes = FALSE,
+                 parallel = TRUE)
+
+
+# perform contrasts ----
+# de_ZT4_vs_ZT0 <- summary(zlm_model.ZT0, doLRT = "ZTZT4")
+# de_ZT12_vs_ZT0 <- summary(zlm_model.ZT0, doLRT = "ZTZT12")
+# de_ZT16_vs_ZT0 <- summary(zlm_model.ZT0, doLRT = "ZTZT16")
+de_ZT12_vs_ZT4 <- summary(zlm_model.ZT4, doLRT = "ZTZT12")
+de_ZT16_vs_ZT4 <- summary(zlm_model.ZT4, doLRT = "ZTZT16")
+de_ZT16_vs_ZT12 <- summary(zlm_model.ZT12, doLRT = "ZTZT16")
+
+log2FC_threshold <- 0.585
+
+# ZT4 vs ZT0
+dt_ZT4_vs_ZT0 <- de_ZT4_vs_ZT0$datatable
+
+results_ZT4_vs_ZT0 <- merge(
+  dt_ZT4_vs_ZT0[contrast == "ZTZT4" & component == "H", .(primerid, `Pr(>Chisq)`)],
+  dt_ZT4_vs_ZT0[contrast == "ZTZT4" & component == "logFC", .(primerid, coef, ci.hi, ci.lo)],
+  by = "primerid"
+)
+
+results_ZT4_vs_ZT0[, fdr := p.adjust(`Pr(>Chisq)`, 'fdr')]
+results_ZT4_vs_ZT0[, log2FC := log2(exp(coef))]
+results_ZT4_vs_ZT0 <- results_ZT4_vs_ZT0 |> 
+  rename(gene = primerid) |>
+  relocate(log2FC, fdr, .after = gene)
+
+results_ZT4_vs_ZT0_signif <- results_ZT4_vs_ZT0 |> 
+  filter(fdr < 0.05, abs(log2FC) > log2FC_threshold) |> 
+  arrange(desc(log2FC)) |> 
+  print()
+
+
+# ZT12 vs ZT0
+dt_ZT12_vs_ZT0 <- de_ZT12_vs_ZT0$datatable
+
+results_ZT12_vs_ZT0 <- merge(
+  dt_ZT12_vs_ZT0[contrast == "ZTZT12" & component == "H", .(primerid, `Pr(>Chisq)`)],
+  dt_ZT12_vs_ZT0[contrast == "ZTZT12" & component == "logFC", .(primerid, coef, ci.hi, ci.lo)],
+  by = "primerid"
+)
+
+results_ZT12_vs_ZT0[, fdr := p.adjust(`Pr(>Chisq)`, 'fdr')]
+results_ZT12_vs_ZT0[, log2FC := log2(exp(coef))]
+results_ZT12_vs_ZT0 <- results_ZT12_vs_ZT0 |> 
+  rename(gene = primerid) |>
+  relocate(log2FC, fdr, .after = gene)
+
+results_ZT12_vs_ZT0_signif <- results_ZT12_vs_ZT0 |> 
+  filter(fdr < 0.05, abs(log2FC) > log2FC_threshold) |> 
+  arrange(desc(log2FC)) |> 
+  print()
+
+
+# ZT16 vs ZT0
+dt_ZT16_vs_ZT0 <- de_ZT16_vs_ZT0$datatable
+
+results_ZT16_vs_ZT0 <- merge(
+  dt_ZT16_vs_ZT0[contrast == "ZTZT16" & component == "H", .(primerid, `Pr(>Chisq)`)],
+  dt_ZT16_vs_ZT0[contrast == "ZTZT16" & component == "logFC", .(primerid, coef, ci.hi, ci.lo)],
+  by = "primerid"
+)
+
+results_ZT16_vs_ZT0[, fdr := p.adjust(`Pr(>Chisq)`, 'fdr')]
+results_ZT16_vs_ZT0[, log2FC := log2(exp(coef))]
+results_ZT16_vs_ZT0 <- results_ZT16_vs_ZT0 |> 
+  rename(gene = primerid) |>
+  relocate(log2FC, fdr, .after = gene)
+
+results_ZT16_vs_ZT0_signif <- results_ZT16_vs_ZT0 |> 
+  filter(fdr < 0.05, abs(log2FC) > log2FC_threshold) |> 
+  arrange(desc(log2FC)) |> 
+  print()
+
+
+# ZT12 vs ZT4
+dt_ZT12_vs_ZT4 <- de_ZT12_vs_ZT4$datatable
+
+results_ZT12_vs_ZT4 <- merge(
+  dt_ZT12_vs_ZT4[contrast == "ZTZT12" & component == "H", .(primerid, `Pr(>Chisq)`)],
+  dt_ZT12_vs_ZT4[contrast == "ZTZT12" & component == "logFC", .(primerid, coef, ci.hi, ci.lo)],
+  by = "primerid"
+)
+
+results_ZT12_vs_ZT4[, fdr := p.adjust(`Pr(>Chisq)`, 'fdr')]
+results_ZT12_vs_ZT4[, log2FC := log2(exp(coef))]
+results_ZT12_vs_ZT4 <- results_ZT12_vs_ZT4 |> 
+  rename(gene = primerid) |>
+  relocate(log2FC, fdr, .after = gene)
+
+results_ZT12_vs_ZT4_signif <- results_ZT12_vs_ZT4 |> 
+  filter(fdr < 0.05, abs(log2FC) > log2FC_threshold) |> 
+  arrange(desc(log2FC)) |> 
+  print()
+
+
+# ZT16 vs ZT4
+dt_ZT16_vs_ZT4 <- de_ZT16_vs_ZT4$datatable
+
+results_ZT16_vs_ZT4 <- merge(
+  dt_ZT16_vs_ZT4[contrast == "ZTZT16" & component == "H", .(primerid, `Pr(>Chisq)`)],
+  dt_ZT16_vs_ZT4[contrast == "ZTZT16" & component == "logFC", .(primerid, coef, ci.hi, ci.lo)],
+  by = "primerid"
+)
+
+results_ZT16_vs_ZT4[, fdr := p.adjust(`Pr(>Chisq)`, 'fdr')]
+results_ZT16_vs_ZT4[, log2FC := log2(exp(coef))]
+results_ZT16_vs_ZT4 <- results_ZT16_vs_ZT4 |> 
+  rename(gene = primerid) |>
+  relocate(log2FC, fdr, .after = gene)
+
+results_ZT16_vs_ZT4_signif <- results_ZT16_vs_ZT4 |> 
+  filter(fdr < 0.05, abs(log2FC) > log2FC_threshold) |> 
+  arrange(desc(log2FC)) |> 
+  print()
+
+
+# ZT16 vs ZT12
+dt_ZT16_vs_ZT12 <- de_ZT16_vs_ZT12$datatable
+
+results_ZT16_vs_ZT12 <- merge(
+  dt_ZT16_vs_ZT12[contrast == "ZTZT16" & component == "H", .(primerid, `Pr(>Chisq)`)],
+  dt_ZT16_vs_ZT12[contrast == "ZTZT16" & component == "logFC", .(primerid, coef, ci.hi, ci.lo)],
+  by = "primerid"
+)
+
+results_ZT16_vs_ZT12[, fdr := p.adjust(`Pr(>Chisq)`, 'fdr')]
+results_ZT16_vs_ZT12[, log2FC := log2(exp(coef))]
+results_ZT16_vs_ZT12 <- results_ZT16_vs_ZT12 |> 
+  rename(gene = primerid) |>
+  relocate(log2FC, fdr, .after = gene)
+
+results_ZT16_vs_ZT12_signif <- results_ZT16_vs_ZT12 |> 
+  filter(fdr < 0.05, abs(log2FC) > log2FC_threshold) |> 
+  arrange(desc(log2FC)) |> 
+  print()
+
+
+# save results in files
+write_csv(results_ZT4_vs_ZT0, "04-analysis/DEGs/Dec2024_ZT/SE_ZT4_vs_ZT0.csv")
+write_csv(results_ZT12_vs_ZT0, "04-analysis/DEGs/Dec2024_ZT/SE_ZT12_vs_ZT0.csv")
+write_csv(results_ZT16_vs_ZT0, "04-analysis/DEGs/Dec2024_ZT/SE_ZT16_vs_ZT0.csv")
+write_csv(results_ZT12_vs_ZT4, "04-analysis/DEGs/Dec2024_ZT/SE_ZT12_vs_ZT4.csv")
+write_csv(results_ZT16_vs_ZT4, "04-analysis/DEGs/Dec2024_ZT/SE_ZT16_vs_ZT4.csv")
+write_csv(results_ZT16_vs_ZT12, "04-analysis/DEGs/Dec2024_ZT/SE_ZT16_vs_ZT12.csv")
 
 # heatmap ----
 # assemble all genes and their contrast of origin
-all_genes <- bind_rows(
-  res_ZT4_vs_ZT0 |> mutate(contrast = "ZT4 vs ZT0") |> filter(classification != 'no_change'),
-  res_ZT12_vs_ZT0 |> mutate(contrast = "ZT12 vs ZT0") |> filter(classification != 'no_change'),
-  res_ZT16_vs_ZT0 |> mutate(contrast = "ZT16 vs ZT0") |> filter(classification != 'no_change'),
-  res_ZT12_vs_ZT4 |> mutate(contrast = "ZT12 vs ZT4") |> filter(classification != 'no_change'),
-  res_ZT16_vs_ZT4 |> mutate(contrast = "ZT16 vs ZT4") |> filter(classification != 'no_change'),
-  res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
-)
+results_signif_all <- bind_rows(
+  results_ZT4_vs_ZT0_signif |> mutate(contrast = "ZT4_vs_ZT0"),
+  results_ZT12_vs_ZT0_signif |> mutate(contrast = "ZT12_vs_ZT0"),
+  results_ZT16_vs_ZT0_signif |> mutate(contrast = "ZT16_vs_ZT0"),
+  results_ZT12_vs_ZT4_signif |> mutate(contrast = "ZT12_vs_ZT4"),
+  results_ZT16_vs_ZT4_signif |> mutate(contrast = "ZT16_vs_ZT4"),
+  results_ZT16_vs_ZT12_signif |> mutate(contrast = "ZT16_vs_ZT12")
+) |> 
+  relocate(contrast, .after = gene) |> 
+  print()
+write_csv(results_signif_all, "04-analysis/DEGs/Dec2024_ZT/SE_all_signif_genes.csv")
 
 # remove duplicates
-gene_list <- all_genes |> 
+zt_genes <- results_signif_all |> 
   distinct(gene) |> 
   pull()
 
-# get DESeq-normalized expression
-mat <- counts(dds, normalized = T)
-gene_mat <- mat[gene_list,] |> 
+# make a "collection time" for samples
+nuc.subset <- nuclei |> 
+  subset(subclass_name == '016 CA1-ProS Glut') |>
+  subset(activity_condition == 'SE' | activity_condition == 'EE6h')
+
+# for cases where activity_condition == EE6h, set ZT_collection to ZT + 6. Otherwise, use ZT. Please use case_when
+nuc.subset@meta.data <- nuc.subset@meta.data |> 
+  mutate(ZT.collection = case_when(
+    (ZT == 'ZT0' & activity_condition == 'EE6h') ~ 'ZT6',
+    (ZT == 'ZT4' & activity_condition == 'EE6h') ~ 'ZT10',
+    (ZT == 'ZT12' & activity_condition == 'EE6h') ~ 'ZT18',
+    (ZT == 'ZT16' & activity_condition == 'EE6h') ~ 'ZT22',
+    TRUE ~ ZT
+  )) |> 
+  mutate(ZT.collection = factor(ZT.collection, 
+    levels = c('ZT0', 'ZT4', 'ZT6', 'ZT10', 'ZT12', 'ZT16', 'ZT18', 'ZT22')))
+  
+# get average expression for each ZT gene
+# mat_zt <- AverageExpression(nuc.subset, group.by = 'ZT.collection', features = zt_genes)$SCT |> 
+mat_zt <- AverageExpression(celltype, group.by = 'ZT', features = zt_genes)$SCT |> 
   t() |> 
-  as.data.frame() |> 
-  rownames_to_column('sample') |> 
-  pivot_longer(cols = -sample, names_to = 'gene', values_to = 'expression') |> 
-  mutate(ZT = str_extract(sample, "ZT\\d+")) |> 
-  mutate(ZT = factor(ZT, levels = c("ZT0", "ZT4", "ZT12", "ZT16"))) |> 
-  group_by(gene, ZT) |> 
-  mutate(mean_expression = mean(expression)) |> 
-  ungroup() |> 
-  group_by(gene) |> 
-  mutate(z_expression = scale(mean_expression)) |> 
-  select(gene, ZT, z_expression) |> 
-  distinct() |> 
-  pivot_wider(names_from = ZT, values_from = z_expression) |> 
-  column_to_rownames('gene') |> 
-  as.matrix()
+  # z-score the genes
+  scale()
+
 
 k = 4
 col_fun <- circlize::colorRamp2(c(-2,0,2), hcl_palette = "blue-red2")
-hm <- Heatmap(gene_mat,
-              col = col_fun,
+hm <- Heatmap(t(mat_zt),
+              # col = col_fun,
               cluster_columns = FALSE,
               row_split = k,
               cluster_row_slices = F
