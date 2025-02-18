@@ -508,7 +508,7 @@ RunGOEnrichment <- function(gene_list){
   )
   
   # run analysis
-  results_GO <- enrichGO(gene = gene_info$entrezgene_id, OrgDb = 'org.Mm.eg.db', ont = 'ALL')
+  results_GO <- enrichGO(gene = gene_info$entrezgene_id, OrgDb = 'org.Mm.eg.db', ont = 'ALL', pvalueCutoff = 0.99, qvalueCutoff = 0.99)
   results_GO <- as_tibble(setReadable(results_GO, OrgDb = 'org.Mm.eg.db', keyType = 'ENTREZID'))
   
   return(results_GO)  
