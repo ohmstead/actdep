@@ -7,38 +7,7 @@ library(SingleCellExperiment)
 library(ComplexHeatmap)
 source("03-scripts/R/seq_functions.R")
 
-# Load the Seurat object
-nuclei <- LoadDataset('Dec2024')
-celltype <- subset(nuclei, 
-                   (subclass_name == '016 CA1-ProS Glut' &
-                    activity_condition == 'SE'))
-
-# prep data ----
-# scrambled_indices <- sample(seq_len(nrow(celltype@meta.data)))   # scramble cell identities!!
-# celltype@meta.data$sample <- celltype@meta.data$sample[scrambled_indices]
-# celltype@meta.data$ZT <- celltype@meta.data$ZT[scrambled_indices]
-
-celltype$Condition <- factor(celltype$activity_condition, levels = c("SE", "EE30m", "EE6h"))
-celltype$ZT <- factor(celltype$ZT, levels = c("ZT0", "ZT4", "ZT12", "ZT16"))
-celltype$sample <- factor(celltype$sample)
-
-
-
-pseudobulk_counts <- AggregateExpression(celltype, group.by = "sample", return.seurat = FALSE)$RNA
-
-col_data <- celltype@meta.data |> 
-  as_tibble() |> 
-  distinct(sample, Condition, ZT) |> 
-  mutate(sample = str_replace(sample, '_', '-')) |> 
-  column_to_rownames("sample") |> 
-  filter(!is.na(Condition)) |> 
-  arrange(ZT, Condition)
-
-col_data <- col_data[colnames(pseudobulk_counts),]
-
-
 # define fxns ----
-thresh <- 1
 getConstrastResults <- function(dds, contrast, threshold) {
   res <- results(dds, contrast = contrast) |> 
     as.data.frame() |> 
@@ -50,16 +19,18 @@ getConstrastResults <- function(dds, contrast, threshold) {
                ifelse(log2FoldChange < -thresh & padj < 0.05, "downregulated", 
                       "no_change")
         )
-    ) |> 
-    filter(padj < 0.05)
+    )
+    
+    print(tibble(res))
+
   rownames(res) <- res$gene
   
-  return(res)
+  return(tibble(res))
 }
 
-
-volcanoPlot <- function(res, title) {
-  point_color <- setNames(c("red", "blue", "black"), c("upregulated", "downregulated", "no_change"))
+volcanoPlot <- function(res, title, threshold) {
+  point_color <- setNames(c("red", "blue", "black"), 
+                          c("upregulated", "downregulated", "no_change"))
   
   p <- ggplot(res) +
     aes(x = log2FoldChange, y = -log10(padj), color = classification) +
@@ -71,7 +42,7 @@ volcanoPlot <- function(res, title) {
       max.overlaps = 20,
     ) +
     geom_hline(yintercept = -log10(0.05), linetype = "dashed") +
-    geom_vline(xintercept = c(-1, 1), linetype = "dashed") +
+    geom_vline(xintercept = c(-threshold, threshold), linetype = "dashed") +
     scale_color_manual(values = point_color) +
     labs(x = "log2FoldChange", y = "-log10(padj)", title = title) +
     theme(legend.position = "none")
@@ -81,47 +52,85 @@ volcanoPlot <- function(res, title) {
 }
 
 
+# load data ----
+nuclei <- LoadDataset('Dec2024')
+celltype <- subset(nuclei, 
+                   (subclass_name == '016 CA1-ProS Glut' &
+                    activity_condition == 'SE'))
+
+# prep data ----
+# scrambled_indices <- sample(seq_len(nrow(celltype@meta.data)))   # scramble cell identities!!
+# celltype@meta.data$sample <- celltype@meta.data$sample[scrambled_indices]
+# celltype@meta.data$ZT <- celltype@meta.data$ZT[scrambled_indices]
+
+# only test genes expressed in 5% of cells
+mat <- celltype[["SCT"]]@data
+mat <- mat[rowMeans(mat > 0) > 0.05, ]
+cell_metadata <- celltype@meta.data
+gene_list <- rownames(mat)
+
+celltype$Condition <- factor(celltype$activity_condition, levels = c("SE", "EE30m", "EE6h"))
+celltype$ZT <- factor(celltype$ZT, levels = c("ZT0", "ZT4", "ZT12", "ZT16"))
+celltype$sample <- factor(celltype$sample)
+
+
+
+pseudobulk_counts <- AggregateExpression(celltype, group.by = "sample", features = gene_list, return.seurat = FALSE)$RNA
+
+col_data <- celltype@meta.data |> 
+  as_tibble() |> 
+  distinct(sample, Condition, ZT) |> 
+  mutate(sample = str_replace(sample, '_', '-')) |> 
+  column_to_rownames("sample") |> 
+  filter(!is.na(Condition)) |> 
+  arrange(ZT, Condition)
+
+col_data <- col_data[colnames(pseudobulk_counts),]
+col_data$sample <- rownames(col_data)
+
+
 # run DE ----
 dds <- DESeqDataSetFromMatrix(countData = as.matrix(pseudobulk_counts), 
                               colData = col_data, 
                               design = ~ ZT)
 dds <- DESeq(dds)
 
+thresh = 0.585
 
 # ZT4 vs ZT0 ----
 contrast = c("ZT", "ZT4", "ZT0")
 res_ZT4_vs_ZT0 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT4_vs_ZT0, "ZT4 vs ZT0")
+p <- volcanoPlot(res_ZT4_vs_ZT0, "ZT4 vs ZT0", thresh)
 
 
 # ZT12 vs ZT0 ----
 contrast = c("ZT", "ZT12", "ZT0")
 res_ZT12_vs_ZT0 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT12_vs_ZT0, "ZT12 vs ZT0")
+p <- volcanoPlot(res_ZT12_vs_ZT0, "ZT12 vs ZT0", thresh)
 
 
 # ZT16_vs_ZT0 ----
 contrast = c("ZT", "ZT16", "ZT0")
 res_ZT16_vs_ZT0 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT16_vs_ZT0, "ZT16 vs ZT0")
+p <- volcanoPlot(res_ZT16_vs_ZT0, "ZT16 vs ZT0", thresh)
 
 
 # ZT12 vs ZT4 ----
 contrast = c("ZT", "ZT12", "ZT4")
 res_ZT12_vs_ZT4 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT12_vs_ZT4, "ZT12 vs ZT4")
+p <- volcanoPlot(res_ZT12_vs_ZT4, "ZT12 vs ZT4", thresh)
 
 
 # ZT16 vs ZT4 ----
 contrast = c("ZT", "ZT16", "ZT4")
 res_ZT16_vs_ZT4 <- getConstrastResults(dds, contrast, thresh)
-volcanoPlot(res_ZT16_vs_ZT4, "ZT16 vs ZT4")
+volcanoPlot(res_ZT16_vs_ZT4, "ZT16 vs ZT4", thresh)
 
 
 # ZT16 vs ZT12 ----
 contrast = c("ZT", "ZT16", "ZT12")
 res_ZT16_vs_ZT12 <- getConstrastResults(dds, contrast, thresh)
-p <- volcanoPlot(res_ZT16_vs_ZT12, "ZT16 vs ZT12")
+p <- volcanoPlot(res_ZT16_vs_ZT12, "ZT16 vs ZT12", thresh)
 
 
 # heatmap ----
@@ -174,6 +183,9 @@ hm = draw(hm)
 InteractiveComplexHeatmap::htShiny(hm)
 
 
+# find p-values for all gene lists  ----
+
+
 if (SAVE_PLOTS) {
   png("05-results/figureZT/raw_R_plots/SE_ZT_DEGs.png", width = 5, height = 10, units = "in", res = 900)
   print(hm)
@@ -181,23 +193,21 @@ if (SAVE_PLOTS) {
 }
 
 # GO analysis ----
-dend <- row_dend(hm)
-row_clusters <- cutree(as.hclust(dend), k = k)
+cluster_genes <- lapply(row_order(hm), function(idx) rownames(mat)[idx])
 
-# run GO on each set
 go_terms_all <- tibble()
 
-terms.1 <- RunGOEnrichment(names(row_clusters[row_clusters == 1])) |> mutate(cluster = 1)
+terms.1 <- RunGOEnrichment(cluster_genes[[1]]) |> mutate(cluster = 1)
 go_terms_all <- rbind(go_terms_all, terms.1)
 
-terms.2 <- RunGOEnrichment(names(row_clusters[row_clusters == 2])) |> mutate(cluster = 2)
+terms.2 <- RunGOEnrichment(cluster_genes[[2]]) |> mutate(cluster = 2)
 go_terms_all <- rbind(go_terms_all, terms.2)
 
-terms.3 <- RunGOEnrichment(names(row_clusters[row_clusters == 3])) |> mutate(cluster = 3)
+terms.3 <- RunGOEnrichment(cluster_genes[[3]]) |> mutate(cluster = 3)
 go_terms_all <- rbind(go_terms_all, terms.3)
 
-terms.4 <- RunGOEnrichment(names(row_clusters[row_clusters == 4])) |> mutate(cluster = 4)
+terms.4 <- RunGOEnrichment(cluster_genes[[4]]) |> mutate(cluster = 4)
 go_terms_all <- rbind(go_terms_all, terms.4)
 
-terms.5 <- RunGOEnrichment(names(row_clusters[row_clusters == 5])) |> mutate(cluster = 5)
+terms.5 <- RunGOEnrichment(cluster_genes[[5]]) |> mutate(cluster = 5)
 go_terms_all <- rbind(go_terms_all, terms.5)
