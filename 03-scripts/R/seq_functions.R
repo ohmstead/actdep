@@ -533,6 +533,63 @@ ShrinkSubclassName <- function(subclass_name) {
 }
 
 
+
+MakeVolcanoPlot <- function(df, plot_title='log2(FC) vs -log10(p_val_adj)') {
+  library(dplyr)
+  library(plotly)
+  library(ggplot2)
+  library(ggrepel)
+  
+  # make static volcano plot first with ggplot
+  threshold_line <- -log10(0.05)
+  p <- ggplot(df, aes(x = avg_log2FC, y = -log10(p_val_adj), color = p_val_adj < 0.05)) +
+    geom_point() +
+    geom_text_repel(aes(label = gene)) +
+    geom_hline(yintercept = threshold_line, linetype = 'dashed') +
+    geom_vline(xintercept = 0) +
+    # expand scale a little bit
+    scale_x_continuous(expand = c(0.05, 0.05)) +
+    scale_y_continuous(expand = c(0.05, 0.05)) +
+    scale_color_manual(values = c('black', 'red')) +
+    labs(title = plot_title, x = 'log2FC', y = '-log10(p_val_adj)') +
+    theme_minimal()
+  print(p)
+  
+  # Define colors explicitly to avoid RColorBrewer warnings
+  df <- df |> mutate(color = ifelse(p_val_adj < 0.05, 'red', 'black'))
+  
+  # Create a formatted text column including multiple variables
+  df <- df |> mutate(tooltip_text = paste0(
+    "Gene: ", gene, "<br>",
+    "log2FC: ", round(avg_log2FC, 3), "<br>",
+    "pct.1: ", round(pct.1, 3), "<br>",
+    "pct.2: ", round(pct.2, 3), "<br>",
+    "adj. p-value: ", p_val_adj
+  ))
+  
+  plot_ly(df, x = ~avg_log2FC, y = ~-log10(p_val_adj), 
+          text = ~tooltip_text, hoverinfo = "text", 
+          color = ~color, colors = c("black", "red")) |> 
+    add_markers() |>
+    layout(
+      title = plot_title,
+      xaxis = list(title = 'log2FC'),
+      yaxis = list(title = '-log10(p_val_adj)'),
+      shapes = list(
+        list(
+          type = "line",
+          x0 = min(df$avg_log2FC, na.rm = TRUE), 
+          x1 = max(df$avg_log2FC, na.rm = TRUE), 
+          y0 = threshold_line, 
+          y1 = threshold_line,
+          line = list(color = "black", width = 1, dash = "dash")
+        )
+      )
+    )
+}
+
+
+
 # GrowSubclassName <- function(subclass_name) {
 #   # removes slashes and underscores from Allen taxonomy subclass names to prep for storage in filenames
 #   subclass_name_new <- gsub(" ", "_", subclass_name)
