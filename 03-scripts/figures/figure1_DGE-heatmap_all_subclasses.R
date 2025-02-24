@@ -19,12 +19,14 @@ print("Getting DEGs for all subclasses and contrasts...")
 
 # get list of subclasses to use
 subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
+nuclei_subclass <- subset(nuclei, subclass_name %in% subclass_list)
+Idents(nuclei_subclass) <- nuclei_subclass$subclass_name
 
 # get list of contrasts to use
 contrast_list <- c("EE30m_vs_SE", "EE6h_vs_SE")
 
 # load all DEGs from every subclass x contrast
-dir_deg <- "04-analysis/DEGs/Dec2024_activity_condition_minPct5"
+dir_deg <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
 deg_files <- list.files(dir_deg, full.names = TRUE)
 
 # loop thru CSVs and load in DEGs
@@ -45,8 +47,9 @@ for (file in deg_files) {
   
   # add gene list to df
   deg <- read_csv(file) |> 
-    arrange(desc(avg_log2FC)) |> 
-    filter(p_val_adj < 0.05)
+    arrange(desc(log2FoldChange)) |> 
+    filter(classification != 'no_change')
+    # filter(padj < 0.05)
   
   deg$subclass <- subclass
   deg$contrast <- contrast
@@ -59,12 +62,12 @@ for (file in deg_files) {
 print("Culling duplicate DEGs and sorting")
 
 df_gene_classifications <- df_all_DEGs |> 
-  mutate(is_ERG = ifelse(contrast == "EE30m_vs_SE", TRUE, FALSE),
-         is_LRG = ifelse(contrast == "EE6h_vs_SE", TRUE, FALSE)) |> 
-  group_by(gene) |> 
+  mutate(is_ERG = contrast == "EE30m_vs_SE",
+         is_LRG = contrast == 'EE6h_vs_SE') |> 
+  group_by(gene) |>
   summarize(
-    is_ERG = any(is_ERG),
-    is_LRG = any(is_LRG),
+    is_ERG = any(is_ERG, na.rm = T),
+    is_LRG = any(is_LRG, na.rm = T),
   ) |> 
   mutate(classification = case_when(
     is_ERG & is_LRG ~ "both",
@@ -85,12 +88,12 @@ df_distinct_DEGs <- df_all_DEGs |>
   )) |>
   filter(!str_detect(contrast, "KA")) |>
   group_by(gene, subclass, contrast) |> 
-  summarize(avg_log2FC = avg_log2FC, .groups = 'drop') |> 
+  summarize(log2FoldChange = log2FoldChange, .groups = 'drop') |> 
   left_join(df_gene_classifications, by = 'gene') |> 
   mutate(subclass_by_contrast = paste(subclass, contrast, sep = " x ")) |> 
   mutate(n_subclasses = n_distinct(subclass), .by = 'gene') |> 
   distinct(gene, .keep_all = TRUE) |> 
-  mutate(direction = ifelse(avg_log2FC > 0, 'up', 'down')) |> 
+  mutate(direction = ifelse(log2FoldChange > 0, 'up', 'down')) |> 
   select(-subclass) # remove subclass for future joins
 
 
@@ -98,47 +101,45 @@ df_distinct_DEGs <- df_all_DEGs |>
 print("Normalizing expression data...")
 
 # calculate log2FC expression compared to SE
-nuclei_subclass <- subset(nuclei, subclass_name %in% subclass_list)
-Idents(nuclei_subclass) <- nuclei_subclass$subclass_name
 
 # Seurat log2FC ----
-comparisons <- list(
-  "EE30m_vs_SE" = c("EE30m", "SE"),
-  "EE6h_vs_SE" = c("EE6h", "SE")
-)
-
-# Function to calculate log2FC for a given subclass and comparison
-calculate_fc <- function(subclass, comparison_name, ident1, ident2) {
-  nuclei_subclass |>
-    FoldChange(group.by = 'activity_condition',
-               ident.1 = ident1,
-               ident.2 = ident2,
-               subset.ident = subclass,
-               features = df_distinct_DEGs$gene,
-               fc.name = 'log2fc_from_SE',
-               base = 2) |>
-    rownames_to_column('gene') |>
-    mutate(subclass = subclass,
-           contrast = comparison_name) |>
-    select(gene, log2fc_from_SE, subclass, contrast) # Keep necessary columns
-}
-
-# Iterate over all subclasses and comparisons, storing results in a single tibble
-df_fc <- expand_grid(subclass = subclass_list, comparison = names(comparisons)) |>
-  mutate(ident1 = map_chr(comparison, ~ comparisons[[.x]][1]),
-         ident2 = map_chr(comparison, ~ comparisons[[.x]][2])) |>
-  pmap_dfr(~ calculate_fc(..1, ..2, ..3, ..4)) |>
-  tibble()
-
-df_expression.seurat <- df_fc |>
-  separate(contrast, into = c('group1', 'group2'), sep = '_vs_') |>
-  mutate(activity_condition = factor(group1, levels = c('EE30m', 'EE6h'))) |>
-  select(-c(group1, group2)) |>
-  mutate(subclass = factor(subclass, levels = subclass_list)) |>
-  mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |>
-  left_join(df_distinct_DEGs, by = 'gene') |>
-  mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |>
-  print()
+# comparisons <- list(
+#   "EE30m_vs_SE" = c("EE30m", "SE"),
+#   "EE6h_vs_SE" = c("EE6h", "SE")
+# )
+# 
+# # Function to calculate log2FC for a given subclass and comparison
+# calculate_fc <- function(subclass, comparison_name, ident1, ident2) {
+#   nuclei_subclass |>
+#     FoldChange(group.by = 'activity_condition',
+#                ident.1 = ident1,
+#                ident.2 = ident2,
+#                subset.ident = subclass,
+#                features = df_distinct_DEGs$gene,
+#                fc.name = 'log2fc_from_SE',
+#                base = 2) |>
+#     rownames_to_column('gene') |>
+#     mutate(subclass = subclass,
+#            contrast = comparison_name) |>
+#     select(gene, log2fc_from_SE, subclass, contrast) # Keep necessary columns
+# }
+# 
+# # Iterate over all subclasses and comparisons, storing results in a single tibble
+# df_fc <- expand_grid(subclass = subclass_list, comparison = names(comparisons)) |>
+#   mutate(ident1 = map_chr(comparison, ~ comparisons[[.x]][1]),
+#          ident2 = map_chr(comparison, ~ comparisons[[.x]][2])) |>
+#   pmap_dfr(~ calculate_fc(..1, ..2, ..3, ..4)) |>
+#   tibble()
+# 
+# df_expression.seurat <- df_fc |>
+#   separate(contrast, into = c('group1', 'group2'), sep = '_vs_') |>
+#   mutate(activity_condition = factor(group1, levels = c('EE30m', 'EE6h'))) |>
+#   select(-c(group1, group2)) |>
+#   mutate(subclass = factor(subclass, levels = subclass_list)) |>
+#   mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |>
+#   left_join(df_distinct_DEGs, by = 'gene') |>
+#   mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |>
+#   print()
   
 
 # DESeq log2FC ----
@@ -156,10 +157,7 @@ coldata <- data.frame(
   stringsAsFactors = FALSE
 )
 coldata <- coldata |>
-  mutate(
-    subclass = sapply(strsplit(group, "_"), `[`, 1),
-    activity_condition = sapply(strsplit(group, "_"), `[`, 2)
-  )
+  separate(group, into = c("subclass", "activity_condition"), sep = "_", remove = F)
 rownames(coldata) <- coldata$group
 
 dds <- DESeqDataSetFromMatrix(
@@ -192,14 +190,14 @@ df_expression.DESeq <- df_norm |>
   left_join(df_distinct_DEGs, by = 'gene') |>
   group_by(gene, subclass) |>
   mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |>
-  mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |>
   mutate(activity_condition = factor(activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA30m', 'KA6h'))) |>
   mutate(subclass = factor(subclass, levels = subclass_list)) |>
   relocate(gene, subclass, activity_condition, avg_expression_log2, log2fc_from_SE) |>
   ungroup()
 
 
-# for genes in the "both" category, refactor ----
+# for genes in the "both" category, force ERG/LRG ----
+df_expression <- df_expression.DESeq
 expression_range <- df_expression |>
   group_by(gene, subclass) |>
   summarise(
@@ -215,8 +213,7 @@ mutate(classification = if_else(
   if_else(
     direction == "up",
     if_else(max_expr_condition == "EE30m", "ERG", "LRG"), # if upregulated
-    if_else(min_expr_condition == "EE30m", "ERG", "LRG"   # if downregulated
-      ),
+    if_else(min_expr_condition == "EE30m", "ERG", "LRG"),   # if downregulated
     ),
   classification  # For genes not labeled "both", keep original classification.
   ),
@@ -241,30 +238,35 @@ print("Sorting gene list...")
 # 5. Arrange by subclass.
 # 6. Pull the genes and use them as the new sorting order.
 
-df_gene_levels_ERG <- df_expression |> 
-  filter(classification == 'ERG') |> 
-  filter(activity_condition == 'EE30m') |> 
-  separate(subclass_by_contrast, into = c("subclass.ascertainment", "contrast"), sep = " x ", remove = FALSE) |>
-  filter(subclass == subclass.ascertainment)
-  # slice_max(order_by = log2fc_from_SE, by = gene)
-    
-df_gene_levels_LRG <- df_expression |> 
-  filter(classification == 'LRG') |> 
-  filter(activity_condition == 'EE6h') |> 
-  separate(subclass_by_contrast, into = c("subclass.ascertainment", "contrast"), sep = " x ", remove = FALSE) |>
-  filter(subclass == subclass.ascertainment)
-  # slice_max(order_by = log2fc_from_SE, by = gene)
+# df_gene_levels_ERG <- df_expression |>
+#   filter(classification == 'ERG') |>
+#   filter(activity_condition == 'EE30m') |>
+#   separate(subclass_by_contrast, into = c("subclass.ascertainment", "contrast"), sep = " x ", remove = FALSE) |>
+#   filter(subclass == subclass.ascertainment)
+#   # slice_max(order_by = log2fc_from_SE, by = gene)
+# 
+# df_gene_levels_LRG <- df_expression |>
+#   filter(classification == 'LRG') |>
+#   filter(activity_condition == 'EE6h') |>
+#   separate(subclass_by_contrast, into = c("subclass.ascertainment", "contrast"), sep = " x ", remove = FALSE) |>
+#   filter(subclass == subclass.ascertainment)
+#   # slice_max(order_by = log2fc_from_SE, by = gene)
+# 
+# df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG) |>
+#   mutate(subclass.ascertainment = factor(subclass.ascertainment, levels = subclass_list)) |>
+#   arrange(classification, desc(n_subclasses), subclass.ascertainment, desc(log2fc_from_SE))
 
-df_gene_levels <- rbind(df_gene_levels_ERG, df_gene_levels_LRG) |> 
-  mutate(subclass.ascertainment = factor(subclass.ascertainment, levels = subclass_list)) |>
-  arrange(classification, desc(n_subclasses), subclass.ascertainment, desc(log2fc_from_SE))
+# get gene classifications from df_expression
+df_gene_levels <- df_distinct_DEGs |>
+  select(-classification) |> # remove old classification that includes 'both' category
+  left_join(distinct(select(df_expression, gene, classification)))
 
 # determine whether genes are TFs
 mouse_TFs <- read_excel("02-data/published_data/Mus_musculus_TF.xlsx") |> 
   select(Symbol) |> 
   pull()
 
-df_gene_levels <- df_gene_levels |> 
+df_gene_levels <- df_gene_levels |>
   mutate(TF = ifelse(gene %in% mouse_TFs, "1", "0"))
 
 # combine classification and TF for anno purposes
@@ -272,7 +274,6 @@ df_gene_levels$classification_TF <- paste(df_gene_levels$classification, df_gene
 
 # re-level variables for plotting ----
 print("Re-leveling variables for plotting...")
-# reformat subclass_by_activity_condition for plotting
 lvls_subclass_by_activity_condition <- df_expression |> 
   arrange(activity_condition, subclass) |> 
   ungroup() |> 
@@ -286,37 +287,52 @@ df_expression <- df_expression |>
 # sort genes and subclasses ----
 # Create a matrix of log2 fold changes for the heatmap
 expression_matrix <- df_expression |>
-  filter(activity_condition != 'SE') |> 
+  filter(activity_condition %in% c('EE30m', 'EE6h')) |> 
   select(gene, subclass_by_activity_condition, log2fc_from_SE) |>
   pivot_wider(names_from = gene, values_from = log2fc_from_SE) |> 
   column_to_rownames(var = "subclass_by_activity_condition") |> 
-  as.matrix() |> 
-  scale()  # z-score the columns
+  as.matrix()
+  # scale()  # z-score the columns
 
-# re-order expression matrix
-# Ensure df_subclass_annotation has the same order as the rows in expression_matrix
-df_subclass_annotation <- df_expression |>
+# re-order expression_matrix rows
+df_subclass_annotationtation <- df_expression |>
   filter(activity_condition != 'SE') |> 
   group_by(subclass_by_activity_condition, activity_condition, subclass) |>
   distinct(subclass_by_activity_condition) |> 
   arrange(activity_condition, subclass)
 
-# order expression matrix rows and cols
-expression_matrix <- expression_matrix[match(df_subclass_annotation$subclass_by_activity_condition, rownames(expression_matrix)), ]
-expression_matrix <- expression_matrix[,match(df_gene_levels$gene, colnames(expression_matrix))]
+expression_matrix <- expression_matrix[match(df_subclass_annotationtation$subclass_by_activity_condition, rownames(expression_matrix)), ]
 
-# turn gene list (cols of exp matrix) into binary TF/non-TF
-df_tf <- colnames(expression_matrix) |>
-  as_tibble() |> 
-  mutate(gene = colnames(expression_matrix)) |> 
-  select(gene) |> 
-  mutate(TF = ifelse(gene %in% mouse_TFs, "1", "0"))
+
+# seriate gene columns ----
+expression_matrix <- expression_matrix[,df_gene_levels$gene]
+
+erg_matrix <- expression_matrix[str_detect(rownames(expression_matrix), 'EE30m'), df_gene_levels$classification == 'ERG']
+lrg_matrix <- expression_matrix[str_detect(rownames(expression_matrix), 'EE6h'),  df_gene_levels$classification == 'LRG']
+
+meths <- c(
+  'HC_average'
+  # 'OLO_average',
+  # 'HC_average'
+)
+for (meth in meths) {
+erg_order <- seriate(erg_matrix, method = 'Heatmap', seriation_method = meth) |> get_order(2)
+lrg_order <- seriate(lrg_matrix, method = 'Heatmap', seriation_method = meth) |> get_order(2)
+col_order <- c(erg_order, lrg_order+length(erg_order))
+
+# reorganize cols of expression matrix according to col_order
+expression_matrix <- expression_matrix[, names(col_order)]
+
+# relevel/arrange df_gene_levels for annotation objects
+df_gene_levels <- df_gene_levels |> 
+  mutate(gene = factor(gene, levels = colnames(expression_matrix))) |> 
+  arrange(gene)
 
 
 # make annotation objects ----
-left_anno <- rowAnnotation(
-  activity_condition = df_subclass_annotation$activity_condition,
-  subclass = df_subclass_annotation$subclass,
+left_annotation <- rowAnnotation(
+  activity_condition = df_subclass_annotationtation$activity_condition,
+  subclass = df_subclass_annotationtation$subclass,
   col = list(
     activity_condition = activity_colors,
     subclass = subclass_colors
@@ -325,8 +341,8 @@ left_anno <- rowAnnotation(
   show_legend = FALSE
 )
 
-right_anno <- rowAnnotation(
-  subclass = df_subclass_annotation$subclass,
+right_annotation <- rowAnnotation(
+  subclass = df_subclass_annotationtation$subclass,
   col = list(
     activity_condition = activity_colors,
     subclass = subclass_colors
@@ -335,7 +351,7 @@ right_anno <- rowAnnotation(
   show_legend = FALSE
 )
 
-col_anno_top <- HeatmapAnnotation(
+top_annotation <- HeatmapAnnotation(
   classification = df_gene_levels$classification_TF,
   col = list(
     classification = c(
@@ -349,14 +365,12 @@ col_anno_top <- HeatmapAnnotation(
 )
 
 ieg_symbols <- LoadGeneList("IEG")
-# re-arrange IEG symbols to match their order in the heatmap
-iegs_ordered = df_gene_levels$gene[which(df_gene_levels$gene %in% ieg_symbols)]
-col_anno_bottom <- HeatmapAnnotation(
+bottom_annotation <- HeatmapAnnotation(
   iegs = anno_mark(
-    at = which(df_gene_levels$gene %in% ieg_symbols), 
-    labels = iegs_ordered, 
+    at = which(df_gene_levels$gene %in% ieg_symbols),
+    labels = intersect(colnames(expression_matrix), ieg_symbols), 
     side = "bottom"
-    ),
+  ),
   show_annotation_name = FALSE
 )
 
@@ -364,20 +378,118 @@ col_anno_bottom <- HeatmapAnnotation(
 # plot ----
 p <- Heatmap(
   expression_matrix, # exclude the first column (subclass_by_activity_condition)
-  name = "z-scored log2FC from SE",
+  name = meth,
   heatmap_legend_param = list(
     title_position = "topcenter",
-    at = c(-2, 0, 2),
     direction = "horizontal"
   ),
-  col = circlize::colorRamp2(c(-2, 0, 2), hcl_palette = 'Blue-Red 2'),
+  col = circlize::colorRamp2(c(-1, 0, 1), hcl_palette = 'Blue-Red 2'),
   cluster_rows = FALSE,
   cluster_columns = FALSE,
-  left_annotation = left_anno,
-  right_annotation = right_anno,
-  top_annotation = col_anno_top,
-  bottom_annotation = col_anno_bottom,
-  row_split = df_subclass_annotation$activity_condition,
+  left_annotation = left_annotation,
+  right_annotation = right_annotation,
+  top_annotation = top_annotation,
+  bottom_annotation = bottom_annotation,
+  row_split = df_subclass_annotationtation$activity_condition,
+  column_split = factor(df_gene_levels$classification, levels = c("ERG", "LRG")),
+  row_gap = unit(2, "mm"),
+  column_gap = unit(2, "mm"),
+  show_row_names = FALSE,
+  show_column_names = FALSE,
+  use_raster = FALSE
+)
+draw(p, heatmap_legend_side = 'bottom')
+}
+htShiny(p, action = 'hover', output_ui_float = T)
+
+
+# plot just excitatory neurons ----
+expression_matrix_excitatory <- expression_matrix[str_detect(rownames(expression_matrix), 'Glut'), ]
+df_subclass_annotationtation_excitatory <- df_subclass_annotationtation |> 
+  filter(str_detect(subclass, 'Glut'))
+
+expression_matrix_excitatory <- expression_matrix_excitatory[,df_gene_levels$gene]
+
+erg_matrix <- expression_matrix_excitatory[str_detect(rownames(expression_matrix_excitatory), 'EE30m'), df_gene_levels$classification == 'ERG']
+lrg_matrix <- expression_matrix_excitatory[str_detect(rownames(expression_matrix_excitatory), 'EE6h'),  df_gene_levels$classification == 'LRG']
+
+seriate_method <- 'HC_average'
+  
+erg_order <- seriate(erg_matrix, method = 'Heatmap', seriation_method = meth) |> get_order(2)
+lrg_order <- seriate(lrg_matrix, method = 'Heatmap', seriation_method = meth) |> get_order(2)
+col_order <- c(erg_order, lrg_order+length(erg_order))
+
+# reorganize cols of expression matrix according to col_order
+expression_matrix_excitatory <- expression_matrix_excitatory[, names(col_order)]
+
+# relevel/arrange df_gene_levels for annotation objects
+df_gene_levels <- df_gene_levels |> 
+  mutate(gene = factor(gene, levels = colnames(expression_matrix_excitatory))) |> 
+  arrange(gene)
+
+
+# make annotation objects ----
+left_annotation <- rowAnnotation(
+  activity_condition = df_subclass_annotationtation_excitatory$activity_condition,
+  subclass = df_subclass_annotationtation_excitatory$subclass,
+  col = list(
+    activity_condition = activity_colors,
+    subclass = subclass_colors
+  ),
+  show_annotation_name = FALSE,
+  show_legend = FALSE
+)
+
+right_annotation <- rowAnnotation(
+  subclass = df_subclass_annotationtation_excitatory$subclass,
+  col = list(
+    activity_condition = activity_colors,
+    subclass = subclass_colors
+  ),
+  show_annotation_name = FALSE,
+  show_legend = FALSE
+)
+
+top_annotation <- HeatmapAnnotation(
+  classification = df_gene_levels$classification_TF,
+  col = list(
+    classification = c(
+      "ERG_0" = "#BB4430", "LRG_0" = "#F2B880", "both_0" = "#82A6B1", 
+      "ERG_1" = "black", "LRG_1" = "black", "both_1" = "black"
+    ),
+    subclass = subclass_colors
+  ),
+  show_annotation_name = FALSE,
+  show_legend = FALSE
+)
+
+ieg_symbols <- LoadGeneList("IEG")
+bottom_annotation <- HeatmapAnnotation(
+  iegs = anno_mark(
+    at = which(df_gene_levels$gene %in% ieg_symbols),
+    labels = intersect(colnames(expression_matrix_excitatory), ieg_symbols), 
+    side = "bottom"
+  ),
+  show_annotation_name = FALSE
+)
+
+
+# plot ----
+p <- Heatmap(
+  expression_matrix_excitatory, # exclude the first column (subclass_by_activity_condition)
+  name = meth,
+  heatmap_legend_param = list(
+    title_position = "topcenter",
+    direction = "horizontal"
+  ),
+  col = circlize::colorRamp2(c(-3, 0, 3), hcl_palette = 'Blue-Red 2'),
+  cluster_rows = FALSE,
+  cluster_columns = FALSE,
+  left_annotation = left_annotation,
+  right_annotation = right_annotation,
+  top_annotation = top_annotation,
+  bottom_annotation = bottom_annotation,
+  row_split = df_subclass_annotationtation_excitatory$activity_condition,
   column_split = factor(df_gene_levels$classification, levels = c("ERG", "LRG")),
   row_gap = unit(2, "mm"),
   column_gap = unit(2, "mm"),
@@ -392,7 +504,7 @@ htShiny(p, action = 'hover', output_ui_float = T)
 # save plot ----
 if (SAVE_PLOTS) {
   print("Saving plot...")
-  png("05-results/figure1/raw_R_plots/DGE-heatmap_all_subclasses.png", width = 15, height = 5, units = "in", res = 900)
+  png("05-results/figure1/raw_R_plots/DGE-heatmap_all_subclasses_pseudobulk.png", width = 15, height = 5, units = "in", res = 900)
   draw(p, heatmap_legend_side = 'bottom')
   dev.off()
 } else {
