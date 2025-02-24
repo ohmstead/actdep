@@ -193,6 +193,7 @@ LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', cell_cutof
       '023 SUB-ProS Glut',
       '031 CT SUB Glut',
       '033 NP SUB Glut',
+      '038 DG-PIR Ex IMN',
       '046 Vip Gaba',
       '047 Sncg Gaba',
       '048 RHP-COA Ndnf Gaba',
@@ -201,7 +202,6 @@ LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', cell_cutof
       '051 Pvalb chandelier Gaba',
       '052 Pvalb Gaba',
       '053 Sst Gaba',
-      '038 DG-PIR Ex IMN',
       '319 Astro-TE NN',
       '326 OPC NN',
       '327 Oligo NN',
@@ -495,20 +495,30 @@ RunGOEnrichment <- function(gene_list){
   }
   
   # make ensemble biomart object
-  ensembl <- useEnsembl(biomart = "ensembl", 
-                     dataset = "mmusculus_gene_ensembl")
+  # don't do this if the variable already exists
+  if (!exists('ensembl')) {
+    ensembl <- useEnsembl(biomart = "ensembl", 
+                          dataset = "mmusculus_gene_ensembl",
+                          version = 113)
+  }
   
-  
-  # from gene symbols, get Entrez gene IDs
-  gene_info <- getBM(
+  df_background_genes <- getBM(
     attributes = c("mgi_symbol", "entrezgene_id", "ensembl_gene_id"),
-    filters = "mgi_symbol",
-    values = gene_list,
     mart = ensembl
   )
   
+  # pull info for specific genes
+  df_specific_genes <- df_background_genes |> 
+    filter(mgi_symbol %in% gene_list)
+  
   # run analysis
-  results_GO <- enrichGO(gene = gene_info$entrezgene_id, OrgDb = 'org.Mm.eg.db', ont = 'ALL', pvalueCutoff = 0.99, qvalueCutoff = 0.99)
+  results_GO <- enrichGO(gene = df_specific_genes$entrezgene_id, 
+                         OrgDb = 'org.Mm.eg.db', 
+                         ont = 'BP', 
+                         pvalueCutoff = 1, 
+                         qvalueCutoff = 1,
+                         universe = df_background_genes$entrezgene_id
+                         )
   results_GO <- as_tibble(setReadable(results_GO, OrgDb = 'org.Mm.eg.db', keyType = 'ENTREZID'))
   
   return(results_GO)  
