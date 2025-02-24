@@ -54,9 +54,9 @@ volcanoPlot <- function(res, title, threshold) {
 
 # load data ----
 nuclei <- LoadDataset('Dec2024')
-celltype <- subset(nuclei, 
-                   (subclass_name == '016 CA1-ProS Glut' &
-                    activity_condition == 'SE'))
+celltype <- subset(nuclei, (subclass_name == '016 CA1-ProS Glut' &
+  activity_condition %in% c('SE')))
+  # activity_condition == 'SE'))
 
 # prep data ----
 # scrambled_indices <- sample(seq_len(nrow(celltype@meta.data)))   # scramble cell identities!!
@@ -65,15 +65,24 @@ celltype <- subset(nuclei,
 
 # only test genes expressed in 5% of cells
 mat <- celltype[["SCT"]]@data
-mat <- mat[rowMeans(mat > 0) > 0.05, ]
-cell_metadata <- celltype@meta.data
+mat <- mat[rowMeans(mat > 0) > 0.01, ]
 gene_list <- rownames(mat)
 
 celltype$Condition <- factor(celltype$activity_condition, levels = c("SE", "EE30m", "EE6h"))
 celltype$ZT <- factor(celltype$ZT, levels = c("ZT0", "ZT4", "ZT12", "ZT16"))
 celltype$sample <- factor(celltype$sample)
 
-
+# for cases where activity_condition == EE6h, set ZT_collection to ZT + 6. Otherwise, use ZT. Please use case_when
+celltype@meta.data <- celltype@meta.data |> 
+  mutate(ZT.collection = case_when(
+    (ZT == 'ZT0' & activity_condition == 'EE6h') ~ 'ZT6',
+    (ZT == 'ZT4' & activity_condition == 'EE6h') ~ 'ZT10',
+    (ZT == 'ZT12' & activity_condition == 'EE6h') ~ 'ZT18',
+    (ZT == 'ZT16' & activity_condition == 'EE6h') ~ 'ZT22',
+    TRUE ~ ZT
+  )) |> 
+  mutate(ZT.collection = factor(ZT.collection, 
+                                levels = c('ZT0', 'ZT4', 'ZT6', 'ZT10', 'ZT12', 'ZT16', 'ZT18', 'ZT22')))
 
 pseudobulk_counts <- AggregateExpression(celltype, group.by = "sample", features = gene_list, return.seurat = FALSE)$RNA
 
@@ -89,7 +98,7 @@ col_data <- col_data[colnames(pseudobulk_counts),]
 col_data$sample <- rownames(col_data)
 
 
-# run DE ----
+# run DESeq ----
 dds <- DESeqDataSetFromMatrix(countData = as.matrix(pseudobulk_counts), 
                               colData = col_data, 
                               design = ~ ZT)
@@ -150,8 +159,8 @@ gene_list <- all_genes |>
   pull()
 
 # get DESeq-normalized expression
-mat <- counts(dds, normalized = T)
-gene_mat <- mat[gene_list,] |> 
+counts_mat <- counts(dds, normalized = T)
+gene_mat <- counts_mat[gene_list,] |> 
   t() |> 
   as.data.frame() |> 
   rownames_to_column('sample') |> 
@@ -174,40 +183,197 @@ col_fun <- circlize::colorRamp2(c(-2,0,2), hcl_palette = "blue-red2")
 hm <- Heatmap(gene_mat,
               col = col_fun,
               cluster_columns = FALSE,
+              show_row_names = FALSE,
               row_split = k,
-              cluster_row_slices = F
-              # row_names_gp = gpar(fontsize = 5)
+              cluster_row_slices = F,
+              row_names_gp = gpar(fontsize = 5)
               )
 hm = draw(hm)
 
 InteractiveComplexHeatmap::htShiny(hm)
 
 
-# find p-values for all gene lists  ----
-
-
 if (SAVE_PLOTS) {
-  png("05-results/figureZT/raw_R_plots/SE_ZT_DEGs.png", width = 5, height = 10, units = "in", res = 900)
+  png("05-results/figureZT/raw_R_plots/SE_ZT_DEGs_2.png", width = 5, height = 10, units = "in", res = 900)
   print(hm)
   dev.off()
 }
 
-# GO analysis ----
+
+# use compareCluster from clusterProfiler ----
 cluster_genes <- lapply(row_order(hm), function(idx) rownames(mat)[idx])
 
-go_terms_all <- tibble()
+# make ensemble biomart object
+ensembl <- useEnsembl(biomart = "ensembl", 
+                      dataset = "mmusculus_gene_ensembl",
+                      version = 113)
 
-terms.1 <- RunGOEnrichment(cluster_genes[[1]]) |> mutate(cluster = 1)
-go_terms_all <- rbind(go_terms_all, terms.1)
+df_background_genes <- getBM(
+  attributes = c("mgi_symbol", "entrezgene_id", "ensembl_gene_id"),
+  mart = ensembl
+)
+df_background_genes$entrezgene_id <- as.character(df_background_genes$entrezgene_id)
 
-terms.2 <- RunGOEnrichment(cluster_genes[[2]]) |> mutate(cluster = 2)
-go_terms_all <- rbind(go_terms_all, terms.2)
+list_cluster_genes <- list(
+  cluster.1 = df_background_genes[df_background_genes$mgi_symbol %in% cluster_genes[[1]], "entrezgene_id"],
+  cluster.2 = df_background_genes[df_background_genes$mgi_symbol %in% cluster_genes[[2]], "entrezgene_id"],
+  cluster.3 = df_background_genes[df_background_genes$mgi_symbol %in% cluster_genes[[3]], "entrezgene_id"],
+  cluster.4 = df_background_genes[df_background_genes$mgi_symbol %in% cluster_genes[[4]], "entrezgene_id"]
+)
+list_cluster_genes <- lapply(list_cluster_genes, as.character)
 
-terms.3 <- RunGOEnrichment(cluster_genes[[3]]) |> mutate(cluster = 3)
-go_terms_all <- rbind(go_terms_all, terms.3)
+ego <- compareCluster(list_cluster_genes, 
+               fun = "enrichGO",
+               ont = 'BP',
+               pvalueCutoff = 0.05,
+               OrgDb = org.Mm.eg.db,
+               universe = df_background_genes$entrezgene_id,
+               )
+ego <- setReadable(ego, org.Mm.eg.db, keyType = 'ENTREZID') |> 
+  as_tibble()
 
-terms.4 <- RunGOEnrichment(cluster_genes[[4]]) |> mutate(cluster = 4)
-go_terms_all <- rbind(go_terms_all, terms.4)
+ego |> 
+  group_by(Cluster) |> 
+  arrange(desc(FoldEnrichment)) |> 
+  head()
 
-terms.5 <- RunGOEnrichment(cluster_genes[[5]]) |> mutate(cluster = 5)
-go_terms_all <- rbind(go_terms_all, terms.5)
+# GO analysis ----
+cluster_genes <- lapply(row_order(hm), function(idx) rownames(mat)[idx])
+background_genes <- rownames(mat)
+
+
+terms_1 <- RunGOEnrichment(cluster_genes[[1]]) |> mutate(cluster = 1) |> arrange(p.adjust)
+terms_2 <- RunGOEnrichment(cluster_genes[[2]]) |> mutate(cluster = 2) |> arrange(p.adjust)
+terms_3 <- RunGOEnrichment(cluster_genes[[3]]) |> mutate(cluster = 3) |> arrange(p.adjust)
+terms_4 <- RunGOEnrichment(cluster_genes[[4]]) |> mutate(cluster = 4) |> arrange(p.adjust)
+
+# remove redundant IDs from each set of top terms
+terms_1_curated <- terms_1 |> slice(-c(4, 5, 6))
+terms_2_curated <- terms_2 |> slice(-c(3, 4))
+terms_3_curated <- terms_3 |> slice(-c(2, 3, 4))
+terms_4_curated <- terms_4 |> slice(-c(5))
+
+
+go_terms_all <- rbind(
+  terms_1_curated,
+  terms_2_curated,
+  terms_3_curated,
+  terms_4_curated
+)
+
+# get the top 5 terms from each cluster
+top5_each_cluster <- go_terms_all |> 
+  arrange(p.adjust) |> 
+  slice_head(n = 5, by = cluster) |> 
+  arrange(cluster)
+
+# get values in all clusters from top5_each_cluster
+cluster1_values <- terms_1_curated |> right_join(top5_each_cluster, by = "ID", suffix = c('.unique', '.ascertainment'))
+cluster2_values <- terms_2_curated |> right_join(top5_each_cluster, by = "ID", suffix = c('.unique', '.ascertainment'))
+cluster3_values <- terms_3_curated |> right_join(top5_each_cluster, by = "ID", suffix = c('.unique', '.ascertainment'))
+cluster4_values <- terms_4_curated |> right_join(top5_each_cluster, by = "ID", suffix = c('.unique', '.ascertainment'))
+
+all_cluster_vals <- rbind(
+  cluster1_values, 
+  cluster2_values, 
+  cluster3_values, 
+  cluster4_values
+) |> 
+  mutate(cluster.ascertainment = factor(cluster.ascertainment)) |> 
+  mutate(Description.unique = factor(Description.unique, levels = unique(top5_each_cluster$Description))) |> 
+  mutate(Description.ascertainment = factor(Description.ascertainment, levels = unique(top5_each_cluster$Description)))
+
+# plot with geom_tile
+ggplot(all_cluster_vals) +
+  aes(x = cluster.unique, y = Description.ascertainment, fill = -log10(p.adjust.unique)) +
+  geom_tile(color = 'black', linewidth = 0.25) +
+  scale_fill_gradient(limits = c(0,3), oob = scales::squish) +
+  scale_y_discrete(position = 'right', limits = rev) +
+  theme_minimal() +
+  labs(fill = 'z-score') +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.x = element_blank(),
+    axis.text.y.right = element_text(size = 12),
+    legend.title = element_blank(),
+    legend.position = 'bottom',
+    legend.title.position = 'top'
+    )
+
+
+# plot insets for example Per genes ----
+known_circadian_genes <- c(
+  # 'Per1', 'Per2', 'Per3', 'Cry1', 'Cry2', 'Clock', 'Bmal1', 'Nr1d1', 'Nr1d2'
+  'Adcy1', 'Adcy8'
+)
+subclasses <- c(
+  '016 CA1-ProS Glut',
+  '017 CA3 Glut',
+  '037 DG Glut',
+  '319 Astro-TE NN',
+  '326 OPC NN',
+  '327 Oligo NN',
+  '334 Microglia NN'
+)
+
+for (subclass in subclasses) {
+  nuclei_tmp <- nuclei |> 
+    subset(subclass_name == subclass & activity_condition %in% c('SE'))
+  
+  mat_circadian <- GetAssayData(nuclei_tmp)
+  mat_circadian <- mat_circadian[known_circadian_genes,] |> t()
+  nuclei_tmp@meta.data <- nuclei_tmp@meta.data |> 
+    mutate(ZT.collection = case_when(
+      (ZT == 'ZT0' & activity_condition == 'EE6h') ~ 'ZT6',
+      (ZT == 'ZT4' & activity_condition == 'EE6h') ~ 'ZT10',
+      (ZT == 'ZT12' & activity_condition == 'EE6h') ~ 'ZT18',
+      (ZT == 'ZT16' & activity_condition == 'EE6h') ~ 'ZT22',
+      TRUE ~ ZT
+    )) |> 
+    mutate(ZT.collection = factor(ZT.collection, 
+                                  levels = c('ZT0', 'ZT4', 'ZT6', 'ZT10', 'ZT12', 'ZT16', 'ZT18', 'ZT22')))
+  
+  # merge circadian gene expression with cell metadata
+  df_circadian <- as.matrix(mat_circadian) |> 
+    as.data.frame() |> 
+    rownames_to_column(var = 'barcode') |> 
+    as_tibble() |> 
+    right_join(nuclei_tmp@meta.data) |> 
+    pivot_longer(cols = all_of(known_circadian_genes), names_to = 'gene', values_to = 'expression')
+  
+  p <- df_circadian |> 
+    data_summary('expression', c('ZT', 'gene')) |>
+  ggplot() +
+    aes(x = ZT, y = expression, group = gene) +
+    geom_line() +
+    geom_errorbar(aes(ymin = expression-sem, ymax = expression+sem), width = 0.1) +
+    geom_point() +
+    facet_wrap(~gene, scales = 'free_y') +
+    labs(title = subclass) +
+    theme(
+      strip.text = element_text(size = 15),
+    )
+  print(p)
+}
+#+++++++++++++++++++++++++
+# Function to calculate the mean and the standard deviation
+# for each group
+#+++++++++++++++++++++++++
+# data : a data frame
+# varname : the name of a column containing the variable
+#to be summariezed
+# groupnames : vector of column names to be used as
+# grouping variables
+data_summary <- function(data, varname, groupnames) {
+  require(plyr)
+  
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sem = sd(x[[col]], na.rm=TRUE) / sqrt(length(x[[col]])) )
+  }
+  
+  data_sum <- ddply(data, groupnames, .fun=summary_func, varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+  return(data_sum)
+}
