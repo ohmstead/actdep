@@ -1,32 +1,24 @@
-## ----setup------------------------------------------------------------------------------------------------------------------------------------
-SAVE_PLOTS = TRUE
-
-
-## ---------------------------------------------------------------------------------------------------------------------------------------------
-source("03-scripts/R/seq_functions.R")
-
 library(tidyverse)
-
 library(ggplot2)
 library(patchwork)
 library(paletteer)
-
 library(Seurat)
 library(SeuratDisk)
 
+source("03-scripts/R/seq_functions.R")
 
-## ----load colors------------------------------------------------------------------------------------------------------------------------------
+# load colors  ----------------------------------------------------------------------
 activity_colors <- LoadActivityColors('Dec2024')
 subclass_colors <- LoadAllenColors('subclass')
 ZT_colors <- LoadZTColors(5)
 sex_colors <- LoadSexColors()
 
 
-## ----load nuclei------------------------------------------------------------------------------------------------------------------------------
+# load nuclei ----------------------------------------------------------------------
 nuclei <- LoadDataset("Dec2024")
 
 
-## ----plot Xist expression---------------------------------------------------------------------------------------------------------------------
+# plot Xist expression ----------------------------------------------------------------------
 # let's ascertain the sex of biological samples based on Xist expression
 nuclei <- nuclei |> 
   AddMetaData(metadata = nuclei@assays$RNA$counts['Xist',], col = 'Xist')
@@ -41,21 +33,18 @@ ggplot(meta) +
   scale_fill_manual(values = activity_colors)
 
 
-## ----relevel, filter subclasses---------------------------------------------------------------------------------------------------------------
+# relevel, filter subclasses ----------------------------------------------------------------------
 meta <- nuclei@meta.data
 
-cutoff_n <- 150
+subclasses_to_use <- LoadSubclassesToUse(nuclei)
 
 meta <- meta |> 
-  filter(n() >= cutoff_n, .by = 'subclass_name') |> 
+  filter(subclass_name %in% subclasses_to_use) |>
   mutate(count = n(), .by = subclass_name) |>
   mutate(subclass_name = fct_reorder(subclass_name, count, .desc = FALSE)) |> 
   select(-count)
 
-subclasses_to_use <- LoadSubclassesToUse(nuclei, cell_cutoff = cutoff_n)
-
-
-## ---------------------------------------------------------------------------------------------------------------------------------------------
+# plot ----------------------------------------------------------------------
 my_theme <- theme(
   # text = element_text(family = 'Mono'),
   legend.position = 'none',
@@ -71,8 +60,8 @@ pNum <- ggplot(meta) +
   aes(y = subclass_name) +
   geom_bar(aes(fill = subclass_name)) + 
   scale_fill_manual(values = subclass_colors) +
-  scale_x_log10(breaks = c(100, 1000, 10000), position = 'top') +
-  labs(x = 'cells', y = '') +
+  scale_x_log10(breaks = c(100, 1000, 10000), position = 'bottom') +
+  labs(x = '', y = '') +
   my_theme +
   theme(
     axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
@@ -88,7 +77,7 @@ ggplot() +
     geom_bar(stat = 'identity', position = 'fill') +
     scale_fill_manual(values = activity_colors) +
     scale_x_continuous(breaks = NULL, position = 'top') +
-    labs(y = '', x = 'activity') +
+    labs(y = '', x = '') +
     my_theme +
     theme(
       axis.text.y = element_blank(),
@@ -106,7 +95,7 @@ ggplot() +
     geom_bar(stat = 'identity', position = 'fill') +
     scale_x_continuous(breaks = NULL, position = 'top') +
     scale_fill_manual(values = sex_colors) +
-    labs(y = '', x = 'sex') +
+    labs(y = '', x = '') +
     my_theme +
     theme(
       axis.text.y = element_blank(),
@@ -124,7 +113,7 @@ ggplot() +
     geom_bar(stat = 'identity', position = 'fill') +
     scale_x_continuous(breaks = NULL, position = 'top') +
     scale_fill_paletteer_d("ltc::reading") + 
-    labs(y = '', x = 'sublib') +
+    labs(y = '', x = '') +
     my_theme +
     theme(
       axis.text.y = element_blank(),
@@ -153,7 +142,7 @@ ggplot() +
 
 # UMI plot
 pUMI <- ggplot(meta) +
-  aes(y = subclass_name, x = tscp_count) +
+  aes(y = subclass_name, x = nCount_RNA) +
   geom_violin(fill = 'gray50', width = 2) +
   geom_violin(aes(fill = subclass_name), width = 2) +
   scale_fill_manual(values = subclass_colors) +
@@ -167,24 +156,9 @@ pUMI <- ggplot(meta) +
     axis.ticks.y = element_blank(),
   )
 
-# mread plot
-pReads <- ggplot(meta) +
-  aes(y = subclass_name, x = mread_count) +
-  geom_violin(aes(fill = subclass_name), width = 2) +
-  scale_fill_manual(values = subclass_colors) +
-  geom_boxplot(fill = 'gray80', width = 0.3, outliers = FALSE) +
-  scale_x_log10(position = 'top') +
-  labs(y = '', x = 'read count') +
-  my_theme +
-  theme(
-    axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank(),
-  )
-
 # gene plot
 pGenes <- ggplot(meta) +
-  aes(y = subclass_name, x = gene_count) +
+  aes(y = subclass_name, x = nFeature_RNA) +
   geom_violin(aes(fill = subclass_name), width = 2) +
   scale_fill_manual(values = subclass_colors) +
   geom_boxplot(fill = 'gray80', width = 0.3, outliers = FALSE) +
@@ -212,9 +186,12 @@ pMt <- ggplot(meta) +
     axis.ticks.y = element_blank(),
   )
 
-pNum + pActivity + pSex + pSublib + pZT + pReads + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 3, 3, 3, 25, 25, 25, 10))
-
+pNum + pActivity + pSex + pSublib + pZT + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 3, 3, 3, 25, 25, 25, 10))
 ggsave('quality_by_subclass.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 9, dpi = 600)
+
+pNum + pActivity + pSex + pSublib + plot_layout(widths = c(30, 3, 3, 3))
+ggsave('quality_by_subclass_short.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 15, height = 10, dpi = 600)
+
 
 
 ## ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -331,7 +308,7 @@ pNum + pSex + pReads + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 25, 25
 ggsave('quality_by_sample.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 14)
 
 
-## ----show disto for each class----------------------------------------------------------------------------------------------------------------
+# show disto for each class ----------------------------------------------------------------------
 class_colors <- LoadAllenColors('class')
 
 meta |> 
@@ -351,7 +328,7 @@ ggplot() +
   )
 
 
-## ----distro for reads-------------------------------------------------------------------------------------------------------------------------
+# distro for reads ----------------------------------------------------------------------
 # plot reads by class
 pReads <- ggplot(meta) +
   aes(x = sample, y = mread_count, fill = class_name) +
@@ -393,7 +370,7 @@ pReads / pN + plot_layout(heights = c(10, 1))
 ggsave('reads_by_class.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 9, height = 18, dpi = 600)
 
 
-## ----distro for UMIs--------------------------------------------------------------------------------------------------------------------------
+# distro for UMIs ----------------------------------------------------------------------
 # plot reads by class
 pUMI <- ggplot(meta) +
   aes(x = sample, y = tscp_count, fill = class_name) +
@@ -415,7 +392,7 @@ pUMI / pN + plot_layout(heights = c(10, 1))
 ggsave('tscp_by_class.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 9, height = 18, dpi = 600)
 
 
-## ----distro for genes-------------------------------------------------------------------------------------------------------------------------
+# distro for genes ----------------------------------------------------------------------
 # plot reads by class
 pGenes <- ggplot(meta) +
   aes(x = sample, y = gene_count, fill = class_name) +
