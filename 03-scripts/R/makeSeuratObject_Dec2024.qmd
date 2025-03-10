@@ -234,9 +234,9 @@ nuclei_intermediate <- nuclei_intermediate |>
   # FindVariableFeatures() |> 
   # ScaleData() |> 
   SCTransform(vars.to.regress = c('percent.mt', 'sublibrary'), 
-              return.only.var.genes = TRUE,
+              return.only.var.genes = FALSE,
               method = 'glmGamPoi',
-              conserve.memory = TRUE)
+              conserve.memory = FALSE)
 
 # save nuclei_intermediate
 SaveSeuratRds(nuclei_intermediate, file = paste0(save_dir, "seurat_intermediate.Rds")) # local
