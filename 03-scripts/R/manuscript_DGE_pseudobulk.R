@@ -99,13 +99,18 @@ for (i in seq_along(subclass_list)) {
   df_contrasts <- GetSubclassContrasts(nuclei, subclass, cell_cutoff = 30)
   
   # run contrasts for cell groups that meet cell_cutoff
-  for (i in seq_along(df_contrasts$group1)) {
-    group1 <- as.character(df_contrasts$group1[i])
-    group2 <- as.character(df_contrasts$group2[i])
+  for (k in seq_along(df_contrasts$group1)) {
+    group1 <- as.character(df_contrasts$group1[k])
+    group2 <- as.character(df_contrasts$group2[k])
     
     specific_contrast <- c("activity_condition", group1, group2)
 
     DGE_results <- getConstrastResults(dds, contrast = specific_contrast, log2FC_threshold)
+    df_shrink <- QuickPercentExpression(nuclei_subclass, DGE_results$gene, group1, group2, assay = "SCT", slot = "data")
+    DGE_results <- DGE_results |> 
+      left_join(df_shrink, by = "gene") |> 
+      mutate(log2FoldChange.shrink = log2FoldChange * shrink_coef) |> 
+      relocate(gene, log2FoldChange, log2FoldChange.shrink, padj, classification)
     write_csv(DGE_results, glue("{csv_write_dir}/{subclass_fname}__{group1}_vs_{group2}.csv"))
   }
 }
