@@ -1,15 +1,20 @@
+# This exploratory script plots the highest-tau gene for every subclass in each gigaclass.
+# As of 3/17/25, none of the plots produced in here are in the draft manuscript for the
+# tau figure. 
+
 # load libs and data ----
 print("Loading libraries and data...")
-library(Seurat)
+library(ggplot2)
+library(patchwork)
+library(plotly)
 library(dplyr)
 library(readr)
 library(readxl)
-library(DESeq2)
-library(patchwork)
 library(glue)
 library(tidyr)
-library(ggplot2)
-library(plotly)
+
+library(DESeq2)
+library(Seurat)
 
 source('03-scripts/R/seq_functions.R')
 activity_colors <- LoadActivityColors("Dec2024")
@@ -18,18 +23,8 @@ subclass_colors <- LoadAllenColors("subclass")
 
 # establish subclasses to use ----
 print('Subsetting Seurat object...')
-subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
-subclass_sets <- c(
-  excitatory = list(subclass_list[1:7]),
-  inhibitory = list(subclass_list[9:16]),
-  glia = list(subclass_list[c(8,17:20)])
-)
-# nuclei <- readRDS('04-analysis/Seurats/Dec2024/seurat.Rds')
-# seurat_subsets <- c(
-#   excitatory = subset(nuclei, subclass_name %in% subclass_sets[[1]]),
-#   inhibitory = subset(nuclei, subclass_name %in% subclass_sets[[2]]),
-#   glia       = subset(nuclei, subclass_name %in% subclass_sets[[3]])
-# )
+subclass_sets <- LoadSubclassesToUse(nuclei, ascertainment = 'custom', as_gigaclasses = T)
+seurat_subsets <- LoadDataset('Dec2024', as_gigaclasses = T)
 
 # loop thru sets of subclasses
 plots <- list()
