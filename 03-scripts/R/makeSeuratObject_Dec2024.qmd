@@ -390,7 +390,6 @@ The above graph has the following takeaways:
     -   37, real astrocytes -- keep
     -   40, more cajal-retzius -- keep
     -   47, random astrocytes -- delete
-
 -   Based on mt read count, the clusters that could be discarded:
     -   15, legit OPC cluster -- keep
     -   21, legit CA1 6h KA cluster -- keep
@@ -400,7 +399,6 @@ The above graph has the following takeaways:
     -   37, real astrocytes -- keep
     -   43, random astrocytes and oligos -- delete
     -   47, random astrocytes -- delete
-
 -   Based on the doublet scores, the clusters that could be discarded:
     -   20, CA1 cluster -- keep
     -   21, legit CA1 6h KA cluster -- keep
@@ -410,7 +408,6 @@ The above graph has the following takeaways:
     -   44, unsure of class right now -- keep
     -   45, random CA1 -- delete
     -   47, random astrocytes -- delete
-
 -   So the compiled list of clusters to delete is:
     -   24
     -   35
@@ -467,7 +464,7 @@ SaveSeuratRds(object = nuclei_curated, file = paste0(save_dir, "seurat_curated.R
 
 ## Re-do intermediate processing object
 
-```{r process dataset with Seurat}
+```{r process dataset with Seurat again}
 nuclei <- nuclei_curated |> 
   RunPCA(npcs = 50) |> 
   FindNeighbors(dims = 1:41) |> 
@@ -479,12 +476,12 @@ Idents(nuclei) <- nuclei$subclass_name
 rownames(nuclei@meta.data) <- Cells(nuclei)
 ```
 
-```{r visualize PCs}
+```{r visualize PCs again}
 DimHeatmap(nuclei, dims = 1:6, cells = 500, balanced = TRUE, fast = FALSE)
 ElbowPlot(nuclei ,ndims = 50)
 ```
 
-```{r visualize UMAP}
+```{r visualize UMAP again}
 DimPlot(nuclei, reduction = "umap", group.by = "activity_condition", shuffle = TRUE, seed = 17, pt.size = 1, raster = F) +
   scale_color_manual(values = activity_colors) +
   theme(legend.position = 'none')
