@@ -90,20 +90,23 @@ print(p_supertypes_IEG)
 ca1_supertype_colors <- supertype_colors[sort(unique(df_activity_plotting_IEGs$supertype_name))]
 gt_summary <- df_activity_plotting_IEGs |> 
   group_by(supertype_name, activity_condition) |> 
-  summarize(pct_active = sum(num_upregd_genes > 2.5) / n()) |>
+  summarize(pct_active = sum(num_upregd_genes > 2.5) / n(), .groups = "drop") |> 
   pivot_wider(names_from = activity_condition, values_from = pct_active) |> 
   ungroup() |> 
-gt(rowname_col = 'supertype_name') |> 
-  tab_header(title = "Percent of cells active",
-             subtitle = 'CA1 supertypes') |> 
+gt() |>  # Do NOT set rowname_col here
+  tab_header(title = "Percent of active CA1 cells by supertype") |> 
   fmt_percent(decimals = 1) |> 
   opt_table_font(font = "Aptos") |> 
-  tab_style(
-    style = cell_fill(color = subclass_colors[match(.$supertype_name, names(subclass_colors))]), 
-    locations = cells_stub(rows = everything())  # Apply color to rowname column
+  cols_label(supertype_name = '') |> 
+  data_color(
+    columns = "supertype_name",
+    fn = scales::col_factor(
+      palette = ca1_supertype_colors,
+      domain = names(ca1_supertype_colors)
+    )
   )
 print(gt_summary)
-gtsave(gt_summary, "05-results/figure2/raw_R_plots/CA1_supertypes_IEG_summary.pdf")
+gtsave(gt_summary, "05-results/figure2/raw_R_plots/CA1_supertypes_activation_table.png")
 
 # plot activation along anatomical axes ----
 # A/P
