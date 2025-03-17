@@ -14,7 +14,7 @@ nuclei <- LoadDataset("Dec2024")
 activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors('subclass')
 subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
-df_degs <- read_csv('04-analysis/DEGs/Dec2024_activity_condition/0_sorted_DEG_list.csv')
+df_degs <- read_csv('04-analysis/DEGs/Dec2024_activity_condition_minPct5/0_sorted_DEG_list.csv')
 
 # get active cells in each subclass ----
 print("Getting percent of cells active using IEGs...")
@@ -71,6 +71,69 @@ for(current_subclass in subclass_list) {
 df_percent_active_all$subclass <- factor(df_percent_active_all$subclass, levels = subclass_list)
 
 
+
+
+
+
+
+
+
+# tests with Brenda ----
+pv <- subset(nuclei, subclass_name == '052 Pvalb Gaba')
+sst <- subset(nuclei, subclass_name == '053 Sst Gaba')
+cck <- subset(nuclei, subclass_name == '047 Sncg Gaba')
+VlnPlot(pv, 'Pvalb', group.by = 'activity_condition')
+VlnPlot(sst, 'Sst', group.by = 'activity_condition')
+VlnPlot(cck, 'Cck', group.by = 'activity_condition')
+
+# tests with Danny ----
+# re-run DEG for microglia
+microglia <- subset(nuclei, subclass_name == '334 Microglia NN')
+Idents(microglia) <- microglia$activity_condition
+
+microglia_degs.05 <- FindMarkers(
+  microglia, 
+  logfc.threshold = 0.585,
+  test.use = 'MAST',
+  min.pct = 0.05,
+  ident.1 = 'EE30m', ident.2 = 'SE',
+  latent.vars = c('sublibrary', 'percent.mt'),
+) |> 
+  rownames_to_column(var = 'gene') |> 
+  filter(p_val_adj < 0.05) |> 
+  arrange(desc(avg_log2FC)) |> 
+  print()
+
+microglia_thresholds <- tibble('gene' = names(outputs$activation_thresholds), 
+                               'expression_threshold' = outputs$activation_thresholds)
+
+tmp <- df_active_cells |>
+  filter(activity_condition == 'EE30m') |>
+  pivot_longer(cols = -c(cell, activity_condition, active_binary, num_upregd_genes), names_to = 'gene', values_to = 'expression') |> 
+  left_join(microglia_thresholds, by = 'gene') |> 
+  mutate(binary_expression = expression > 0) |> 
+  group_by(gene) |> 
+  mutate(pct_expressing = mean(binary_expression)) |> 
+  summarize(pct_expressing = first(pct_expressing)) |> 
+  arrange(desc(pct_expressing)) |> 
+  mutate(gene = factor(gene, levels = gene))
+
+
+ggplot(tmp) +
+  aes(y = gene, x = pct_expressing) +
+  geom_col() +
+  geom_vline(xintercept = 0.005, color = 'red') +
+  geom_hline(yintercept = 45)
+
+# explore the expression distribution for a highly expressed gene
+df_active_cells |> 
+  filter(!str_detect(activity_condition, 'KA')) |>
+ggplot() +
+  aes(x = Agpat4, fill = activity_condition) +
+  geom_density(alpha = 0.3) +
+  geom_histogram(aes(y = ..count../sum(..count..)), position = 'dodge') +
+  scale_fill_manual(values = activity_colors) +
+  scale_x_continuous(limits = c(0, 3))
 
 
 # se_df <- df_percent_active_all |>
