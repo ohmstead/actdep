@@ -12,7 +12,6 @@ library(ggplot2)
 library(plotly)
 
 source('03-scripts/R/seq_functions.R')
-nuclei <- readRDS('04-analysis/Seurats/Dec2024/seurat.Rds')
 activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors("subclass")
 
@@ -25,11 +24,12 @@ subclass_sets <- c(
   inhibitory = list(subclass_list[9:16]),
   glia = list(subclass_list[c(8,17:20)])
 )
-seurat_subsets <- c(
-  excitatory = subset(nuclei, subclass_name %in% subclass_sets[[1]]),
-  inhibitory = subset(nuclei, subclass_name %in% subclass_sets[[2]]),
-  glia       = subset(nuclei, subclass_name %in% subclass_sets[[3]])
-)
+# nuclei <- readRDS('04-analysis/Seurats/Dec2024/seurat.Rds')
+# seurat_subsets <- c(
+#   excitatory = subset(nuclei, subclass_name %in% subclass_sets[[1]]),
+#   inhibitory = subset(nuclei, subclass_name %in% subclass_sets[[2]]),
+#   glia       = subset(nuclei, subclass_name %in% subclass_sets[[3]])
+# )
 
 # loop thru sets of subclasses
 plots <- list()
@@ -70,7 +70,8 @@ for (i in seq_along(subclass_sets)) {
     # add gene list to df
     deg <- read_csv(file) |> 
       arrange(desc(log2FoldChange)) |> 
-      filter(classification != 'no_change')
+      filter(classification != 'no_change') |> 
+      filter(abs(log2FoldChange.shrink) > 0.585)
     # filter(padj < 0.05)
     
     deg$subclass <- subclass
@@ -180,8 +181,8 @@ for (i in seq_along(subclass_sets)) {
   
   # Iterate over all subclasses and comparisons, storing results in a single tibble
   df_subclass_contrasts <- expand_grid(subclass = subclass_list, comparison = names(comparisons)) |> 
-    mutate(ident1 = str_extract(comparison, '^[^_]+'),  # str before first underscore
-           ident2 = str_extract(comparison, '[^_]+$'))  # str after 2nd underscore
+    mutate(ident1 = str_extract(comparison, '^[^_]+'),  # str before first underscore in comparison
+           ident2 = str_extract(comparison, '[^_]+$'))  # str after 2nd underscore in comparison
   
   df_raw <- df_subclass_contrasts |>
     pmap_dfr(calculate_fc) |> 
@@ -235,40 +236,13 @@ for (i in seq_along(subclass_sets)) {
     mutate(gene = factor(gene, levels = df_distinct_DEGs$gene)) |>
     print()
   
+  # write and store
+  df_expression |> write_csv(glue('04-analysis/df_expression/df_expression.seurat/df_expression_{set_name}.csv'))
   df_exp <- c(df_exp, list(df_expression))
   
-  # tau() ----
-  tau <- function(subclass_expression_vector, direction) {
-  # This function takes a vector of expression values for a single gene 
-  # across different subclasses and calculates the tau specificity score 
-  # for that gene in every subclass. The tau score originates from
-  # Yanai et al. (2005). Bioinformatics:
-  # https://doi.org/10.1093/bioinformatics/bti042
-  # The tau for a gene in subclass i out of n subclasses is defined as:
-  #      tau = sum(1 - log2FC_i / max-min(log2FC)) / (n - 1)
-  # 
-  # Args:
-  #  subclass_expression_vector: A vector of log2FC expression values for a single gene
-  #  across different subclasses.
-  # 
-  # Returns:
-  #  tau: A numeric value representing the tau specificity score for the gene across subclasses.
-    
-    # calculate tau
-    if (direction == 'up') {
-      # subclass_expression_vector <- subclass_expression_vector - min(subclass_expression_vector)
-    } else {  # simply reverse the signs
-      subclass_expression_vector <- -subclass_expression_vector - min(subclass_expression_vector)
-    }
-    
-    tau <- sum(1 - subclass_expression_vector / max(subclass_expression_vector)) / 
-      (length(subclass_expression_vector) - 1)
-    return(tau)
-  }
-  
-  
-  # find and plot high-tau genes
+  # calculate tau ----
   df_looping = data.frame(classification = c('ERG'), activity_condition = c('EE30m'))
+  k <- 1
   
   df_tau <- df_expression |> 
     filter(direction == 'up') |> 
@@ -286,44 +260,38 @@ for (i in seq_along(subclass_sets)) {
     ) |> 
     print()
   
-  ##### test debug code
-  # tmp <- df_expression |> 
-  #   filter(direction == 'up') |> 
-  #   filter(classification == 'ERG') |>
-  #   filter(activity_condition == 'EE30m') |> 
-  #   filter(gene == 'Siah3') |>
-  #   pull(log2FoldChange)
-  # 
-  # df_expression |> 
-  #   filter(direction == 'up') |> 
-  #   filter(classification == 'ERG') |>
-  #   filter(activity_condition == 'EE30m') |> 
-  #   group_by(gene) |> 
-  #   mutate(tau = tau(log2FoldChange.shrink, 'up'), .after = 'gene') |> 
-  #   arrange(desc(tau))
-  ##### test debug code
-  
   # find the highest-tau gene for each subclass
-  df_high_tau <- df_tau |> 
-    group_by(gene) |> 
-    slice_head() |> 
-    ungroup() |> 
-    slice_max(tau, n = 1, by = tau_subclass) |> 
+  df_high_tau <- df_tau |>
+    group_by(gene) |>
+    slice_head() |>
+    ungroup() |>
+    slice_max(tau, n = 1, by = tau_subclass) |>
     mutate(tau_subclass = factor(tau_subclass, levels = subclass_list)) |>
-    arrange(tau_subclass) |> 
+    arrange(tau_subclass) |>
     print()
   
+  top_taus <- df_tau |> 
+    arrange(desc(tau)) |> 
+    distinct(gene) |> 
+    pull(gene) |> 
+    head(10) |> 
+    print()
+    
+  
+  # plot ----
   p1 <- df_expression |> 
     filter(gene %in% df_high_tau$gene) |>
+    # filter(gene %in% top_taus) |>
     filter(classification == df_looping$classification[k]) |>
     filter(activity_condition == df_looping$activity_condition[k]) |> 
     group_by(subclass) |> 
     mutate(log2FC_z = (log2FoldChange.shrink - mean(log2FoldChange.shrink)) / sd(log2FoldChange.shrink)) |> 
-    mutate(gene = factor(gene, levels = df_high_tau$gene)) |> 
+    mutate(gene = factor(gene, levels = df_high_tau$gene)) |>
+    # mutate(gene = factor(gene, levels = top_taus)) |> 
   ggplot() +
-    aes(x = gene, y = subclass, fill = log2FC_z) +
-    geom_tile() +
-    scale_fill_viridis_c() +
+    aes(x = gene, y = subclass, fill = log2FoldChange.shrink) +
+    geom_tile(color = 'black') +
+    scale_fill_gradient2(low = 'blue', mid='white', high='red', limits = c(-1.5, 1.5)) +
     labs(title = glue("{df_looping$classification[k]} for {names(subclass_sets[i])}")) +
     theme_minimal() +
     theme(
@@ -341,11 +309,11 @@ for (i in seq_along(subclass_sets)) {
     filter(classification == df_looping$classification[k]) |>
     filter(activity_condition == df_looping$activity_condition[k]) |> 
     group_by(gene) |> 
-    mutate(log2FC_z = (log2FoldChange - mean(log2FoldChange)) / sd(log2FoldChange)) |> 
-    mutate(gene = factor(gene, levels = df_high_tau$gene)) |> 
+    mutate(log2FC_z = (log2FoldChange - mean(log2FoldChange)) / sd(log2FoldChange)) |>
+    mutate(gene = factor(gene, levels = df_high_tau$gene)) |>
     left_join(df_high_tau |> select(gene, tau_subclass), by = 'gene') |>
   ggplot() +
-    aes(x = subclass, y = log2FoldChange, color = tau_subclass, group = gene) +
+    aes(x = subclass, y = log2FoldChange.shrink, color = tau_subclass, group = gene) +
     geom_hline(yintercept = 0) +
     geom_line(linewidth = 2) +
     scale_color_manual(values = subclass_colors) +
@@ -374,6 +342,6 @@ subclass_list <- subclass_sets[[i]]
 genes <- c(
 'Gm12940', 'Pde10a', 'Arid5b', 'Bop1'  # no shrinkage
 )
-plotting_gene <- 'Rn7sk'
-VlnPlot(seurat_subsets$glia, group.by = 'subclass_name', split.by = 'activity_condition', plotting_gene) +
+plotting_gene <- 'Prss52'
+VlnPlot(seurat_subsets$excitatory, group.by = 'subclass_name', split.by = 'activity_condition', plotting_gene) +
   scale_fill_manual(values = activity_colors)
