@@ -1,5 +1,95 @@
 # A script housing a collection of commonly called functions in the actdep project.
 
+# This function will get called every time the script is sourced!
+set_ggplot_theme <- function() {
+  library(ggplot2)
+  theme_set(theme_minimal(base_family = "Aptos"))
+  message("Aptos is now the default font for ggplot2.")
+}
+set_ggplot_theme()
+
+
+SymbolToEnsembl <- function(gene_symbol_vector) {
+  # This function takes gene symbols and converts them to Ensemble IDs.
+  # Useful for GO analysis.
+  gene_dict <- read_csv("02-data/raw_data/all_genes.csv", show_col_types = F)
+  ensembl_ids <- gene_dict |> 
+    filter(gene_name %in% gene_symbol_vector) |> 
+    pull(gene_id)
+  
+  return(ensembl_ids)
+}
+
+
+tau <- function(subclass_expression_vector, direction = 'up') {
+  # This function takes a vector of expression values for a single gene 
+  # across different subclasses and calculates the tau specificity score 
+  # for that gene in every subclass. The tau score originates from
+  # Yanai et al. (2005). Bioinformatics:
+  # https://doi.org/10.1093/bioinformatics/bti042
+  # The tau for a gene in subclass i out of n subclasses is defined as:
+  #      tau = sum(1 - log2FC_i / max(log2FC)) / (n - 1)
+  # 
+  # Args:
+  #  subclass_expression_vector: A vector of log2FC expression values for a single gene
+  #  across different subclasses.
+  # 
+  # Returns:
+  #  tau: A numeric value representing the tau specificity score for the gene across subclasses.
+  
+  # switch direction if downregulated gene
+  if (direction == 'down') {
+    subclass_expression_vector <- -subclass_expression_vector
+  }
+  
+  # calculate tau
+  tau <- sum(1 - subclass_expression_vector / max(subclass_expression_vector)) / 
+    (length(subclass_expression_vector) - 1)
+  return(tau)
+}
+
+
+QuickPercentExpression <- function(seurat.object, genes, ident_var, ident.1, ident.2, assay = "SCT", layer = "data") {
+  # set Idents
+  Idents(seurat.object) <- seurat.object[[ident_var]] |> pull()
+  
+  # Extract the available genes in the specified assay and layer
+  available_genes <- rownames(GetAssayData(seurat.object, assay = assay, layer = layer))
+  
+  # Check if any of the requested genes are missing
+  missing_genes <- setdiff(genes, available_genes)
+  if(length(missing_genes) > 0) {
+    warning("The following genes were not found in the assay data and will be skipped: ", 
+            paste(missing_genes, collapse = ", "))
+    genes <- intersect(genes, available_genes)
+  }
+  
+  # Extract the expression matrix for the selected genes
+  expr <- GetAssayData(seurat.object, assay = assay, layer = layer)[genes, , drop = FALSE]
+  
+  # Identify the cells for each group based on the provided identities
+  cells1 <- WhichCells(seurat.object, idents = ident.1)
+  cells2 <- WhichCells(seurat.object, idents = ident.2)
+  
+  # Compute the percentage of cells with expression > 0 in each group
+  pct.1 <- rowSums(expr[, cells1] > 0) / length(cells1)
+  pct.2 <- rowSums(expr[, cells2] > 0) / length(cells2)
+  pct.mean <- rowMeans(cbind(pct.1, pct.2))
+  shrink_coef <- sqrt(sqrt(pct.mean))
+  
+  # Create and return a data frame with the results
+  result <- tibble(gene = genes, 
+                   subclass = subclass,
+                   group1 = ident.1,
+                   group2 = ident.2,
+                   pct.1 = pct.1, 
+                   pct.2 = pct.2, 
+                   pct.mean = pct.mean,
+                   shrink_coef = shrink_coef)
+  return(result)
+}
+
+
 RunYaoDGE <- function(input_subclass, save_to_file = FALSE) {
   library(Seurat)
 
@@ -54,7 +144,7 @@ RunYaoDGE <- function(input_subclass, save_to_file = FALSE) {
 }
 
 
-LoadDataset <- function(dataset, sublibrary = "combined") {
+LoadDataset <- function(dataset, as_gigaclasses = FALSE, sublibrary = "combined") {
   library(Seurat)
   library(glue)
 
@@ -76,14 +166,25 @@ LoadDataset <- function(dataset, sublibrary = "combined") {
       seurat_obj <- LoadSeuratRds(ssd_file_loc)
     }
   }
-  return(seurat_obj)
+  
+  if (as_gigaclasses) {
+    subclass_sets <- LoadSubclassesToUse(seurat_obj, as_gigaclasses = TRUE)
+    seurat_subsets <- c(
+      excitatory = subset(seurat_obj, subclass_name %in% subclass_sets[[1]]),
+      inhibitory = subset(seurat_obj, subclass_name %in% subclass_sets[[2]]),
+      glia       = subset(seurat_obj, subclass_name %in% subclass_sets[[3]])
+    )
+    return(seurat_subsets)
+  } else{
+    return(seurat_obj)
+  }
 }
 
 
 LoadAllenColors <- function(clade = 'subclass') {
   library(tidyverse)
 
-  allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv")
+  allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv", show_col_types = FALSE)
   
   switch(
     clade,
@@ -178,7 +279,7 @@ LoadZTColors <- function(palette = 5) {
 }
 
 
-LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', cell_cutoff = 150) {
+LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', as_gigaclasses = F, cell_cutoff = 150) {
 # returns a list of subclass_names to use. 
 # subclasses with fewer than cell_cutoff are excluded.
   library(Seurat)
@@ -216,7 +317,16 @@ LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', cell_cutof
       pull(subclass_name)
   }
   
-  return(subclass_list)
+  if (as_gigaclasses) {
+    subclass_sets <- c(
+      excitatory = list(subclass_list[1:7]),
+      inhibitory = list(subclass_list[9:16]),
+      glia = list(subclass_list[c(8,17:20)])
+    )
+    return(subclass_sets)
+  } else {
+    return(subclass_list)
+  }
 }
 
 
@@ -291,6 +401,10 @@ LoadGeneList <- function(list_type = "IEG") {
       pull(`Gene ID`)
     
     gene_list <- c(PRG_rapid, PRG_delay)
+  } else if (list_type == 'DEGs') {
+    # get all DEGs from the expression heatmap in figure 1
+    gene_list <- read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/0_DEG_classifications.csv") |> 
+      pull(gene)
   }
   
   return(gene_list)
@@ -339,7 +453,7 @@ GetCorrData <- function(seurat_obj, specific_condition, gene_list, output_fmt = 
 }
 
 
-PlotComplexHeatmap <- function(corr_matrix, plot_title, save_path = NULL) {
+PlotComplexHeatmap <- function(corr_matrix, plot_title, show_plot = TRUE, save_path = NULL) {
 # Plots complex heatmap of genes x gene co-expression correlation values.
 # Depends on output from GetCorrData, which must be called with argument
 # output_fmt = 'complex_heatmap'.
@@ -349,29 +463,50 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, save_path = NULL) {
   library(ComplexHeatmap)
   library(circlize)
 
-  colormap <- colorRamp2(c(-1, 0, 1), c('blue', 'white', 'red'))
-  
   if (!is.null(save_path)) {
-    if (str_sub(save_path, -1) != '/') {
-      save_path <- paste0(save_path, '/')
-    }
-    fname <- str_replace_all(plot_title, ' ', '_')
-    full_path <- paste0(save_path, 'complexHeatmap_', fname, '.png')
-    
-    png(file = full_path, width = 1000, height = 900, units = 'px')
+    # if (str_sub(save_path, -1) != '/') {
+    #   save_path <- paste0(save_path, '/')
+    # }
+    # fname <- str_replace_all(plot_title, ' ', '_')
+    # full_path <- paste0(save_path, fname, '.png')
+    # 
+    png(file = save_path, width = 1000, height = 900, units = 'px')
   }
+  
+  # make IEG annotation
+  ieg_symbols <- LoadGeneList('IEG')
+  bottom_anno <- HeatmapAnnotation(
+    IEG = anno_mark(
+      at = which(rownames(corr_matrix) %in% ieg_symbols),
+      labels = intersect(rownames(corr_matrix), ieg_symbols),
+      side = 'bottom'      
+    ),
+    show_annotation_name = FALSE
+  )
+  right_anno <- HeatmapAnnotation(
+    IEG = anno_mark(
+      at = which(colnames(corr_matrix) %in% ieg_symbols),
+      labels = intersect(colnames(corr_matrix), ieg_symbols),
+      side = 'bottom'      
+    ),
+    show_annotation_name = FALSE,
+    which = 'row'
+  )
   
   # plot using ComplexHeatmap library
   hm <- Heatmap(
-    corr_matrix, 
+    corr_matrix,
+    bottom_annotation = bottom_anno,
+    right_annotation = right_anno,
     column_title = plot_title,
-    row_names_gp = gpar(fontsize = 30),
-    column_names_gp = gpar(fontsize = 30),
-    col = colormap
+    row_names_gp = gpar(fontsize = 20),
+    column_names_gp = gpar(fontsize = 20),
+    show_row_names = FALSE,
+    show_column_names = FALSE,
+    col = colorRamp2(c(-1, 0, 1), c('blue', 'white', 'red'))
   )
   
   draw(hm)
-  print(hm)
   
   if (!is.null(save_path)) {dev.off()}
 
@@ -482,44 +617,38 @@ FindDEGs <- function(seurat_obj, subclass, ident_var, group1, group2, logFC_thre
 }
 
 
-RunGOEnrichment <- function(gene_list){
-# accepts gene_list as input, returns df of enriched GO terms
+RunGOEnrichment <- function(target_gene_symbols, background_gene_list) {
+  # Finds enriched GO terms of a target gene list run against the background genes.
+  # target_gene_symbols should be, as implied, gene symbols. They are converted to 
+  # Ensembl IDs enrichGO is run. Likewise, background_gene_list should also be in
+  # symbol annotation.
   library(clusterProfiler)
   library(org.Mm.eg.db)
-  library(biomaRt)
-  library(tidyverse)
+  library(dplyr)
 
   # verify input is a gene list
-  if (!is.character(gene_list)) {
-    stop('gene_list input for RunGOEnrichment() must be a character vector.')
+  if (!is.character(target_gene_symbols)) {
+    stop('input target_gene_symbols for RunGOEnrichment() must be a character vector.')
+  } else if (!is.character(background_gene_list)) {
+    stop('input background_gene_list for RunGOEnrichment() must be a character vector.')
   }
   
-  # make ensemble biomart object
-  # don't do this if the variable already exists
-  if (!exists('ensembl')) {
-    ensembl <- useEnsembl(biomart = "ensembl", 
-                          dataset = "mmusculus_gene_ensembl",
-                          version = 113)
-  }
-  
-  df_background_genes <- getBM(
-    attributes = c("mgi_symbol", "entrezgene_id", "ensembl_gene_id"),
-    mart = ensembl
-  )
-  
-  # pull info for specific genes
-  df_specific_genes <- df_background_genes |> 
-    filter(mgi_symbol %in% gene_list)
-  
+  # convert gene symbols to Ensembl IDs
+  target_gene_IDs     <- SymbolToEnsembl(gene_symbol_vector = target_gene_symbols)
+  background_gene_IDs <- SymbolToEnsembl(gene_symbol_vector = background_gene_list)
+    
   # run analysis
-  results_GO <- enrichGO(gene = df_specific_genes$entrezgene_id, 
-                         OrgDb = 'org.Mm.eg.db', 
-                         ont = 'BP', 
-                         pvalueCutoff = 1, 
-                         qvalueCutoff = 1,
-                         universe = df_background_genes$entrezgene_id
-                         )
-  results_GO <- as_tibble(setReadable(results_GO, OrgDb = 'org.Mm.eg.db', keyType = 'ENTREZID'))
+  results_GO <- enrichGO(gene         = target_gene_IDs,
+                  universe     = background_gene_IDs,
+                  OrgDb        = org.Mm.eg.db,
+                  keyType      = "ENSEMBL",
+                  ont          = "BP",
+                  pAdjustMethod = "BH",
+                  pvalueCutoff  = 0.05,
+                  qvalueCutoff  = 0.2) |> 
+    setReadable(OrgDb = org.Mm.eg.db) |> 
+    arrange(p.adjust) |> 
+    print()
   
   return(results_GO)  
 }
@@ -672,4 +801,26 @@ LoadH5SeuratObject <- function(filename, verbose = TRUE) {
   object@assays <- object@assays[sort(names(object@assays))]
   
   return(object)
+}
+
+
+si <- function(w = 800, h = 800, format = 'svg') {
+  # Generate filename with an incrementing number
+  fname <- "~/Downloads/tmp_1.svg"
+  i <- 1
+  while (file.exists(glue("~/Downloads/tmp_{i}.svg")) | file.exists(glue("~/Downloads/tmp_{i}.png"))) {
+    i <- i + 1
+    fname <- glue("~/Downloads/tmp_{i}.svg")
+  }
+  
+  # toggle SVG vs PNG
+  if (format == 'png') {
+    fname <- gsub('svg', 'png', fname)
+    dev.copy(png, file = fname, width = w, height = h)
+    dev.off()
+  } else {
+    # Open SVG device, copy current plot, and close
+    dev.copy(svg, file = fname, width = w / 100, height = h / 100)  # Convert pixels to inches
+    dev.off()
+  }
 }
