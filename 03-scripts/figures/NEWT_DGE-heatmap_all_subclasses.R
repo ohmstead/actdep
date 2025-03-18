@@ -11,39 +11,29 @@ library(ComplexHeatmap)
 library(InteractiveComplexHeatmap)
 
 source('03-scripts/R/seq_functions.R')
-nuclei <- readRDS('04-analysis/Seurats/Dec2024/seurat.Rds')
 activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors("subclass")
 
 
-# establish subclasses to use ----
+# establish subclasses to use ----------------------------------------------------
 print('Subsetting Seurat object...')
 subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
-subclass_sets <- c(
-  excitatory = list(subclass_list[1:7]),
-  inhibitory = list(subclass_list[9:16]),
-  glia = list(subclass_list[c(8,17:20)])
-)
-seurat_subsets <- c(
-  excitatory = subset(nuclei, subclass_name %in% subclass_sets[[1]]),
-  inhibitory = subset(nuclei, subclass_name %in% subclass_sets[[2]]),
-  glia       = subset(nuclei, subclass_name %in% subclass_sets[[3]])
-)
+subclass_sets <- LoadSubclassesToUse(nuclei, as_gigaclasses = T)
+seurat_subsets <- LoadDataset('Dec2024', as_gigaclass = T)
 
 
 # loop thru sets of subclasses
 plots <- list()
 list_df_expression <- list(excitatory = NULL, inhibitory = NULL, glia = NULL)
-for (i in seq_along(subclass_sets)) {
-  set_name <- names(subclass_sets[i])
-  subclass_list <- subclass_sets[[i]]
+for (gigaclass in names(subclass_sets)) {
+  subclass_list <- subclass_sets[[gigaclass]]
   
   # get list of subclasses to use
-  nuclei_subclass <- seurat_subsets[[i]]
+  nuclei_subclass <- seurat_subsets[[gigaclass]]
   Idents(nuclei_subclass) <- nuclei_subclass$subclass_name
   
   
-  # read in DEGs ----
+  # read in DEGs ----------------------------------------------------
   print("Getting DEGs for all subclasses and contrasts...")
   contrast_list <- c("EE30m_vs_SE", "EE6h_vs_SE")
   dir_deg <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
@@ -207,7 +197,7 @@ for (i in seq_along(subclass_sets)) {
     select(-modal_classification)
   
   # store 
-  list_df_expression[[set_name]] <- df_expression
+  list_df_expression[[gigaclass]] <- df_expression
   
   # get TF genes ----------------------------------------------------------------------------
   print("Make mat for heatmap...")
@@ -313,7 +303,7 @@ for (i in seq_along(subclass_sets)) {
       classification = df_gene_annotation$classification_TF,
       col = list(
         classification = c(
-          "ERG_0" = "#BB4430", "LRG_0" = "#F2B880", "both_0" = "#82A6B1", 
+          "ERG_0" = "#D81B60", "LRG_0" = "#FFC107", "both_0" = "#82A6B1", 
           "ERG_1" = "black", "LRG_1" = "black", "both_1" = "black"
           ),
         subclass = subclass_colors
@@ -346,8 +336,8 @@ for (i in seq_along(subclass_sets)) {
       # cluster_columns = as.dendrogram(looping$seriation[[1]][[2]]),
       column_dend_reorder = TRUE,
       # cluster_columns = F,
-      left_annotation = left_annotation,
-      right_annotation = right_annotation,
+      # left_annotation = left_annotation,
+      # right_annotation = right_annotation,
       top_annotation = top_annotation,
       bottom_annotation = bottom_annotation,
       row_gap = unit(2, "mm"),
