@@ -1,11 +1,13 @@
-# for each supertype, I want to create their own complex heatmap
+# This script produces correlation matricies for IEGs and other DEGs in CA1 supertypes
+
 library(tidyverse)
-library(Seurat)
 library(glue)
 
+library(Seurat)
+library(ComplexHeatmap)
+
 # load in nuclei
-# nuclei <- readRDS("04-analysis/Seurats/May2024/seurat.Rds")
-nuclei <- nuclei |> subset(sublibrary == 1)
+nuclei <- LoadDataset("Dec2024")
 
 # first, get all unique supertypes
 supertypes <- nuclei@meta.data |> 
@@ -20,58 +22,80 @@ conditions <- nuclei@meta.data |>
 IEG_symbols <- LoadGeneList("IEG")
 
 
-# supertypes ACTIVE/INACTIVE cells ----
+# fxns: HM plotting and saving ------------------------------------------------
+MakeHMobject <- function(mat, plot_title) {
+  hm <- Heatmap(
+    mat,
+    col = colorRamp2(c(-1, 0, 1), c("blue", "white", "red")),
+    column_title = plot_title,
+    cluster_columns = T,
+    cluster_rows = T,
+    show_heatmap_legend = F,
+    width = 900,
+    height = 900,
+    row_names_gp = gpar(fontsize = 20),
+    column_names_gp = gpar(fontsize = 20),
+  )
+  return(hm)
+}
+
+SaveHMobject <- function(hm, save_path, plot_title) {
+  file_path <- glue("{save_path}/{plot_title}.svg")
+  
+  svg(file_path, width = 10, height = 9)
+  draw(hm)
+  dev.off()
+}
+
+
+# supertypes ACTIVE/INACTIVE cells ------------------------------------------------
 for (supertype in supertypes) {
-  cells <- nuclei |> 
-    subset(supertype_name == supertype)
+  nuclei_supertype <- nuclei |> subset(supertype_name == supertype)
+  save_path <- glue("04-analysis/coexpression_heatmaps_supertype/")
   
   # let's find the active cells
-  output_vars <- FindActiveCells(cells, gene_list = IEG_symbols, gene_threshold = 3)
+  output_vars <- FindActiveCells(nuclei_supertype, gene_list = IEG_symbols, gene_threshold = 3)
   df_active_cells <- output_vars$df_active_cells |> 
     select(-activity_condition)  # redundant col for the merge
   
-  meta <- cells@meta.data |> 
-    left_join(output_vars$df_active_cells, by = c("bc_wells" = "cell")) |> 
-    relocate(bc_wells)
+  meta <- nuclei_supertype@meta.data |> 
+    left_join(output_vars$df_active_cells, by = c("barcode" = "cell")) |> 
+    relocate(barcode)
   
-  cells <- AddMetaData(cells, meta)
+  nuclei_supertype <- AddMetaData(nuclei_supertype, meta)
   
   active_barcodes <- output_vars$df_active_cells |> 
     filter(active_binary == TRUE) |>
     distinct(cell) |> 
     pull(cell)
   
-  active_cells <- cells |> 
-    subset(bc_wells %in% active_barcodes)
-  inactive_cells <- cells |> 
-    subset(bc_wells %in% active_barcodes, invert = TRUE)
+  active_cells <- nuclei_supertype |> subset(barcode %in% active_barcodes)
+  inactive_cells <- nuclei_supertype |> subset(barcode %in% active_barcodes, invert = TRUE)
   
   for (condition in conditions) {
     tryCatch(
       {
-        # do it for active cells
-        subset_cells <- active_cells |> 
-          subset(activity_condition == condition)
-        
+        # ACTIVE cells
+        subset_cells <- active_cells |> subset(activity_condition == condition)
         mat_coexpression <- GetCorrData(subset_cells,
                                         specific_condition = condition,
                                         gene_list = IEG_symbols)
         
-        plot_title <- glue("{supertype}__{condition}_active_cells")
-        save_path <- glue("04-analysis/coexpression_heatmaps_supertype/")
-        PlotComplexHeatmap(mat_coexpression, plot_title = plot_title, save_path = save_path)
+        plot_title <- glue("{supertype}__{condition}_active_cells") |> str_replace_all(' ', '_')
+        hm <- MakeHMobject(mat_coexpression, plot_title)
+        draw(hm)
+        SaveHMobject(hm, save_path, plot_title)
         
-        # do it for inactive cells
-        subset_cells <- inactive_cells |> 
-          subset(activity_condition == condition)
-        
+        # INACTIVE cells
+        subset_cells <- inactive_cells |> subset(activity_condition == condition)
         mat_coexpression <- GetCorrData(subset_cells,
                                         specific_condition = condition,
                                         gene_list = IEG_symbols)
         
-        plot_title <- glue("{supertype}__{condition}_inactive_cells")
-        save_path <- glue("04-analysis/coexpression_heatmaps_supertype/")
-        PlotComplexHeatmap(mat_coexpression, plot_title = plot_title, save_path = save_path)
+        plot_title <- glue("{supertype}__{condition}_inactive_cells") |> str_replace_all(' ', '_')
+        hm <- MakeHMobject(mat_coexpression, plot_title)
+        draw(hm)
+        SaveHMobject(hm, save_path, plot_title)
       },
       error = function(e) {
         print(glue("{supertype}, condition {condition} has no active cells"))
@@ -81,24 +105,23 @@ for (supertype in supertypes) {
 }
 
 
-# supertypes ALL cells ----
+# supertypes ALL cells ------------------------------------------------
 for (supertype in supertypes) {
-  cells <- nuclei |> 
-    subset(supertype_name == supertype)
+  nuclei_supertype <- nuclei |> subset(supertype_name == supertype)
+  save_path <- glue("04-analysis/coexpression_heatmaps_supertype")
   
   for (condition in conditions) {
     tryCatch(
       {
-        subset_cells <- cells |> 
-          subset(activity_condition == condition)
-        
+        subset_cells <- nuclei_supertype |> subset(activity_condition == condition)
         mat_coexpression <- GetCorrData(subset_cells,
                                         specific_condition = condition,
                                         gene_list = IEG_symbols)
         
-        plot_title <- glue("{supertype}__{condition}_all_cells")
-        save_path <- glue("04-analysis/coexpression_heatmaps_supertype/")
-        PlotComplexHeatmap(mat_coexpression, plot_title = plot_title, save_path = save_path)
+        plot_title <- glue("{supertype}__{condition}_all_cells") |> str_replace_all(' ', '_')
+        hm <- MakeHMobject(mat_coexpression, plot_title)
+        draw(hm)
+        SaveHMobject(hm, save_path, plot_title)
       },
       error = function(e) {
         print(glue("{supertype}, condition {condition} doesn't have enough cells"))
@@ -108,7 +131,7 @@ for (supertype in supertypes) {
 }
 
 
-# clusters ACTIVE/INACTIVE cells ----
+# clusters ACTIVE/INACTIVE cells ------------------------------------------------
 clusters <- nuclei@meta.data |> 
   filter(subclass_name == '016 CA1-ProS Glut') |> 
   filter(str_detect(cluster_name, "262|263")) |> 
@@ -117,56 +140,52 @@ clusters <- nuclei@meta.data |>
   pull(cluster_name)
 
 for (cluster in clusters) {
-  cells <- nuclei |> 
-    subset(cluster_name == cluster)
+  nuclei_supertype <- nuclei |> subset(cluster_name == cluster)
+  save_path <- glue("04-analysis/coexpression_heatmaps_cluster")
   
   # let's find the active cells
-  output_vars <- FindActiveCells(cells, gene_list = IEG_symbols, gene_threshold = 3)
+  output_vars <- FindActiveCells(nuclei_supertype, gene_list = IEG_symbols, gene_threshold = 3)
   df_active_cells <- output_vars$df_active_cells |> 
     select(-activity_condition)  # redundant col for the merge
   
-  meta <- cells@meta.data |> 
+  meta <- nuclei_supertype@meta.data |> 
     left_join(output_vars$df_active_cells, by = c("bc_wells" = "cell")) |> 
     relocate(bc_wells)
   
-  cells <- AddMetaData(cells, meta)
+  nuclei_supertype <- AddMetaData(nuclei_supertype, meta)
   
   active_barcodes <- output_vars$df_active_cells |> 
     filter(active_binary == TRUE) |>
     distinct(cell) |> 
     pull(cell)
   
-  active_cells <- cells |> 
-    subset(bc_wells %in% active_barcodes)
-  inactive_cells <- cells |> 
-    subset(bc_wells %in% active_barcodes, invert = TRUE)
+  active_cells <- nuclei_supertype |> subset(bc_wells %in% active_barcodes)
+  inactive_cells <- nuclei_supertype |> subset(bc_wells %in% active_barcodes, invert = TRUE)
   
   for (condition in conditions) {
     tryCatch(
       {
-        # do it for active cells
-        subset_cells <- active_cells |> 
-          subset(activity_condition == condition)
-        
+        # ACTIVE cells
+        subset_cells <- active_cells |> subset(activity_condition == condition)
         mat_coexpression <- GetCorrData(subset_cells,
                                         specific_condition = condition,
                                         gene_list = IEG_symbols)
         
-        plot_title <- glue("{cluster}__{condition}_active_cells")
-        save_path <- glue("04-analysis/coexpression_heatmaps_cluster/")
-        PlotComplexHeatmap(mat_coexpression, plot_title = plot_title, save_path = save_path)
+        plot_title <- glue("{cluster}__{condition}_active_cells") |> str_replace_all(' ', '_')
+        hm <- MakeHMobject(mat_coexpression, plot_title)
+        draw(hm)
+        SaveHMobject(hm, save_path, plot_title)
         
-        # do it for inactive cells
-        subset_cells <- inactive_cells |> 
-          subset(activity_condition == condition)
-        
+        # INACTIVE cells
+        subset_cells <- inactive_cells |> subset(activity_condition == condition)
         mat_coexpression <- GetCorrData(subset_cells,
                                         specific_condition = condition,
                                         gene_list = IEG_symbols)
         
-        plot_title <- glue("{cluster}__{condition}_inactive_cells")
-        save_path <- glue("04-analysis/coexpression_heatmaps_cluster/")
-        PlotComplexHeatmap(mat_coexpression, plot_title = plot_title, save_path = save_path)
+        plot_title <- glue("{cluster}__{condition}_inactive_cells") |> str_replace_all(' ', '_')
+        hm <- MakeHMobject(mat_coexpression, plot_title)
+        draw(hm)
+        SaveHMobject(hm, save_path, plot_title)
       },
       error = function(e) {
         print(glue("{cluster}, condition {condition} has no inactive cells"))
@@ -176,24 +195,26 @@ for (cluster in clusters) {
 }
 
 
-# clusters ALL cells ----
+# clusters ALL cells ------------------------------------------------
 for (cluster in clusters) {
-  cells <- nuclei |> 
-    subset(cluster_name == cluster)
+  nuclei_supertype <- nuclei |> subset(cluster_name == cluster)
+  save_path <- glue("04-analysis/coexpression_heatmaps_cluster")
   
   for (condition in conditions) {
     tryCatch(
       {
-        subset_cells <- cells |> 
+        subset_cells <- nuclei_supertype |> 
           subset(activity_condition == condition)
         
         mat_coexpression <- GetCorrData(subset_cells,
                                         specific_condition = condition,
                                         gene_list = IEG_symbols)
         
-        plot_title <- glue("{cluster}__{condition}_all_cells")
-        save_path <- glue("04-analysis/coexpression_heatmaps_cluster/")
-        PlotComplexHeatmap(mat_coexpression, plot_title = plot_title, save_path = save_path)
+        plot_title <- glue("{cluster}__{condition}_all_cells") |> str_replace_all(' ', '_')
+        
+        hm <- MakeHMobject(mat_coexpression, plot_title)
+        draw(hm)
+        SaveHMobject(hm, save_path, plot_title)
       },
       error = function(e) {
         print(glue("{cluster}, condition {condition} doesn't have enough cells"))
@@ -220,4 +241,6 @@ active_barcodes <- df_active_cells |>
 tmp.subset <- tmp |>
   subset(bc_wells %in% active_barcodes)
 tmp.mat <- GetCorrData(tmp.subset, specific_condition = 'SE', gene_list = IEG_symbols)
-PlotComplexHeatmap(tmp.mat, plot_title = '0069 CA1-ProS Glut_1__SE_4ieg_active_cells', save_path = '~/Downloads/')
+
+hm <- MakeHMobject(mat_coexpression, plot_title)
+draw(hm)
