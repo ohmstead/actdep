@@ -208,28 +208,28 @@ LoadSexColors <- function() {
 
 LoadActivityColors <- function(dataset = 'Dec2024', palette='colorblind') {
   if (palette == 'colorblind') {
-    palette_colors <- c("#D81B60", "#1E88E5", "#FFC107", "#098154FF", "#63a45e", "#a8c66c")
-  } else {
-    # palette_colors <- paletteer::paletteer_d('ggthemes::wsj_colors6')
+    palette_colors <- c("#1E88E5", "#D81B60", "#FFC107", "#098154FF", "#63a45e", "#a8c66c")
+  } else if (palette == 'grayscale') {
+    palette_colors <- c('gray90', 'gray75', 'gray60', 'gray45', 'gray30', 'gray15')
   }
 
   if (dataset == 'May2024') {
-    custom_colors <- c('SE' = palette_colors[2], 
-                       'EE30m' = palette_colors[1],
-                       'EE6h' = palette_colors[3],
-                       'KA1h' = palette_colors[4])
+    custom_colors <- c('SE'    = palette_colors[1], 
+                       'EE30m' = palette_colors[2],
+                       'EE6h'  = palette_colors[3],
+                       'KA1h'  = palette_colors[4])
   } else if (dataset == 'Dec2023') {
-    custom_colors <- c('SE' = palette_colors[2], 
-                       '1h' = palette_colors[1],
+    custom_colors <- c('SE' = palette_colors[1], 
+                       '1h' = palette_colors[2],
                        '6h' = palette_colors[3],
                        'KA' = palette_colors[4])
   } else if (dataset == 'Dec2024') {
-    custom_colors <- c('SE' = palette_colors[2],
-                       'EE30m' = palette_colors[1],
-                       'EE6h' = palette_colors[3],
+    custom_colors <- c('SE'    = palette_colors[1],
+                       'EE30m' = palette_colors[2],
+                       'EE6h'  = palette_colors[3],
                        'KA30m' = palette_colors[4],
-                       'KA1h' = palette_colors[5],
-                       'KA6h' = palette_colors[6]
+                       'KA1h'  = palette_colors[5],
+                       'KA6h'  = palette_colors[6]
     )
   }
 
