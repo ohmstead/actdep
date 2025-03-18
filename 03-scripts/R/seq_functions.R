@@ -210,7 +210,9 @@ LoadActivityColors <- function(dataset = 'Dec2024', palette='colorblind') {
   if (palette == 'colorblind') {
     palette_colors <- c("#1E88E5", "#D81B60", "#FFC107", "#098154FF", "#63a45e", "#a8c66c")
   } else if (palette == 'grayscale') {
-    palette_colors <- c('gray90', 'gray75', 'gray60', 'gray45', 'gray30', 'gray15')
+    # palette_colors <- c('gray90', 'gray75', 'gray60', 'gray45', 'gray30', 'gray15')
+    palette_colors <- c('gray70', 'gray60', 'gray50', 'gray40', 'gray30', 'gray25')
+    # palette_colors <- c('gray65', 'gray60', 'gray55', 'gray50', 'gray45', 'gray40')
   }
 
   if (dataset == 'May2024') {
@@ -228,8 +230,8 @@ LoadActivityColors <- function(dataset = 'Dec2024', palette='colorblind') {
                        'EE30m' = palette_colors[2],
                        'EE6h'  = palette_colors[3],
                        'KA30m' = palette_colors[4],
-                       'KA1h'  = palette_colors[5],
-                       'KA6h'  = palette_colors[6]
+                       'KA1h'  = palette_colors[6],
+                       'KA6h'  = palette_colors[5]
     )
   }
 
