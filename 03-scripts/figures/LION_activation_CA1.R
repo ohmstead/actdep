@@ -10,7 +10,7 @@ library(ggridges)
 
 source("03-scripts/R/seq_functions.R")
 nuclei <- LoadDataset("Dec2024")
-activity_colors <- LoadActivityColors("Dec2024")
+activity_colors <- LoadActivityColors("Dec2024", palette = 'grayscale')
 
 
 # ---- get active cells ----
@@ -38,7 +38,7 @@ p_activation_IEG <- ggplot(df_active_cells_IEGs) +
   theme_minimal() +
   scale_y_continuous(breaks = c(0, 3, 5, 10)) +
   theme(axis.text.x = element_blank(),
-        axis.text.y = element_text(size = 12),
+        axis.text.y = element_text(size = 8),
         panel.grid = element_blank(),
         legend.position = 'none'
   ) +
