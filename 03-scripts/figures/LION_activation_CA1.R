@@ -19,8 +19,8 @@ print("Getting percent of cells active using IEGs...")
 IEG_symbols <- LoadGeneList("IEG")
 lncRNA_symbols <- LoadGeneList("lncRNA")
 
-outputs_IEG <- FindActiveCells(nuclei, gene_list = IEG_symbols, gene_threshold = 3)
-outputs_lncRNA <- FindActiveCells(nuclei, gene_list = lncRNA_symbols, gene_threshold = 3)
+outputs_IEG    <- FindActiveCells(nuclei, subclass = '016 CA1-ProS Glut', gene_list = IEG_symbols, gene_threshold = 3)
+outputs_lncRNA <- FindActiveCells(nuclei, subclass = '016 CA1-ProS Glut', gene_list = lncRNA_symbols, gene_threshold = 3)
 
 df_active_cells_IEGs <- outputs_IEG$df_active_cells
 df_active_cells_lncRNA <- outputs_lncRNA$df_active_cells
@@ -70,7 +70,7 @@ print(p_activation_lncRNA)
 print(lncRNA_symbols)
 
 
-# ---- plot KDE inset ----
+# ---- KDE insets ----
 print("Plotting KDE example insets...")
 
 p_inset_Fos <- df_active_cells_IEGs |> 
@@ -79,7 +79,7 @@ p_inset_Fos <- df_active_cells_IEGs |>
 ggplot() +
   aes(x = Fos, y = activity_condition, fill = activity_condition) +
   geom_density_ridges(scale = 3, alpha = 0.8) +
-  geom_vline(xintercept = outputs_IEG$activation_thresholds['Fos'], color = 'black', linetype = 'dotted', lwd=1) +
+  # geom_vline(xintercept = outputs_IEG$activation_thresholds['Fos'], color = 'black', linetype = 'dotted', lwd=1) +
   scale_fill_manual(values = activity_colors) +
   coord_cartesian(xlim = c(0, 5), expand = FALSE) +
   theme_void() +
@@ -92,7 +92,7 @@ p_inset_Arc <- df_active_cells_IEGs |>
 ggplot() +
   aes(x = Arc, y = activity_condition, fill = activity_condition) +
   geom_density_ridges(scale = 3, alpha = 0.8) +
-  geom_vline(xintercept = outputs_IEG$activation_thresholds['Arc'], color = 'black', linetype = 'dotted', lwd=1) +
+  # geom_vline(xintercept = outputs_IEG$activation_thresholds['Arc'], color = 'black', linetype = 'dotted', lwd=1) +
   scale_fill_manual(values = activity_colors) +
   coord_cartesian(xlim = c(0, 5), expand = FALSE) +
   theme_void() +
@@ -105,7 +105,7 @@ p_inset_Nr4a1 <- df_active_cells_IEGs |>
 ggplot() +
   aes(x = Nr4a1, y = activity_condition, fill = activity_condition) +
   geom_density_ridges(scale = 3, alpha = 0.8) +
-  geom_vline(xintercept = outputs_IEG$activation_thresholds['Nr4a1'], color = 'black', linetype = 'dotted', lwd=1) +
+  # geom_vline(xintercept = outputs_IEG$activation_thresholds['Nr4a1'], color = 'black', linetype = 'dotted', lwd=1) +
   scale_fill_manual(values = activity_colors) +
   coord_cartesian(xlim = c(0, 5), expand = FALSE) +
   theme_void() +
@@ -119,11 +119,11 @@ if (SAVE_PLOTS) {
   ggsave(plot = p_activation_IEG,
          path = '05-results/figure2/raw_R_plots/', 
          filename = 'activation_IEGs.png', 
-         width = 7, height = 3, dpi = 900)
+         width = 7, height = 3, dpi = 300)
   ggsave(plot = p_activation_lncRNA,
          path = '05-results/figure2/raw_R_plots/', 
          filename = 'activation_lncRNAs.png', 
-         width = 7, height = 3, dpi = 900)
+         width = 7, height = 3, dpi = 300)
   # inset plots
   ggsave(plot = p_inset_Fos, 
          path = '05-results/figure2/raw_R_plots/', 
