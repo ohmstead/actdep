@@ -116,25 +116,27 @@ print(p_inset_Nr4a1)
 # ---- save plots ----
 if (SAVE_PLOTS) {
   print("Saving plots...")
+  save_path <- "05-results/LION/raw_R_plots"
+  
   ggsave(plot = p_activation_IEG,
-         path = '05-results/figure2/raw_R_plots/', 
+         path = save_path, 
          filename = 'activation_IEGs.png', 
          width = 7, height = 3, dpi = 300)
   ggsave(plot = p_activation_lncRNA,
-         path = '05-results/figure2/raw_R_plots/', 
+         path = save_path, 
          filename = 'activation_lncRNAs.png', 
          width = 7, height = 3, dpi = 300)
   # inset plots
   ggsave(plot = p_inset_Fos, 
-         path = '05-results/figure2/raw_R_plots/', 
+         path = save_path, 
          filename = 'inset_Fos.png', 
          width = 8, height = 2.5, dpi = 900)
   ggsave(plot = p_inset_Arc, 
-         path = '05-results/figure2/raw_R_plots/', 
+         path = save_path, 
          filename = 'inset_Arc.png', 
          width = 8, height = 2.5, dpi = 900)
   ggsave(plot = p_inset_Nr4a1, 
-         path = '05-results/figure2/raw_R_plots/', 
+         path = save_path, 
          filename = 'inset_Nr4a1.png', 
          width = 8, height = 2.5, dpi = 900)
 } else {

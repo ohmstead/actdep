@@ -76,12 +76,13 @@ ggplot() +
 print(p_ap + p_dv + plot_layout(widths = c(2,1)))
 
 if (SAVE_PLOTS) {
+  save_path <- "05-results/LION/raw_R_plots"
   ggsave(plot = p_ap, 
-         path = "05-results/figure2/raw_R_plots", 
+         path = save_path, 
          filename = "AP_supertype_distibution.png",
          device = png, width = 6, height = 3.2, dpi = 900)
   ggsave(plot = p_dv, 
-         path = "05-results/figure2/raw_R_plots", 
+         path = save_path, 
          filename = "DV_supertype_distibution.png",
          device = png, width = 4, height = 3.2, dpi = 900)
 }

@@ -106,7 +106,7 @@ gt() |>  # Do NOT set rowname_col here
     )
   )
 print(gt_summary)
-gtsave(gt_summary, "05-results/figure2/raw_R_plots/CA1_supertypes_activation_table.png")
+gtsave(gt_summary, "05-results/LION/raw_R_plots/CA1_supertypes_activation_table.png")
 
 # plot activation along anatomical axes ----
 # A/P
@@ -168,16 +168,17 @@ print(p_IEG_spatial_DV)
 
 
 if (SAVE_PLOTS == TRUE) {
+  save_plots <- "05-results/LION/raw_R_plots"
   ggsave(plot = p_supertypes_IEG, 
-         path = "05-results/figure2/raw_R_plots", 
+         path = save_plots, 
          filename = "CA1_supertypes_IEG.png",
          device = png, width = 16, height = 5, dpi = 300)
   ggsave(plot = p_IEG_spatial_AP,
-         path = "05-results/figure2/raw_R_plots",
+         path = save_plots,
          filename = "CA1_supertypes_APaxis_IEG.png",
          device = png, width = 16, height = 5, dpi = 300)
   ggsave(plot = p_IEG_spatial_DV,
-         path = "05-results/figure2/raw_R_plots",
+         path = save_plots,
          filename = "CA1_supertypes_DVaxis_IEG.png",
          device = png, width = 16, height = 4, dpi = 300)
 }

@@ -65,8 +65,9 @@ p <- ggplot(df_percent_active_all) +
 # save plots ----
 if (SAVE_PLOTS) {
   print("Saving plots...")
+  save_path <- "05-results/LION/raw_R_plots"
   ggsave(plot = p,
-         path = '05-results/figure2/raw_R_plots/', 
+         path = save_path, 
          filename = 'activation_subclass_IEG.png', 
          width = 18, height = 12, dpi = 900)
 } else {

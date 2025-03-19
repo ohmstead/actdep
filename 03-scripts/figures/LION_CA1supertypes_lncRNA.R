@@ -112,12 +112,13 @@ print(p_spatial_lncRNA)
 
 
 if (SAVE_PLOTS == TRUE) {
+  save_path <- "05-results/LION/raw_R_plots"
   ggsave(plot = p_supertypes_lncRNA, 
-         path = "05-results/figure2/raw_R_plots", 
+         path = save_path, 
          filename = "lncRNA_activation_by_supertype.png",
          device = png, width = 16, height = 5, dpi = 900)
   ggsave(plot = p_spatial_lncRNA,
-         path = "05-results/figure2/raw_R_plots",
+         path = save_path,
          filename = "lncRNA_activation_by_APaxis.png",
          device = png, width = 16, height = 5, dpi = 900)
 }
