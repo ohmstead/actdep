@@ -312,7 +312,8 @@ for (subclass in subclass_list) {
   
   if (SAVE_PLOTS) {
     subclass_fname <- ShrinkSubclassName(subclass)
-    png(glue("05-results/figureZT/raw_R_plots/SE_ZT_heatmap_{subclass_fname}.png"), 
+    save_path <- "05-results/ORCA/raw_R_plots"
+    png(glue("{save_path}/SE_ZT_heatmap_{subclass_fname}.png"), 
         width = 5, height = 10, units = "in", res = 900)
     draw(hm)
     dev.off()

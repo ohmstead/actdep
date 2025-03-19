@@ -1,9 +1,10 @@
 # Load required libraries
+library(tidyverse)
+library(glue)
 library(Seurat)
 library(DESeq2)
 library(readr)
 library(ggrepel)
-library(tidyverse)
 library(MAST)
 library(SingleCellExperiment)
 library(ComplexHeatmap)
@@ -255,11 +256,11 @@ results_ZT16_vs_ZT12_signif <- results_ZT16_vs_ZT12 |>
 
 
 # save results in files
-write_csv(results_ZT4_vs_ZT0, "04-analysis/DEGs/Dec2024_ZT/SE_ZT4_vs_ZT0.csv")
-write_csv(results_ZT12_vs_ZT0, "04-analysis/DEGs/Dec2024_ZT/SE_ZT12_vs_ZT0.csv")
-write_csv(results_ZT16_vs_ZT0, "04-analysis/DEGs/Dec2024_ZT/SE_ZT16_vs_ZT0.csv")
-write_csv(results_ZT12_vs_ZT4, "04-analysis/DEGs/Dec2024_ZT/SE_ZT12_vs_ZT4.csv")
-write_csv(results_ZT16_vs_ZT4, "04-analysis/DEGs/Dec2024_ZT/SE_ZT16_vs_ZT4.csv")
+write_csv(results_ZT4_vs_ZT0,   "04-analysis/DEGs/Dec2024_ZT/SE_ZT4_vs_ZT0.csv")
+write_csv(results_ZT12_vs_ZT0,  "04-analysis/DEGs/Dec2024_ZT/SE_ZT12_vs_ZT0.csv")
+write_csv(results_ZT16_vs_ZT0,  "04-analysis/DEGs/Dec2024_ZT/SE_ZT16_vs_ZT0.csv")
+write_csv(results_ZT12_vs_ZT4,  "04-analysis/DEGs/Dec2024_ZT/SE_ZT12_vs_ZT4.csv")
+write_csv(results_ZT16_vs_ZT4,  "04-analysis/DEGs/Dec2024_ZT/SE_ZT16_vs_ZT4.csv")
 write_csv(results_ZT16_vs_ZT12, "04-analysis/DEGs/Dec2024_ZT/SE_ZT16_vs_ZT12.csv")
 
 # heatmap ----
@@ -321,7 +322,8 @@ InteractiveComplexHeatmap::htShiny(hm)
 
 
 if (SAVE_PLOTS) {
-  png("05-results/figureZT/raw_R_plots/SE_ZT_DEGs.png", width = 5, height = 10, units = "in", res = 900)
+  save_path <- "05-results/MOTH/raw_R_plots"
+  png(glue("{save_path}/SE_ZT_DEGs.png"), width = 5, height = 10, units = "in", res = 900)
   print(hm)
   dev.off()
 }
