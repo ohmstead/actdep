@@ -65,7 +65,9 @@ pNum <- ggplot(meta) +
   my_theme +
   theme(
     axis.text.x.top = element_text(angle = 270, hjust = 1, vjust = 0.5),
-    axis.text.y = element_text(size = 18)
+    # axis.text.y = element_text(size = 18),
+    axis.text.y = element_blank(),
+    axis.text.x = element_blank(),
   )
 
 # condition ratios
@@ -186,12 +188,12 @@ pMt <- ggplot(meta) +
     axis.ticks.y = element_blank(),
   )
 
-pNum + pActivity + pSex + pSublib + pZT + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 3, 3, 3, 25, 25, 25, 10))
-ggsave('quality_by_subclass.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 9, dpi = 600)
-
 pNum + pActivity + pSex + pSublib + plot_layout(widths = c(30, 3, 3, 3))
 ggsave('quality_by_subclass_short.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 15, height = 10, dpi = 600)
+ggsave('quality_by_subclass_short.svg', path = "05-results/figure_supp_qc/raw_R_plots", width = 15, height = 10)
 
+pNum + pActivity + pSex + pSublib + pZT + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 3, 3, 3, 25, 25, 25, 10))
+ggsave('quality_by_subclass.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 9, dpi = 600)
 
 
 ## ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -306,6 +308,7 @@ pMt <- ggplot(meta) +
 pNum + pSex + pReads + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 25, 25, 25, 10), nrow = 1)
 
 ggsave('quality_by_sample.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 14)
+ggsave('quality_by_sample.svg', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 14)
 
 
 # show disto for each class ----------------------------------------------------------------------
