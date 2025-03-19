@@ -41,10 +41,11 @@ p2
 if (SAVE_PLOTS) {
   print("Saving plot...")
   
-  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'UMAP_subclass.png',  plot = p1, width = 9, height = 9, dpi = 900)
-  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'UMAP_condition.png', plot = p2, width = 9, height = 9, dpi = 900)
-  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'UMAP_subclass.svg',  plot = p1, width = 9, height = 9)
-  ggsave(path = '05-results/figure1/raw_R_plots/', filename = 'UMAP_condition.svg', plot = p2, width = 9, height = 9)
+  save_path <- "05-results/NEWT/raw_R_plots/"
+  ggsave(path = save_path, filename = 'UMAP_subclass.png',  plot = p1, width = 9, height = 9, dpi = 900)
+  ggsave(path = save_path, filename = 'UMAP_condition.png', plot = p2, width = 9, height = 9, dpi = 900)
+  ggsave(path = save_path, filename = 'UMAP_subclass.svg',  plot = p1, width = 9, height = 9)
+  ggsave(path = save_path, filename = 'UMAP_condition.svg', plot = p2, width = 9, height = 9)
 } else {
   print("Plotting without saving...")
 }

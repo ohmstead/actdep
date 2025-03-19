@@ -113,7 +113,8 @@ p <- ggplot(df_degs_long, aes(x = condition, y = gene, fill = log2FC_expression)
 if (SAVE_PLOTS) {
   print("Saving plot...")
   print(p)
-  ggsave(path = '05-results/figure1/raw_R_plots', filename = 'DGE_heatmap_CA1.png', width = 2.843, height = 5.641, dpi = 900, units = 'in')
+  save_path <- "05-results/NEWT_ZUPP_QC"
+  ggsave(path = save_path, filename = 'DGE_heatmap_CA1.png', width = 2.843, height = 5.641, dpi = 900, units = 'in')
 } else {
   print("Plotting without saving...")
   print(p)

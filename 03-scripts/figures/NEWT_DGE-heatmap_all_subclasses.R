@@ -356,7 +356,7 @@ htShiny(plots[[1]], action = 'hover', output_ui_float = T)
 
 # save ----------------------------------------------------------------------------
 if (SAVE_PLOTS) {
-  file_str <- "05-results/figure1/raw_R_plots/DGE-heatmap_all_subclasses_pseudobulk_"
+  file_str <- "05-results/NEWT/raw_R_plots/DGE-heatmap_all_subclasses_pseudobulk_"
   # as PNG
   png(paste0(file_str, 'ERG_Ex.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[1]], heatmap_legend_side = 'bottom'); dev.off()
   png(paste0(file_str, 'ERG_In.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[3]], heatmap_legend_side = 'bottom'); dev.off()

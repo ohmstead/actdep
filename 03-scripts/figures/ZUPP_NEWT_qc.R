@@ -8,15 +8,14 @@ library(SeuratDisk)
 source("03-scripts/R/seq_functions.R")
 
 # load colors  ----------------------------------------------------------------------
+nuclei <- LoadDataset("Dec2024")
+
 activity_colors <- LoadActivityColors('Dec2024')
 subclass_colors <- LoadAllenColors('subclass')
 ZT_colors <- LoadZTColors(5)
 sex_colors <- LoadSexColors()
 
-
-# load nuclei ----------------------------------------------------------------------
-nuclei <- LoadDataset("Dec2024")
-
+save_path <- "05-results/NEWT_ZUPP_QC/raw_R_plots/"
 
 # plot Xist expression ----------------------------------------------------------------------
 # let's ascertain the sex of biological samples based on Xist expression
@@ -189,11 +188,11 @@ pMt <- ggplot(meta) +
   )
 
 pNum + pActivity + pSex + pSublib + plot_layout(widths = c(30, 3, 3, 3))
-ggsave('quality_by_subclass_short.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 15, height = 10, dpi = 600)
-ggsave('quality_by_subclass_short.svg', path = "05-results/figure_supp_qc/raw_R_plots", width = 15, height = 10)
+ggsave('quality_by_subclass_short.png', save_path, width = 15, height = 10, dpi = 600)
+ggsave('quality_by_subclass_short.svg', save_path, width = 15, height = 10)
 
 pNum + pActivity + pSex + pSublib + pZT + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 3, 3, 3, 25, 25, 25, 10))
-ggsave('quality_by_subclass.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 9, dpi = 600)
+ggsave('quality_by_subclass.png', save_path, width = 27, height = 9, dpi = 600)
 
 
 ## ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -307,8 +306,8 @@ pMt <- ggplot(meta) +
 
 pNum + pSex + pReads + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 25, 25, 25, 10), nrow = 1)
 
-ggsave('quality_by_sample.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 14)
-ggsave('quality_by_sample.svg', path = "05-results/figure_supp_qc/raw_R_plots", width = 27, height = 14)
+ggsave('quality_by_sample.png', save_path, width = 27, height = 14)
+ggsave('quality_by_sample.svg', save_path, width = 27, height = 14)
 
 
 # show disto for each class ----------------------------------------------------------------------
@@ -370,7 +369,7 @@ ggplot() +
 
 pReads / pN + plot_layout(heights = c(10, 1))
 
-ggsave('reads_by_class.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 9, height = 18, dpi = 600)
+ggsave('reads_by_class.png', save_path, width = 9, height = 18, dpi = 600)
 
 
 # distro for UMIs ----------------------------------------------------------------------
@@ -392,7 +391,7 @@ pUMI <- ggplot(meta) +
 
 pUMI / pN + plot_layout(heights = c(10, 1))
 
-ggsave('tscp_by_class.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 9, height = 18, dpi = 600)
+ggsave('tscp_by_class.png', save_path, width = 9, height = 18, dpi = 600)
 
 
 # distro for genes ----------------------------------------------------------------------
@@ -414,5 +413,5 @@ pGenes <- ggplot(meta) +
 
 pGenes / pN + plot_layout(heights = c(10, 1))
 
-ggsave('genes_by_class.png', path = "05-results/figure_supp_qc/raw_R_plots", width = 9, height = 18, dpi = 600)
+ggsave('genes_by_class.png', save_path, width = 9, height = 18, dpi = 600)
 
