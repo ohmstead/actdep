@@ -652,7 +652,7 @@ RunGOEnrichment <- function(target_gene_symbols, background_gene_list) {
     arrange(p.adjust) |> 
     print()
   
-  return(results_GO)  
+  return(results_GO@result)
 }
 
 
