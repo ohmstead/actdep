@@ -77,7 +77,8 @@ for (gene_to_plot in known_circadian_genes) {
       plot.title = element_blank()
     )
   print(p)
-  ggsave(glue('05-results/figureZT/raw_R_plots/CA1_{gene_to_plot}_inset.png'),
+  save_path <- "05-results/ORCA/raw_R_plots"
+  ggsave(glue('{save_path}/CA1_{gene_to_plot}_inset.png'),
          width = 4, height = 5, units = 'in', dpi = 900)
 }
 
@@ -143,7 +144,8 @@ for (gene_to_plot in known_circadian_genes) {
     )
 
   print(p)
-  ggsave(glue('05-results/figureZT/raw_R_plots/CA1_{gene_to_plot}_VlnPlot.png'),
+  save_path <- "05-results/ORCA/raw_R_plots"
+  ggsave(glue('{save_path}/CA1_{gene_to_plot}_VlnPlot.png'),
          width = 8, height = 6, units = 'in', dpi = 900)
 }
 
@@ -178,7 +180,8 @@ for (gene_to_plot in known_circadian_genes) {
       panel.border = element_rect(linewidth = 1, fill = NA)
     )
   
-  ggsave(glue('05-results/figureZT/raw_R_plots/CA1_{gene_to_plot}_DotPlot.png'),
+  save_path <- "05-results/ORCA/raw_R_plots"
+  ggsave(glue('{save_path}/CA1_{gene_to_plot}_DotPlot.png'),
          width = 8, height = 6, units = 'in', dpi = 900)
 }
 
