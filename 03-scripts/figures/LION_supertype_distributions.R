@@ -3,11 +3,14 @@ source("03-scripts/R/seq_functions.R")
 
 library(dplyr)
 library(readr)
+library(readxl)
 library(glue)
 
 library(patchwork)
 library(ggplot2)
 library(plotly)
+
+source("03-scripts/R/seq_functions.R")
 
 condition_colors <- LoadActivityColors("May2024")
 subclass_colors <- LoadAllenColors("subclass")
@@ -15,7 +18,7 @@ supertype_colors <- LoadAllenColors("supertype")
 
 
 # load MERFISH and metadata ----
-allen_taxonomy <- read_excel("02-data/published_data/allen_taxonomy_metadata.xlsx")
+allen_taxonomy <- read_excel("02-data/published_data/Yao2023/allen_taxonomy_metadata.xlsx")
 allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv")
 meta_merfish <- read_csv("02-data/published_data/Zhang2023/cell_metadata.csv")
 
@@ -77,6 +80,7 @@ print(p_ap + p_dv + plot_layout(widths = c(2,1)))
 
 if (SAVE_PLOTS) {
   save_path <- "05-results/LION/raw_R_plots"
+  # png
   ggsave(plot = p_ap, 
          path = save_path, 
          filename = "AP_supertype_distibution.png",
@@ -85,4 +89,13 @@ if (SAVE_PLOTS) {
          path = save_path, 
          filename = "DV_supertype_distibution.png",
          device = png, width = 4, height = 3.2, dpi = 900)
+  # svg
+  ggsave(plot = p_ap, 
+         path = save_path, 
+         filename = "AP_supertype_distibution.svg",
+         width = 6, height = 3.2)
+  ggsave(plot = p_dv, 
+         path = save_path, 
+         filename = "DV_supertype_distibution.svg",
+         width = 4, height = 3.2)
 }

@@ -3,10 +3,10 @@ print("Loading libraries and data...")
 
 library(Seurat)
 library(ggplot2)
+library(ggridges)
 library(tidyverse)
 library(patchwork)
 library(glue)
-library(ggridges)
 
 source("03-scripts/R/seq_functions.R")
 nuclei <- LoadDataset("Dec2024")
@@ -79,7 +79,7 @@ p_inset_Fos <- df_active_cells_IEGs |>
 ggplot() +
   aes(x = Fos, y = activity_condition, fill = activity_condition) +
   geom_density_ridges(scale = 3, alpha = 0.8) +
-  # geom_vline(xintercept = outputs_IEG$activation_thresholds['Fos'], color = 'black', linetype = 'dotted', lwd=1) +
+  geom_vline(xintercept = outputs_IEG$activation_thresholds['Fos'], color = 'black', linetype = 'dotted', lwd=1) +
   scale_fill_manual(values = activity_colors) +
   coord_cartesian(xlim = c(0, 5), expand = FALSE) +
   theme_void() +
@@ -92,7 +92,7 @@ p_inset_Arc <- df_active_cells_IEGs |>
 ggplot() +
   aes(x = Arc, y = activity_condition, fill = activity_condition) +
   geom_density_ridges(scale = 3, alpha = 0.8) +
-  # geom_vline(xintercept = outputs_IEG$activation_thresholds['Arc'], color = 'black', linetype = 'dotted', lwd=1) +
+  geom_vline(xintercept = outputs_IEG$activation_thresholds['Arc'], color = 'black', linetype = 'dotted', lwd=1) +
   scale_fill_manual(values = activity_colors) +
   coord_cartesian(xlim = c(0, 5), expand = FALSE) +
   theme_void() +
@@ -105,7 +105,7 @@ p_inset_Nr4a1 <- df_active_cells_IEGs |>
 ggplot() +
   aes(x = Nr4a1, y = activity_condition, fill = activity_condition) +
   geom_density_ridges(scale = 3, alpha = 0.8) +
-  # geom_vline(xintercept = outputs_IEG$activation_thresholds['Nr4a1'], color = 'black', linetype = 'dotted', lwd=1) +
+  geom_vline(xintercept = outputs_IEG$activation_thresholds['Nr4a1'], color = 'black', linetype = 'dotted', lwd=1) +
   scale_fill_manual(values = activity_colors) +
   coord_cartesian(xlim = c(0, 5), expand = FALSE) +
   theme_void() +
@@ -117,7 +117,7 @@ print(p_inset_Nr4a1)
 if (SAVE_PLOTS) {
   print("Saving plots...")
   save_path <- "05-results/LION/raw_R_plots"
-  
+  # PNG
   ggsave(plot = p_activation_IEG,
          path = save_path, 
          filename = 'activation_IEGs.png', 
@@ -139,6 +139,27 @@ if (SAVE_PLOTS) {
          path = save_path, 
          filename = 'inset_Nr4a1.png', 
          width = 8, height = 2.5, dpi = 900)
+  # SVG
+  ggsave(plot = p_activation_IEG,
+         path = save_path, 
+         filename = 'activation_IEGs.svg', 
+         width = 7, height = 3)
+  ggsave(plot = p_activation_lncRNA,
+         path = save_path, 
+         filename = 'activation_lncRNAs.svg', 
+         width = 7, height = 3)
+  ggsave(plot = p_inset_Fos, 
+         path = save_path, 
+         filename = 'inset_Fos.svg', 
+         width = 8, height = 2.5)
+  ggsave(plot = p_inset_Arc, 
+         path = save_path, 
+         filename = 'inset_Arc.svg', 
+         width = 8, height = 2.5)
+  ggsave(plot = p_inset_Nr4a1, 
+         path = save_path, 
+         filename = 'inset_Nr4a1.svg', 
+         width = 8, height = 2.5)
 } else {
   print("Plotted without saving...")
 }
