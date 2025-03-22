@@ -365,10 +365,16 @@ GetSubclassContrasts <- function(seurat_obj, subclass, cell_cutoff = 30) {
 
 
 LoadGeneList <- function(list_type = "IEG") {
+  # has options:
+  #   - IEG
+  #   - lncRNA: lncRNA genes from CA1 EE30m vs SE
+  #   - tyssowski: tyssowski rapid/delayed PRGs
+  #   - DEGs: all DEGs from the expression heatmap in figure 1
+  #   - circadian: Clock genes
   library(readxl)
   library(dplyr)
   
-  if (list_type == "IEG") {
+  if (list_type == "IEG" | list_type == 'ieg') {
     gene_list <- c(
         'Arc',
         'Btg2',
@@ -407,6 +413,10 @@ LoadGeneList <- function(list_type = "IEG") {
     # get all DEGs from the expression heatmap in figure 1
     gene_list <- read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/0_DEG_classifications.csv") |> 
       pull(gene)
+  } else if (list_type == 'circadian') {
+    gene_list <- known_circadian_genes <- c(
+      'Per1', 'Per2', 'Per3', 'Clock', 'Bmal1', 'Cry1', 'Cry2', 'Nr1d1', 'Nr1d2'
+    )
   }
   
   return(gene_list)
