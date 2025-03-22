@@ -1,12 +1,12 @@
 # A script housing a collection of commonly called functions in the actdep project.
 
 # This function will get called every time the script is sourced!
-set_ggplot_theme <- function() {
+set_ggplot_font <- function(font = 'Aptos') {
   library(ggplot2)
-  theme_set(theme_minimal(base_family = "Aptos"))
-  message("Aptos is now the default font for ggplot2.")
+  theme_set(theme_minimal(base_family = font))
+  message(glue("{font} is now the default font for ggplot2."))
 }
-set_ggplot_theme()
+set_ggplot_font() # set default font
 
 
 SymbolToEnsembl <- function(gene_symbol_vector) {
