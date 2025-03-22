@@ -49,101 +49,6 @@ tau <- function(subclass_expression_vector, direction = 'up') {
 }
 
 
-QuickPercentExpression <- function(seurat.object, genes, ident_var, ident.1, ident.2, assay = "SCT", layer = "data") {
-  # set Idents
-  Idents(seurat.object) <- seurat.object[[ident_var]] |> pull()
-  
-  # Extract the available genes in the specified assay and layer
-  available_genes <- rownames(GetAssayData(seurat.object, assay = assay, layer = layer))
-  
-  # Check if any of the requested genes are missing
-  missing_genes <- setdiff(genes, available_genes)
-  if(length(missing_genes) > 0) {
-    warning("The following genes were not found in the assay data and will be skipped: ", 
-            paste(missing_genes, collapse = ", "))
-    genes <- intersect(genes, available_genes)
-  }
-  
-  # Extract the expression matrix for the selected genes
-  expr <- GetAssayData(seurat.object, assay = assay, layer = layer)[genes, , drop = FALSE]
-  
-  # Identify the cells for each group based on the provided identities
-  cells1 <- WhichCells(seurat.object, idents = ident.1)
-  cells2 <- WhichCells(seurat.object, idents = ident.2)
-  
-  # Compute the percentage of cells with expression > 0 in each group
-  pct.1 <- rowSums(expr[, cells1] > 0) / length(cells1)
-  pct.2 <- rowSums(expr[, cells2] > 0) / length(cells2)
-  pct.mean <- rowMeans(cbind(pct.1, pct.2))
-  shrink_coef <- sqrt(sqrt(pct.mean))
-  
-  # Create and return a data frame with the results
-  result <- tibble(gene = genes, 
-                   subclass = subclass,
-                   group1 = ident.1,
-                   group2 = ident.2,
-                   pct.1 = pct.1, 
-                   pct.2 = pct.2, 
-                   pct.mean = pct.mean,
-                   shrink_coef = shrink_coef)
-  return(result)
-}
-
-
-RunYaoDGE <- function(input_subclass, save_to_file = FALSE) {
-  library(Seurat)
-
-  # if yao not in namespace, load object
-  if (!exists('yao')) {
-    yao <- LoadDataset('Yao2023')
-  }
-  
-  subclass_str <- gsub(' ', '_', input_subclass)
-  subclass_str <- gsub('/', '', subclass_str)
-  fname <- paste0("/Volumes/jack/yao/DGE/", subclass_str, "_DEGs.csv")
-  
-  if (file.exists(fname)) {
-    return(read_csv(fname))
-  }
-  
-  # subset subclass
-  subclass_cells <- yao |> subset(subclass == input_subclass)
-  
-  # remove duplicate rownames
-  gs <- rownames(ca1)
-  idx <- rownames(ca1) |> duplicated() |> which()
-  duplicate_gene_symbols <- gs[idx]
-  
-  # remove genes whose symbols are duplicated
-  raw_counts <- GetAssayData(subclass_cells, assay = 'RNA')
-  raw_counts <- raw_counts[!rownames(raw_counts) %in% duplicate_gene_symbols,]
-  raw_counts <- CreateAssayObject(raw_counts, assay = 'RNA')
-  
-  # re-compose the seurat object
-  subclass_meta <- subclass_cells@meta.data
-  subclass_cells <- CreateSeuratObject(counts = raw_counts, meta.data = subclass_meta)
-  
-  # run DGE with MAST
-  Idents(subclass_cells) <- subclass_cells$donor_sex
-  
-  DEGs <- subclass_cells |> 
-    FindMarkers(ident.1 = 'F', ident.2 = 'M', 
-                min.pct = 0.05,
-                logfc.threshold = 0.1, 
-                test.use = 'MAST',
-                latent.vars = 'library_label') |>
-    rownames_to_column(var = 'gene') |>
-    filter(p_val_adj < 0.05)
-  
-  # save results as csv
-  if (save_to_file) {
-    write_csv(DEGs, fname)
-  }
-  
-  return(DEGs)
-}
-
-
 LoadDataset <- function(dataset, as_gigaclasses = FALSE, sublibrary = "combined") {
   library(Seurat)
   library(glue)
@@ -196,13 +101,65 @@ LoadAllenColors <- function(clade = 'subclass') {
 }
 
 
-LoadSexColors <- function() {
-  sex_colors <- c('M' = '#E66100', 
-                  'F' = '#5D3A9B',
-                  'male' = '#E66100',
-                  'female' = '#5D3A9B')
+LoadGeneList <- function(list_type = "IEG") {
+  # has options:
+  #   - IEG
+  #   - lncRNA: lncRNA genes from CA1 EE30m vs SE
+  #   - tyssowski: tyssowski rapid/delayed PRGs
+  #   - DEGs: all DEGs from the expression heatmap in figure 1
+  #   - circadian: Clock genes
+  library(readxl)
+  library(dplyr)
   
-  return(sex_colors)
+  if (list_type == "IEG" | list_type == 'ieg') {
+    gene_list <- c(
+      'Arc',
+      'Btg2',
+      'Dusp1',
+      'Dusp5',
+      'Egr1',
+      'Egr2',
+      'Egr3',
+      'Egr4',
+      'Fos',
+      'Fosb',
+      'Fosl2',
+      'Junb',
+      'Npas4',
+      'Nr4a1',
+      'Nr4a3'
+    )
+  } else if (list_type == "lncRNA") {
+    gene_biotypes <- read_csv("04-analysis/all_gene_stats.csv")
+    gene_list <- c(
+      read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/016_CA1-ProS_Glut__EE30m_vs_SE.csv") |> 
+        left_join(gene_biotypes, by = c('gene' = 'name')) |> 
+        filter(biotype == 'lncRNA') |> 
+        filter(chrom != 'mm39_X' & chrom != 'mm39_Y') |> 
+        filter(abs(log2FoldChange) > 0.585) |> 
+        filter(padj < 0.05)
+    )
+  } else if (list_type == "tyssowski") {
+    PRG_rapid <- read_excel("02-data/published_data/Tyssowski2018/tyssowski_gene_lists.xlsx", sheet = 1) |> 
+      pull(`Gene ID`)
+    PRG_delay <- read_excel("02-data/published_data/Tyssowski2018/tyssowski_gene_lists.xlsx", sheet = 2) |> 
+      pull(`Gene ID`)
+    SRG <- read_excel("02-data/published_data/Tyssowski2018/tyssowski_gene_lists.xlsx", sheet = 3) |> 
+      pull(`Gene ID`)
+    
+    gene_list <- c(PRG_rapid, PRG_delay)
+    gene_list <- gene_list[!is.na(gene_list)] # remove NA
+  } else if (list_type == 'DEGs') {
+    # get all DEGs from the expression heatmap in figure 1
+    gene_list <- read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/0_DEG_classifications.csv") |> 
+      pull(gene)
+  } else if (list_type == 'circadian') {
+    gene_list <- known_circadian_genes <- c(
+      'Per1', 'Per2', 'Per3', 'Clock', 'Bmal1', 'Cry1', 'Cry2', 'Nr1d1', 'Nr1d2'
+    )
+  }
+  
+  return(gene_list)
 }
 
 
@@ -281,6 +238,16 @@ LoadZTColors <- function(palette = 5) {
 }
 
 
+LoadSexColors <- function() {
+  sex_colors <- c('M' = '#E66100', 
+                  'F' = '#5D3A9B',
+                  'male' = '#E66100',
+                  'female' = '#5D3A9B')
+  
+  return(sex_colors)
+}
+
+
 LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', as_gigaclasses = F, cell_cutoff = 150) {
 # returns a list of subclass_names to use. 
 # subclasses with fewer than cell_cutoff are excluded.
@@ -332,6 +299,45 @@ LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', as_gigacla
 }
 
 
+LoadBarebonesGgplotTheme <- function(legend_position = 'none', ticks = 'none') {
+  # Returns a minimal ggplot2 theme with as few elements as possible. Helpful for
+  # Importing vector images into Illustrator.
+  library(ggplot2)
+  
+  # set tick parameters
+  if (ticks == 'none') {
+    ticks_param <- theme(axis.ticks = element_blank(), 
+                         axis.line = element_blank())
+  } else if (ticks == 'both') {
+    ticks_param <- theme(axis.ticks = element_line(), 
+                         axis.line = element_line())
+  } else if (ticks == 'x') {
+    ticks_param <- theme(axis.ticks.x = element_line(),
+                         axis.line.x = element_line(),
+                         axis.ticks.y  = element_blank(),
+                         axis.line.y = element_blank())
+  } else if (ticks == 'y') {
+    ticks_param <- theme(axis.ticks.y = element_line(), 
+                         axis.line.y = element_line(),
+                         axis.ticks.x  = element_blank(),
+                         axis.line.x = element_blank())
+  }
+  
+  theme_barebones <- theme_classic() +
+    theme(
+      legend.position = legend_position,
+      title = element_blank(),
+      text = element_blank(),
+      line = element_blank(),
+      rect = element_blank(),
+      panel.grid = element_blank(),
+    ) +
+    ticks_param
+  
+  return(theme_barebones)
+}
+
+
 GetSubclassContrasts <- function(seurat_obj, subclass, cell_cutoff = 30) {
 # returns a list of activity_condition contrasts to use
 # given they meet the cell_cutoff criterion
@@ -361,65 +367,6 @@ GetSubclassContrasts <- function(seurat_obj, subclass, cell_cutoff = 30) {
     filter(pasted %in% acceptable_contrasts)
   
   return(df_contrasts)
-}
-
-
-LoadGeneList <- function(list_type = "IEG") {
-  # has options:
-  #   - IEG
-  #   - lncRNA: lncRNA genes from CA1 EE30m vs SE
-  #   - tyssowski: tyssowski rapid/delayed PRGs
-  #   - DEGs: all DEGs from the expression heatmap in figure 1
-  #   - circadian: Clock genes
-  library(readxl)
-  library(dplyr)
-  
-  if (list_type == "IEG" | list_type == 'ieg') {
-    gene_list <- c(
-        'Arc',
-        'Btg2',
-        'Dusp1',
-        'Dusp5',
-        'Egr1',
-        'Egr2',
-        'Egr3',
-        'Egr4',
-        'Fos',
-        'Fosb',
-        'Fosl2',
-        'Junb',
-        'Npas4',
-        'Nr4a1',
-        'Nr4a3'
-      )
-  } else if (list_type == "lncRNA") {
-    gene_biotypes <- read_csv("04-analysis/all_gene_stats.csv")
-    gene_list <- c(
-      read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/016_CA1-ProS_Glut__EE30m_vs_SE.csv") |> 
-        left_join(gene_biotypes, by = c('gene' = 'name')) |> 
-        filter(biotype == 'lncRNA') |> 
-        filter(chrom != 'mm39_X' & chrom != 'mm39_Y') |> 
-        filter(abs(log2FoldChange) > 0.585) |> 
-        filter(padj < 0.05)
-    )
-  } else if (list_type == "tyssowski") {
-    PRG_rapid <- read_excel("02-data/published_data/Tyssowski2018/tyssowski_gene_lists.xlsx", sheet = 1) |> 
-      pull(`Gene ID`)
-    PRG_delay <- read_excel("02-data/published_data/Tyssowski2018/tyssowski_gene_lists.xlsx", sheet = 2) |> 
-      pull(`Gene ID`)
-    
-    gene_list <- c(PRG_rapid, PRG_delay)
-  } else if (list_type == 'DEGs') {
-    # get all DEGs from the expression heatmap in figure 1
-    gene_list <- read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/0_DEG_classifications.csv") |> 
-      pull(gene)
-  } else if (list_type == 'circadian') {
-    gene_list <- known_circadian_genes <- c(
-      'Per1', 'Per2', 'Per3', 'Clock', 'Bmal1', 'Cry1', 'Cry2', 'Nr1d1', 'Nr1d2'
-    )
-  }
-  
-  return(gene_list)
 }
 
 
@@ -663,6 +610,101 @@ RunGOEnrichment <- function(target_gene_symbols, background_gene_list) {
     print()
   
   return(results_GO@result)
+}
+
+
+RunYaoDGE <- function(input_subclass, save_to_file = FALSE) {
+  library(Seurat)
+  
+  # if yao not in namespace, load object
+  if (!exists('yao')) {
+    yao <- LoadDataset('Yao2023')
+  }
+  
+  subclass_str <- gsub(' ', '_', input_subclass)
+  subclass_str <- gsub('/', '', subclass_str)
+  fname <- paste0("/Volumes/jack/yao/DGE/", subclass_str, "_DEGs.csv")
+  
+  if (file.exists(fname)) {
+    return(read_csv(fname))
+  }
+  
+  # subset subclass
+  subclass_cells <- yao |> subset(subclass == input_subclass)
+  
+  # remove duplicate rownames
+  gs <- rownames(ca1)
+  idx <- rownames(ca1) |> duplicated() |> which()
+  duplicate_gene_symbols <- gs[idx]
+  
+  # remove genes whose symbols are duplicated
+  raw_counts <- GetAssayData(subclass_cells, assay = 'RNA')
+  raw_counts <- raw_counts[!rownames(raw_counts) %in% duplicate_gene_symbols,]
+  raw_counts <- CreateAssayObject(raw_counts, assay = 'RNA')
+  
+  # re-compose the seurat object
+  subclass_meta <- subclass_cells@meta.data
+  subclass_cells <- CreateSeuratObject(counts = raw_counts, meta.data = subclass_meta)
+  
+  # run DGE with MAST
+  Idents(subclass_cells) <- subclass_cells$donor_sex
+  
+  DEGs <- subclass_cells |> 
+    FindMarkers(ident.1 = 'F', ident.2 = 'M', 
+                min.pct = 0.05,
+                logfc.threshold = 0.1, 
+                test.use = 'MAST',
+                latent.vars = 'library_label') |>
+    rownames_to_column(var = 'gene') |>
+    filter(p_val_adj < 0.05)
+  
+  # save results as csv
+  if (save_to_file) {
+    write_csv(DEGs, fname)
+  }
+  
+  return(DEGs)
+}
+
+
+QuickPercentExpression <- function(seurat.object, genes, ident_var, ident.1, ident.2, assay = "SCT", layer = "data") {
+  # set Idents
+  Idents(seurat.object) <- seurat.object[[ident_var]] |> pull()
+  
+  # Extract the available genes in the specified assay and layer
+  available_genes <- rownames(GetAssayData(seurat.object, assay = assay, layer = layer))
+  
+  # Check if any of the requested genes are missing
+  missing_genes <- setdiff(genes, available_genes)
+  if(length(missing_genes) > 0) {
+    warning("The following genes were not found in the assay data and will be skipped: ", 
+            paste(missing_genes, collapse = ", "))
+    genes <- intersect(genes, available_genes)
+  }
+  
+  # Extract the expression matrix for the selected genes
+  expr <- GetAssayData(seurat.object, assay = assay, layer = layer)[genes, , drop = FALSE]
+  
+  # Identify the cells for each group based on the provided identities
+  cells1 <- WhichCells(seurat.object, idents = ident.1)
+  cells2 <- WhichCells(seurat.object, idents = ident.2)
+  
+  # Compute the percentage of cells with expression > 0 in each group
+  pct.1 <- rowSums(expr[, cells1] > 0) / length(cells1)
+  pct.2 <- rowSums(expr[, cells2] > 0) / length(cells2)
+  pct.mean <- rowMeans(cbind(pct.1, pct.2))
+  shrink_coef <- sqrt(sqrt(pct.mean))
+  
+  # Create and return a data frame with the results
+  result <- tibble(gene = genes, 
+                   subclass = subclass,
+                   group1 = ident.1,
+                   group2 = ident.2,
+                   pct.1 = pct.1, 
+                   pct.2 = pct.2, 
+                   pct.mean = pct.mean,
+                   shrink_coef = shrink_coef)
+  return(result)
 }
 
 
