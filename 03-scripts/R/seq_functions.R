@@ -1,5 +1,18 @@
 # A script housing a collection of commonly called functions in the actdep project.
 
+# load libs useful for all scripts
+library(ggplot2)
+library(glue)
+library(forcats)
+library(readr)
+library(readxl)
+library(stringr)
+library(tibble)
+library(tidyr)
+
+# always load at end of tidyverse to mask plyr; plyr fucking sucks
+library(dplyr)
+
 # This function will get called every time the script is sourced!
 set_ggplot_font <- function(font = 'Aptos') {
   library(ggplot2)
@@ -87,8 +100,6 @@ LoadDataset <- function(dataset, as_gigaclasses = FALSE, sublibrary = "combined"
 
 
 LoadAllenColors <- function(clade = 'subclass') {
-  library(tidyverse)
-
   allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv", show_col_types = FALSE)
   
   switch(
@@ -252,7 +263,6 @@ LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', as_gigacla
 # returns a list of subclass_names to use. 
 # subclasses with fewer than cell_cutoff are excluded.
   library(Seurat)
-  library(tidyverse)
 
   if (ascertainment == 'custom') {
     subclass_list <- c(
@@ -342,7 +352,6 @@ GetSubclassContrasts <- function(seurat_obj, subclass, cell_cutoff = 30) {
 # returns a list of activity_condition contrasts to use
 # given they meet the cell_cutoff criterion
   library(Seurat)
-  library(tidyverse)
 
   acceptable_contrasts  <- c(
     'EE30m_SE',
@@ -374,7 +383,6 @@ GetCorrData <- function(seurat_obj, specific_condition, gene_list, output_fmt = 
 # returns the pairwise correlation between expression values of all gene pairs
 # in gene_list. Only cells in the specified condition will be included.
   library(Seurat)
-  library(tidyverse)
 
   expression_data <- seurat_obj |> 
     subset(activity_condition == specific_condition) |> 
@@ -418,7 +426,6 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, show_plot = TRUE, save_p
 # output_fmt = 'complex_heatmap'.
 
   library(Seurat)
-  library(tidyverse)
   library(ComplexHeatmap)
   library(circlize)
 
