@@ -6,15 +6,15 @@ library(rstatix)
 
 library(Seurat)
 
-
-
 source('03-scripts/R/seq_functions.R')
+save_path <- "05-results/ORCA/raw_R_plots"
+
 activity_colors <- LoadActivityColors('Dec2024')
-nuclei <- LoadDataset('Dec2024')
-celltype <- nuclei |> subset(subclass_name == '016 CA1-ProS Glut' & activity_condition == 'SE')
+# nuclei <- LoadDataset('Dec2024')
+# nuclei_subclass <- nuclei |> subset(subclass_name == '016 CA1-ProS Glut' & activity_condition == 'SE')
 
 
-data_summary <- function(data, varname, groupnames) {
+calc_sem <- function(data, varname, groupnames) {
   #+++++++++++++++++++++++++
   # Function to calculate the mean and the standard deviation
   # for each group
@@ -37,11 +37,11 @@ data_summary <- function(data, varname, groupnames) {
 }
 
 
-# SE ZT insets ----------------------------------------------------------------------------------------
-known_circadian_genes <- c('Per1', 'Per2', 'Clock', 'Bmal1', 'Cry2')
-mat_circadian <- GetAssayData(celltype)
+# SE ZT insets ----------------------------------------
+known_circadian_genes <- LoadGeneList('circadian')
+mat_circadian <- GetAssayData(nuclei_subclass)
 mat_circadian <- mat_circadian[known_circadian_genes,] |> t()
-celltype@meta.data <- celltype@meta.data |> 
+nuclei_subclass@meta.data <- nuclei_subclass@meta.data |> 
   mutate(ZT.collection = case_when(
     (ZT == 'ZT0' & activity_condition == 'EE6h') ~ 'ZT6',
     (ZT == 'ZT4' & activity_condition == 'EE6h') ~ 'ZT10',
@@ -57,34 +57,45 @@ df_circadian <- as.matrix(mat_circadian) |>
   as.data.frame() |> 
   rownames_to_column(var = 'barcode') |> 
   as_tibble() |> 
-  right_join(celltype@meta.data) |> 
+  right_join(nuclei_subclass@meta.data) |> 
   tidyr::pivot_longer(cols = all_of(known_circadian_genes), names_to = 'gene', values_to = 'expression')
 
 
 for (gene_to_plot in known_circadian_genes) {
   p <- df_circadian |> 
-    data_summary('expression', c('ZT', 'gene')) |>
+    calc_sem('expression', c('ZT', 'gene')) |>
     filter(gene == gene_to_plot) |> 
   ggplot() +
     aes(x = ZT, y = expression, group = gene) +
     geom_line(linewidth = 2) +
     geom_errorbar(aes(ymin = expression-sem, ymax = expression+sem), linewidth = 2, width = 0.1) +
     geom_point(size = 5) +
+    labs(title = glue('{gene_to_plot} in CA1 SE'),
+         y = 'Normalized expression') +
     theme(
-      strip.text = element_text(size = 30),
-      axis.title = element_blank(),
-      axis.text = element_text(size = 20),
-      plot.title = element_blank()
+      axis.text.x = element_text(size = 15, angle = 30),
+      axis.title.y = element_text(size = 15),
+      axis.title.x = element_blank(),
+      plot.title = element_text(size = 15, hjust = 0.5)
     )
   print(p)
-  save_path <- "05-results/ORCA/raw_R_plots"
-  ggsave(glue('{save_path}/CA1_{gene_to_plot}_inset.png'),
-         width = 4, height = 5, units = 'in', dpi = 900)
+  
+  if (SAVE_PLOTS) {
+    save_path <- "05-results/MOTH/raw_R_plots"
+    ggsave(plot = p,  # png
+           filename = glue('CA1_{gene_to_plot}_inset.png'),
+           path = save_path,
+           width = 4, height = 5, units = 'in', dpi = 900, bg = 'white')
+    ggsave(plot = p + LoadBarebonesTheme(ticks = 'y'),  # svg
+           filename = glue('CA1_{gene_to_plot}_inset.svg'),
+           path = save_path,
+           width = 5, height = 5, units = 'in')
+  }
 }
 
 
-# VlnPlots -------------------------------------------------
-known_circadian_genes <- c('Per1', 'Per2', 'Clock', 'Bmal1', 'Cry2')
+# VlnPlots ----------------------------------------
+known_circadian_genes <- LoadGeneList('circadian')
 
 ca1 <- subset(nuclei, subclass_name == '016 CA1-ProS Glut')
 mat_circadian <- GetAssayData(ca1)
@@ -144,13 +155,21 @@ for (gene_to_plot in known_circadian_genes) {
     )
 
   print(p)
-  save_path <- "05-results/ORCA/raw_R_plots"
-  ggsave(glue('{save_path}/CA1_{gene_to_plot}_VlnPlot.png'),
-         width = 8, height = 6, units = 'in', dpi = 900)
+  
+  if (SAVE_PLOTS) {
+    ggsave(plot = p,  # png
+           filename = glue('CA1_{gene_to_plot}_VlnPlot.png'),
+           path = save_path,
+           width = 4, height = 5, units = 'in', dpi = 900, bg = 'white')
+    ggsave(plot = p + LoadBarebonesTheme(ticks = 'y'),  # svg
+           filename = glue('CA1_{gene_to_plot}_VlnPlot.svg'),
+           path = save_path,
+           width = 4, height = 5, units = 'in')
+  }
 }
 
 
-# DotPlots -------------------------------------------
+# DotPlots ----------------------------------------
 for (gene_to_plot in known_circadian_genes) {
   # DotPlot
   p <- df_circadian |> 
@@ -179,14 +198,22 @@ for (gene_to_plot in known_circadian_genes) {
       axis.text = element_text(size = 20),
       panel.border = element_rect(linewidth = 1, fill = NA)
     )
+  print(p)
   
-  save_path <- "05-results/ORCA/raw_R_plots"
-  ggsave(glue('{save_path}/CA1_{gene_to_plot}_DotPlot.png'),
-         width = 8, height = 6, units = 'in', dpi = 900)
+  if (SAVE_PLOTS) {
+    ggsave(plot = p,  # png
+           filename = glue('CA1_{gene_to_plot}_DotPlot.png'),
+           path = save_path,
+           width = 4, height = 5, units = 'in', dpi = 900, bg = 'white')
+    ggsave(plot = p + LoadBarebonesTheme(ticks = 'y'),  # svg
+           filename = glue('CA1_{gene_to_plot}_DotPlot.svg'),
+           path = save_path,
+           width = 4, height = 5, units = 'in')
+  }
 }
 
 
-# facet plots (subclass) -------------------------------------------------
+# facet plots (subclass) ----------------------------------------
 known_circadian_genes <- c(
   'Per1', 'Per2', 'Per3', 'Clock', 'Bmal1', 'Cry1', 'Cry2',
   'Nr1d1', 'Nr1d2', 'Hif3a', 'Thbs3', 'Hspa5', 'Fkbp5'
@@ -228,7 +255,7 @@ for (subclass in subclasses) {
     tidyr::pivot_longer(cols = all_of(LoadGeneList("IEG")), names_to = 'gene', values_to = 'expression')
 
   p <- df_circadian |>
-    data_summary('expression', c('ZT', 'gene')) |>
+    calc_sem('expression', c('ZT', 'gene')) |>
   ggplot() +
     aes(x = ZT, y = expression, group = gene) +
     geom_line(linewidth = 2) +
