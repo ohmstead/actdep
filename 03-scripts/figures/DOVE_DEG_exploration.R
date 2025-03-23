@@ -103,3 +103,18 @@ ggplot() +
   aes(x = activity_condition, fill = supertype_name) +
   geom_bar(position = 'stack') +
   scale_fill_manual(values = supertype_colors)
+
+
+# just make a damn dotplot ---------------------------------------------
+interesting_feats <- c(
+  '9330159F19Rik', 'Ddah1', 'Dio2', 'Mxi1', 'Pde10a', 'Epas1', 'Plekho2',
+  'Fam20a', 'Slco1c1', 'Foxo1', 'Usp2', 'Hdac4', 'Zswim6', 'Kcnn2', 'Map3k19'
+)
+astro |> 
+  RidgePlot(features = interesting_feats, group.by = 'activity_condition', cols = activity_colors)
+  scale_fill_manual(values = activity_colors)
+astro |> 
+  DotPlot(features = interesting_feats, group.by = 'activity_condition', cols = 'viridis')
+
+FeaturePlot(astro, interesting_feats) +
+  scale_color_viridis_c()
