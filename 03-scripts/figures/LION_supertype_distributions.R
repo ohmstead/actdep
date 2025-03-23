@@ -1,4 +1,7 @@
-# load libs & data -----
+# This script is important for plotting the STATIC distributions of CA1 supertypes
+# in the MERFISH atlas. It is purely reproducing the MERFISH data, NOT performing
+# secondary analysis.
+
 source("03-scripts/R/seq_functions.R")
 
 library(dplyr)
@@ -17,13 +20,13 @@ subclass_colors <- LoadAllenColors("subclass")
 supertype_colors <- LoadAllenColors("supertype")
 
 
-# load MERFISH and metadata ----
+# load MERFISH and metadata ----------------------------------------
 allen_taxonomy <- read_excel("02-data/published_data/Yao2023/allen_taxonomy_metadata.xlsx")
 allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv")
 meta_merfish <- read_csv("02-data/published_data/Zhang2023/cell_metadata.csv")
 
 
-# merge MERFISH and metadata ----
+# merge MERFISH and metadata ----------------------------------------
 # IMPORTANT:
 # "cluster_alias" col in merfish meta is equal to "cl" col in the allen_taxonomy
 # "cl" and "cluster_id" are NOT the same thing in the allen_taxonomy. Use "cl" for joins!
@@ -38,7 +41,7 @@ ca1_merfish <- meta_merfish |>
   filter(z < 8 & z > 4)           # anything outside is mis-classified
 
 
-# plot A-P (z) axis distro ----
+# A-P distro ----------------------------------------
 p_ap <- ca1_merfish |> 
   group_by(z, supertype_id_label) |> 
   summarise(n = n()) |>
@@ -56,7 +59,7 @@ ggplot() +
   )
 
 
-# plot D-V (y) axis distro ----
+# D-V distro ----------------------------------------
 p_dv <- ca1_merfish |>
   mutate(ycut = cut(y, breaks = seq(2.9, 8.1, 0.2))) |> 
   mutate(yy = as.numeric(substr(as.character(ycut), 2, 4))) |>   # change to number
@@ -78,6 +81,8 @@ ggplot() +
 
 print(p_ap + p_dv + plot_layout(widths = c(2,1)))
 
+
+# save  ----------------------------------------
 if (SAVE_PLOTS) {
   save_path <- "05-results/LION/raw_R_plots"
   # png

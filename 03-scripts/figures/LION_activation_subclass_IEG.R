@@ -1,4 +1,3 @@
-# ---- load libs & data ----
 print("Loading libraries and data...")
 
 library(Seurat)
@@ -16,7 +15,7 @@ subclass_colors <- LoadAllenColors('subclass')
 subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
 IEG_symbols <- LoadGeneList("IEG")
 
-# get active cells in each subclass ----
+# get active cells in each subclass  ----------------------------------------
 print("Getting percent of cells active using IEGs...")
 
 df_percent_active_all = tibble()
@@ -38,7 +37,7 @@ for(subclass in subclass_list) {
 df_percent_active_all$subclass <- factor(df_percent_active_all$subclass, levels = subclass_list)
 
 
-# plot activation within each subclass ----
+# plot activation within each subclass  ----------------------------------------
 subclass_colors_strip <- subclass_colors[names(subclass_colors) %in% subclass_list]
 subclass_colors_strip <- subclass_colors_strip[match(subclass_list, names(subclass_colors_strip))]
 strip = strip_themed(background_x = elem_list_rect(fill = subclass_colors_strip))
@@ -62,7 +61,7 @@ p <- ggplot(df_percent_active_all) +
         axis.title.y = element_blank())
 
 
-# save plots ----
+# save plots  ----------------------------------------
 if (SAVE_PLOTS) {
   print("Saving plots...")
   save_path <- "05-results/LION/raw_R_plots"

@@ -1,4 +1,3 @@
-# ---- load libs & data ----
 print("Loading libraries and data...")
 
 library(Seurat)
@@ -16,7 +15,7 @@ subclass_colors <- LoadAllenColors('subclass')
 subclass_list <- LoadSubclassesToUse(nuclei, ascertainment = 'custom')
 df_degs <- read_csv('04-analysis/DEGs/Dec2024_activity_condition_minPct5/0_sorted_DEG_list.csv')
 
-# get active cells in each subclass ----
+# get active cells in each subclass  ----------------------------------------
 print("Getting percent of cells active using IEGs...")
 
 df_percent_active_all = tibble()
@@ -78,7 +77,7 @@ df_percent_active_all$subclass <- factor(df_percent_active_all$subclass, levels 
 
 
 
-# tests with Brenda ----
+# tests with Brenda  ----------------------------------------
 pv <- subset(nuclei, subclass_name == '052 Pvalb Gaba')
 sst <- subset(nuclei, subclass_name == '053 Sst Gaba')
 cck <- subset(nuclei, subclass_name == '047 Sncg Gaba')
@@ -86,7 +85,7 @@ VlnPlot(pv, 'Pvalb', group.by = 'activity_condition')
 VlnPlot(sst, 'Sst', group.by = 'activity_condition')
 VlnPlot(cck, 'Cck', group.by = 'activity_condition')
 
-# tests with Danny ----
+# tests with Danny  ----------------------------------------
 # re-run DEG for microglia
 microglia <- subset(nuclei, subclass_name == '334 Microglia NN')
 Idents(microglia) <- microglia$activity_condition
@@ -156,7 +155,7 @@ ggplot() +
 
 
 
-# plot activation within each subclass ----
+# plot activation within each subclass  ----------------------------------------
 subclass_colors_strip <- subclass_colors[names(subclass_colors) %in% subclass_list]
 subclass_colors_strip <- subclass_colors_strip[match(subclass_list, names(subclass_colors_strip))]
 # strip = strip_themed(background_x = elem_list_rect(fill = subclass_colors_strip))
@@ -180,7 +179,7 @@ p_subclass <- ggplot(df_percent_active_all) +
         axis.title.y = element_blank())
 
 
-# save plots ----
+# save plots  ----------------------------------------
 if (SAVE_PLOTS) {
   print("Saving plots...")
   save_path <- "05-results/LION/raw_R_plots"

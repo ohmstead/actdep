@@ -1,4 +1,6 @@
-# load libs & data -----
+# This script is purely for producing screenshots of the CA1 supertypes in MERFISH sections.
+# It doesn't save any plots.
+
 source("03-scripts/R/seq_functions.R")
 
 library(dplyr)
@@ -14,13 +16,13 @@ subclass_colors <- LoadAllenColors("subclass")
 supertype_colors <- LoadAllenColors("supertype")
 
 
-# load MERFISH and metadata ----
+# load MERFISH and metadata  ----------------------------------------
 allen_taxonomy <- read_excel("02-data/published_data/allen_taxonomy_metadata.xlsx")
 allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv")
 meta_merfish <- read_csv("02-data/published_data/Zhang2023/cell_metadata.csv")
 
 
-# merge MERFISH and metadata ----
+# merge MERFISH and metadata  ----------------------------------------
 # IMPORTANT:
 # "cluster_alias" col in merfish meta is equal to "cl" col in the allen_taxonomy
 # "cl" and "cluster_id" are NOT the same thing in the allen_taxonomy. Use "cl" for joins!
@@ -31,7 +33,7 @@ meta_merfish <- meta_merfish |>
   filter(low_quality_mapping == FALSE)
 
 
-# 3-D plot CA1 by supertype ----
+# make 3-D plot ----------------------------------------
 p <- meta_merfish |>
   filter(subclass_id_label == "016 CA1-ProS Glut") |>
   filter(z < 8 & z > 4) |> 

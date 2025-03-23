@@ -1,4 +1,7 @@
-# ---- load libs & data ----
+# This script plots the percent of active cells in each condition for the CA1 subclass.
+# It does no analysis at the supertype level. It uses both the canonical IEG list, as 
+# well as a list of lncRNAs from the EE30m vs SE DEG analysis.
+
 print("Loading libraries and data...")
 
 library(Seurat)
@@ -13,7 +16,7 @@ nuclei <- LoadDataset("Dec2024")
 activity_colors <- LoadActivityColors("Dec2024", palette = 'grayscale')
 
 
-# ---- get active cells ----
+# get active cells  ----------------------------------------
 print("Getting percent of cells active using IEGs...")
 
 IEG_symbols <- LoadGeneList("IEG")
@@ -26,7 +29,7 @@ df_active_cells_IEGs <- outputs_IEG$df_active_cells
 df_active_cells_lncRNA <- outputs_lncRNA$df_active_cells
 
 
-# ---- plot % active IEGs ----
+# plot activation  ----------------------------------------
 print("Plotting percent of cells active using IEGs...")
 
 p_activation_IEG <- ggplot(df_active_cells_IEGs) +
@@ -48,7 +51,7 @@ print(p_activation_IEG)
 print(IEG_symbols)
 
 
-# ---- plot % active lncRNA ----
+# plot % active lncRNA  ----------------------------------------
 print("Plotting percent of cells active using lncRNA...")
 
 p_activation_lncRNA <- ggplot(df_active_cells_lncRNA) +
@@ -70,7 +73,7 @@ print(p_activation_lncRNA)
 print(lncRNA_symbols)
 
 
-# ---- KDE insets ----
+# example insets  ----------------------------------------
 print("Plotting KDE example insets...")
 
 p_inset_Fos <- df_active_cells_IEGs |> 
@@ -113,7 +116,7 @@ ggplot() +
 print(p_inset_Nr4a1)
 
 
-# ---- save plots ----
+# save plots ----------------------------------------
 if (SAVE_PLOTS) {
   print("Saving plots...")
   save_path <- "05-results/LION/raw_R_plots"

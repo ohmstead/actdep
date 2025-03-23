@@ -61,7 +61,7 @@ df_activity_plotting_IEGs <- df_active_cells_IEGs |>
   )
 
 
-# p_supertypes_IEG ---- 
+# p_supertypes_IEG  ----------------------------------------
 strip <- strip_themed(background_x = elem_list_rect(fill = supertype_colors[c(101, 107, 102, 108, 106, 97)]))
 strip <- strip_themed(background_x = elem_list_rect(fill = activity_colors))
 

@@ -1,13 +1,12 @@
-# load libs & data -----
 source("03-scripts/R/seq_functions.R")
 
-library(dplyr)
 library(readr)
 library(readxl)
 library(ggridges)
 library(patchwork)
 library(ggplot2)
 library(ggh4x)
+library(dplyr)
 
 condition_colors <- LoadActivityColors("May2024")
 subclass_colors <- LoadAllenColors("subclass")
@@ -15,13 +14,13 @@ supertype_colors <- LoadAllenColors("supertype")
 
 nuclei <- LoadDataset("Dec2024")
 
-# load MERFISH and metadata ----
+# load MERFISH and metadata  ----------------------------------------
 allen_taxonomy <- read_excel("02-data/published_data/allen_taxonomy_metadata.xlsx")
 allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv")
 meta_merfish <- read_csv("02-data/published_data/Zhang2023/cell_metadata.csv")
 
 
-# merge MERFISH and metadata ----
+# merge MERFISH and metadata  ----------------------------------------
 # IMPORTANT:
 # "cluster_alias" col in merfish meta is equal to "cl" col in the allen_taxonomy
 # "cl" and "cluster_id" are NOT the same thing in the allen_taxonomy. Use "cl" for joins!
@@ -38,7 +37,7 @@ ca1_merfish <- meta_merfish |>
 gene_list <- LoadGeneList("lncRNA")
 
 
-# find IEG activated cells ----
+# find active cells  ----------------------------------------
 fxn_outputs <- FindActiveCells(nuclei, gene_list = gene_list, gene_threshold = 3)
 df_active_cells_lncRNA <- fxn_outputs$df_active_cells |>
   pivot_longer(cols = c(num_upregd_genes:last_col(), -num_upregd_genes), names_to = "gene", values_to = "expression") |> 
@@ -59,7 +58,7 @@ df_supertype_active  <- df_active_cells_lncRNA |>
   )
 
 
-# plot IEG activation ---- 
+# plot activation  ----------------------------------------
 strip <- strip_themed(background_x = elem_list_rect(fill = supertype_colors[c(101, 107, 102, 108, 106, 97)]))
 strip <- strip_themed(background_x = elem_list_rect(fill = supertype_colors[c(101, 107, 102, 108, 106, 97)]))
 p_supertypes_lncRNA <- ggplot(df_activity_plotting_lncRNA) + 
@@ -83,7 +82,7 @@ p_supertypes_lncRNA <- ggplot(df_activity_plotting_lncRNA) +
 print(p_supertypes_lncRNA)
 
 
-# plot activation along anatomical axes ----
+# plot activation along anatomical axes  ----------------------------------------
 p_spatial_lncRNA <- ca1_merfish |> 
   group_by(z, supertype_id_label) |>  
   summarise(n = n()) |> 
@@ -111,6 +110,7 @@ ggplot() +
 print(p_spatial_lncRNA)
 
 
+# save  ----------------------------------------
 if (SAVE_PLOTS == TRUE) {
   save_path <- "05-results/LION/raw_R_plots"
   ggsave(plot = p_supertypes_lncRNA, 
