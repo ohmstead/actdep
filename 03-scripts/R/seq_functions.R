@@ -6,7 +6,7 @@ set_ggplot_font <- function(font = 'Aptos') {
   theme_set(theme_minimal(base_family = font))
   message(glue("{font} is now the default font for ggplot2."))
 }
-set_ggplot_font() # set default font
+set_ggplot_font('Helvetica') # set default font
 
 
 SymbolToEnsembl <- function(gene_symbol_vector) {
@@ -299,7 +299,7 @@ LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', as_gigacla
 }
 
 
-LoadBarebonesGgplotTheme <- function(legend_position = 'none', ticks = 'none') {
+LoadBarebonesTheme <- function(legend_position = 'none', ticks = 'none') {
   # Returns a minimal ggplot2 theme with as few elements as possible. Helpful for
   # Importing vector images into Illustrator.
   library(ggplot2)
