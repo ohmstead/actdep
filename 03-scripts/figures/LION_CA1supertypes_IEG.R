@@ -1,4 +1,6 @@
-# load libs & data -----
+# This script plots percent activated cells in each CA1 supertype by activity condition.
+# It also plots the distribution of active cells along anatomical axes.
+
 source("03-scripts/R/seq_functions.R")
 
 library(dplyr)
@@ -17,13 +19,11 @@ activity_colors <- LoadActivityColors()
 
 nuclei <- LoadDataset("Dec2024")
 
-# load MERFISH and metadata ----
+# merge MERFISH meta ----------------------------------------
 allen_taxonomy <- read_excel("02-data/published_data/Yao2023/allen_taxonomy_metadata.xlsx")
 allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv")
 meta_merfish <- read_csv("02-data/published_data/Zhang2023/cell_metadata.csv")
 
-
-# merge MERFISH and metadata ----
 # IMPORTANT:
 # "cluster_alias" col in merfish meta is equal to "cl" col in the allen_taxonomy
 # "cl" and "cluster_id" are NOT the same thing in the allen_taxonomy. Use "cl" for joins!
@@ -40,7 +40,7 @@ ca1_merfish <- meta_merfish |>
 gene_list <- LoadGeneList("IEG")
 
 
-# find IEG activated cells ----
+# find active cells ------------------------------------------------
 outputs <- FindActiveCells(nuclei, gene_list = gene_list, gene_threshold = 3)
 df_active_cells_IEGs <- outputs$df_active_cells |>
   pivot_longer(cols = c(num_upregd_genes:last_col(), -num_upregd_genes), names_to = "gene", values_to = "expression") |> 
@@ -61,32 +61,28 @@ df_activity_plotting_IEGs <- df_active_cells_IEGs |>
   )
 
 
-# plot IEG activation ---- 
+# p_supertypes_IEG ---- 
 strip <- strip_themed(background_x = elem_list_rect(fill = supertype_colors[c(101, 107, 102, 108, 106, 97)]))
 strip <- strip_themed(background_x = elem_list_rect(fill = activity_colors))
 
 p_supertypes_IEG <- ggplot(df_activity_plotting_IEGs) + 
-  aes(y = num_upregd_genes, x = supertype_name, fill = supertype_name) +
-  geom_jitter(width = 0.3, height = 0.25, shape = 21, alpha = 0.3, set.seed(17)) +
-  geom_boxplot(width = 0.3, alpha = 0.8, outlier.shape = NA, fill = 'gray80') +
+  aes(y = num_upregd_genes, x = supertype_name, color = supertype_name) +
+  geom_jitter( size = 0.05, alpha = 0.3, width = 0.3, height = 0.25, set.seed(17)) +
+  geom_boxplot(width = 0.3, alpha = 0.8, outlier.shape = NA, fill = 'gray80', color = 'black') +
   geom_hline(yintercept = 2.5, linetype = 'dotted') +
-  scale_fill_manual(values = supertype_colors) +
+  scale_color_manual(values = supertype_colors) +
   scale_y_continuous(breaks = c(0, 3, 5, 10, 15)) +
+  theme_void() +
   theme(
-    plot.title = element_text(size = 30),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    axis.text.x = element_blank(),
     legend.position = 'none',
-    # strip.text = element_text(size = 15, color = 'white'),
     strip.text = element_blank(),
-    legend.text = element_text(size = 15)
   ) +
   facet_wrap2(~activity_condition, strip = strip, nrow = 1)
 
 print(p_supertypes_IEG)
 
-# print table
+
+# print table ------------------------------------------
 ca1_supertype_colors <- supertype_colors[sort(unique(df_activity_plotting_IEGs$supertype_name))]
 gt_summary <- df_activity_plotting_IEGs |> 
   group_by(supertype_name, activity_condition) |> 
@@ -108,9 +104,9 @@ gt() |>  # Do NOT set rowname_col here
 print(gt_summary)
 gtsave(gt_summary, "05-results/LION/raw_R_plots/CA1_supertypes_activation_table.png")
 
-# plot activation along anatomical axes ----
-# A/P
-p_IEG_spatial_AP <- ca1_merfish |> 
+
+# p_CA1_supertypes_APaxis_IEG ------------------------------------------------
+p_CA1_supertypes_APaxis_IEG <- ca1_merfish |> 
   group_by(z, supertype_id_label) |>  
   summarise(n = n()) |> 
   mutate(composition = n / sum(n)) |> 
@@ -122,6 +118,7 @@ ggplot() +
   geom_vline(xintercept = seq(7.5, 4.2, -0.2), color = 'white', linetype = 2, alpha = 0.3) +
   scale_fill_manual(values = supertype_colors) +
   scale_x_reverse() +
+  theme_void() +
   theme(
     # strip.text = element_text(size = 20, color = 'white'),
     strip.text = element_blank(),
@@ -134,10 +131,11 @@ ggplot() +
     legend.text = element_text(size = 20)
   ) +
   facet_wrap2(~activity_condition, strip = strip, nrow = 1)
-print(p_IEG_spatial_AP)
+print(p_CA1_supertypes_APaxis_IEG)
 
-# D/V
-p_IEG_spatial_DV <- ca1_merfish |> 
+
+# p_CA1_supertypes_DVaxis_IEG ------------------------------------------------
+p_CA1_supertypes_DVaxis_IEG <- ca1_merfish |> 
   mutate(ycut = cut(y, breaks = seq(2.9, 8.1, 0.2))) |> 
   mutate(yy = as.numeric(substr(as.character(ycut), 2, 4))) |>   # change to number
   group_by(yy, supertype_id_label) |> 
@@ -152,6 +150,7 @@ ggplot() +
   scale_fill_manual(values = supertype_colors) +
   coord_flip() +
   scale_x_reverse() +
+  theme_void() +
   theme(
     # strip.text = element_text(size = 20, color = 'white'),
     strip.text = element_blank(),
@@ -164,11 +163,12 @@ ggplot() +
     legend.text = element_text(size = 20)
   ) +
   facet_wrap2(~activity_condition, strip = strip, nrow = 1)
-print(p_IEG_spatial_DV)
+print(p_CA1_supertypes_DVaxis_IEG)
 
 
 if (SAVE_PLOTS == TRUE) {
   save_plots <- "05-results/LION/raw_R_plots"
+  # png
   ggsave(plot = p_supertypes_IEG, 
          path = save_plots, 
          filename = "CA1_supertypes_IEG.png",
@@ -176,9 +176,22 @@ if (SAVE_PLOTS == TRUE) {
   ggsave(plot = p_IEG_spatial_AP,
          path = save_plots,
          filename = "CA1_supertypes_APaxis_IEG.png",
-         device = png, width = 16, height = 5, dpi = 300)
+         device = png, width = 9, height = 1.5, dpi = 300)
   ggsave(plot = p_IEG_spatial_DV,
          path = save_plots,
          filename = "CA1_supertypes_DVaxis_IEG.png",
          device = png, width = 16, height = 4, dpi = 300)
+  # svg
+  ggsave(plot = p_supertypes_IEG, 
+         path = save_plots, 
+         filename = "CA1_supertypes_IEG.svg",
+         width = 9, height = 3, units = 'in')
+  ggsave(plot = p_CA1_supertypes_APaxis_IEG,
+         path = save_plots,
+         filename = "CA1_supertypes_APaxis_IEG.svg",
+         width = 9, height = 1.5, units = 'in')
+  ggsave(plot = p_CA1_supertypes_DVaxis_IEG,
+         path = save_plots,
+         filename = "CA1_supertypes_DVaxis_IEG.svg",
+         width = 9, height = 1, units = 'in')
 }
