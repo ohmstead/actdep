@@ -865,6 +865,35 @@ LoadH5SeuratObject <- function(filename, verbose = TRUE) {
 }
 
 
+svgsave <- function(
+    plot, 
+    filename = 'tmp.svg', 
+    savedir = '~/Downloads/', 
+    h = 5, w = 5, 
+    bg_color = 'transparent'
+) {
+  # Saves the current plot as an SVG file with the specified dimensions.
+  library(svglite)
+  
+  # clean filename by checking for .svg extension with regexp
+  if (str_detect(filename, '.svg$') == F) {
+    filename <- paste0(filename, '.svg')
+  }
+  # clean savedir
+  if (str_sub(savedir, -1) != '/') {
+    savedir <- paste0(savedir, '/')
+  }
+  full_path <- paste0(savedir, filename)
+  
+  svglite(filename = full_path, 
+          width = w,
+          height = h,
+          bg = bg_color)
+  print(plot)
+  dev.off()
+}
+
+
 si <- function(w = 800, h = 800, format = 'svg') {
   # Generate filename with an incrementing number
   fname <- "~/Downloads/tmp_1.svg"
