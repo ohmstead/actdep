@@ -2,7 +2,6 @@
 library(ggplot2)
 library(ggrepel)
 library(ggsignif)
-library(dplyr)
 library(tidyr)
 library(tibble)
 library(stringr)
@@ -14,16 +13,15 @@ library(SingleCellExperiment)
 library(ComplexHeatmap)
 library(circlize)
 library(seriation)
+library(dplyr)
 
 source("03-scripts/R/seq_functions.R")
 
 
 # define fxns -----------------------------------------------------------
 getConstrastResults <- function(dds, contrast, threshold) {
-  res <- results(dds, contrast = contrast) |> 
-    as.data.frame() |> 
-    rownames_to_column("gene") |> 
-    relocate(gene) |> 
+  res <- results(dds, contrast = contrast, tidy = T) |> 
+    dplyr::rename(gene = row) |> 
     mutate(
       classification = 
         ifelse(log2FoldChange > thresh & padj < 0.05, "upregulated", 
@@ -89,30 +87,35 @@ data_summary <- function(data, varname, groupnames) {
 
 # load data ----------------------------------------------------------------------------------------------------
 nuclei <- LoadDataset('Dec2024')
-subclass_list <- c('016 CA1-ProS Glut', '319 Astro-TE NN', '327 Oligo NN')
+seurat_subsets <- list(
+  CA1   = subset(nuclei, subclass_name == '016 CA1-ProS Glut' & activity_condition %in% c('SE')),
+  DG    = subset(nuclei, subclass_name == '037 DG Glut'       & activity_condition %in% c('SE')),
+  Astro = subset(nuclei, subclass_name == '319 Astro-TE NN'   & activity_condition %in% c('SE')),
+  Oligo = subset(nuclei, subclass_name == '327 Oligo NN'      & activity_condition %in% c('SE'))
+)
 
 
-for (subclass in subclass_list) {
-  celltype <- subset(nuclei, (subclass_name == subclass & activity_condition %in% c('SE')))
-  Idents(celltype) <- celltype$ZT
+for (subclass in names(seurat_subsets)) {
+  nuclei_subclass <- seurat_subsets[[subclass]]
+  Idents(nuclei_subclass) <- nuclei_subclass$ZT
   
   
   # prep data -----------------------------------------------------------
-  # scrambled_indices <- sample(seq_len(nrow(celltype@meta.data)))   # scramble cell identities!!
-  # celltype@meta.data$sample <- celltype@meta.data$sample[scrambled_indices]
-  # celltype@meta.data$ZT <- celltype@meta.data$ZT[scrambled_indices]
+  # scrambled_indices <- sample(seq_len(nrow(nuclei_subclass@meta.data)))   # scramble cell identities!!
+  # nuclei_subclass@meta.data$sample <- nuclei_subclass@meta.data$sample[scrambled_indices]
+  # nuclei_subclass@meta.data$ZT <- nuclei_subclass@meta.data$ZT[scrambled_indices]
   
   # only test genes expressed in 5% of cells
-  mat <- celltype[["SCT"]]@data
+  mat <- nuclei_subclass[["SCT"]]@data
   mat <- mat[rowMeans(mat > 0) > 0.01, ]
   gene_list <- rownames(mat)
   
-  celltype$Condition <- factor(celltype$activity_condition, levels = c("SE", "EE30m", "EE6h"))
-  celltype$ZT <- factor(celltype$ZT, levels = c("ZT0", "ZT4", "ZT12", "ZT16"))
-  celltype$sample <- factor(celltype$sample)
+  nuclei_subclass$Condition <- factor(nuclei_subclass$activity_condition, levels = c("SE", "EE30m", "EE6h"))
+  nuclei_subclass$ZT <- factor(nuclei_subclass$ZT, levels = c("ZT0", "ZT4", "ZT12", "ZT16"))
+  nuclei_subclass$sample <- factor(nuclei_subclass$sample)
   
   # for cases where activity_condition == EE6h, set ZT_collection to ZT + 6. Otherwise, use ZT. Please use case_when
-  celltype@meta.data <- celltype@meta.data |> 
+  nuclei_subclass@meta.data <- nuclei_subclass@meta.data |> 
     mutate(ZT.collection = case_when(
       (ZT == 'ZT0' & activity_condition == 'EE6h') ~ 'ZT6',
       (ZT == 'ZT4' & activity_condition == 'EE6h') ~ 'ZT10',
@@ -123,72 +126,50 @@ for (subclass in subclass_list) {
     mutate(ZT.collection = factor(ZT.collection, 
                                   levels = c('ZT0', 'ZT4', 'ZT6', 'ZT10', 'ZT12', 'ZT16', 'ZT18', 'ZT22')))
   
-  pseudobulk_counts <- AggregateExpression(celltype, group.by = "sample", features = gene_list, return.seurat = FALSE)$RNA
+  pseudobulk_counts <- AggregateExpression(nuclei_subclass, group.by = "sample", features = gene_list, return.seurat = FALSE)$RNA
   
-  col_data <- celltype@meta.data |> 
+  col_data <- nuclei_subclass@meta.data |> 
     as_tibble() |> 
     distinct(sample, Condition, ZT) |> 
+    arrange(ZT, Condition) |> 
     mutate(sample = str_replace(sample, '_', '-')) |> 
     column_to_rownames("sample") |> 
-    filter(!is.na(Condition)) |> 
-    arrange(ZT, Condition)
+    as.data.frame()
   
   col_data <- col_data[colnames(pseudobulk_counts),]
   col_data$sample <- rownames(col_data)
-  
+  col_data
   
   # run DESeq -----------------------------------------------------------
   dds <- DESeqDataSetFromMatrix(countData = as.matrix(pseudobulk_counts), 
                                 colData = col_data, 
                                 design = ~ ZT)
   dds <- DESeq(dds)
-  
   thresh = 0.585
   
-  # ZT4 vs ZT0 ----
-  contrast = c("ZT", "ZT4", "ZT0")
-  res_ZT4_vs_ZT0 <- getConstrastResults(dds, contrast, thresh)
-  p <- volcanoPlot(res_ZT4_vs_ZT0, glue("ZT4 vs ZT0: {subclass}"), thresh)
+  res_ZT4_vs_ZT0 <- getConstrastResults(dds, c("ZT", "ZT4", "ZT0"), thresh)
+  res_ZT12_vs_ZT0 <- getConstrastResults(dds, c("ZT", "ZT12", "ZT0"), thresh)
+  res_ZT16_vs_ZT0 <- getConstrastResults(dds, c("ZT", "ZT16", "ZT0"), thresh)
+  res_ZT12_vs_ZT4 <- getConstrastResults(dds, c("ZT", "ZT12", "ZT4"), thresh)
+  res_ZT16_vs_ZT4 <- getConstrastResults(dds, c("ZT", "ZT16", "ZT4"), thresh)
+  res_ZT16_vs_ZT12 <- getConstrastResults(dds, c("ZT", "ZT16", "ZT12"), thresh)
   
-  
-  # ZT12 vs ZT0 ----
-  contrast = c("ZT", "ZT12", "ZT0")
-  res_ZT12_vs_ZT0 <- getConstrastResults(dds, contrast, thresh)
-  p <- volcanoPlot(res_ZT12_vs_ZT0, glue("ZT12 vs ZT0: {subclass}"), thresh)
-  
-  
-  # ZT16_vs_ZT0 ----
-  contrast = c("ZT", "ZT16", "ZT0")
-  res_ZT16_vs_ZT0 <- getConstrastResults(dds, contrast, thresh)
-  p <- volcanoPlot(res_ZT16_vs_ZT0, glue("ZT16 vs ZT0: {subclass}"), thresh)
-  
-  
-  # ZT12 vs ZT4 ----
-  contrast = c("ZT", "ZT12", "ZT4")
-  res_ZT12_vs_ZT4 <- getConstrastResults(dds, contrast, thresh)
-  p <- volcanoPlot(res_ZT12_vs_ZT4, glue("ZT12 vs ZT4: {subclass}"), thresh)
-  
-  
-  # ZT16 vs ZT4 ----
-  contrast = c("ZT", "ZT16", "ZT4")
-  res_ZT16_vs_ZT4 <- getConstrastResults(dds, contrast, thresh)
-  volcanoPlot(res_ZT16_vs_ZT4, glue("ZT16 vs ZT4: {subclass}"), thresh)
-  
-  
-  # ZT16 vs ZT12 ----
-  contrast = c("ZT", "ZT16", "ZT12")
-  res_ZT16_vs_ZT12 <- getConstrastResults(dds, contrast, thresh)
-  p <- volcanoPlot(res_ZT16_vs_ZT12, glue("ZT16 vs ZT12: {subclass}"), thresh)
+  # p <- volcanoPlot(res_ZT4_vs_ZT0, glue("ZT4 vs ZT0: {subclass}"), thresh)
+  # p <- volcanoPlot(res_ZT12_vs_ZT0, glue("ZT12 vs ZT0: {subclass}"), thresh)
+  # p <- volcanoPlot(res_ZT16_vs_ZT0, glue("ZT16 vs ZT0: {subclass}"), thresh)
+  # p <- volcanoPlot(res_ZT12_vs_ZT4, glue("ZT12 vs ZT4: {subclass}"), thresh)
+  # p <- volcanoPlot(res_ZT16_vs_ZT4, glue("ZT16 vs ZT4: {subclass}"), thresh)
+  # p <- volcanoPlot(res_ZT16_vs_ZT12, glue("ZT16 vs ZT12: {subclass}"), thresh)
   
   
   # heatmap -----------------------------------------------------------
   # assemble all genes and their contrast of origin
   all_genes <- bind_rows(
-    res_ZT4_vs_ZT0 |> mutate(contrast = "ZT4 vs ZT0") |> filter(classification != 'no_change'),
-    res_ZT12_vs_ZT0 |> mutate(contrast = "ZT12 vs ZT0") |> filter(classification != 'no_change'),
-    res_ZT16_vs_ZT0 |> mutate(contrast = "ZT16 vs ZT0") |> filter(classification != 'no_change'),
-    res_ZT12_vs_ZT4 |> mutate(contrast = "ZT12 vs ZT4") |> filter(classification != 'no_change'),
-    res_ZT16_vs_ZT4 |> mutate(contrast = "ZT16 vs ZT4") |> filter(classification != 'no_change'),
+    res_ZT4_vs_ZT0 |> mutate(contrast = "ZT4 vs ZT0")     |> filter(classification != 'no_change'),
+    res_ZT12_vs_ZT0 |> mutate(contrast = "ZT12 vs ZT0")   |> filter(classification != 'no_change'),
+    res_ZT16_vs_ZT0 |> mutate(contrast = "ZT16 vs ZT0")   |> filter(classification != 'no_change'),
+    res_ZT12_vs_ZT4 |> mutate(contrast = "ZT12 vs ZT4")   |> filter(classification != 'no_change'),
+    res_ZT16_vs_ZT4 |> mutate(contrast = "ZT16 vs ZT4")   |> filter(classification != 'no_change'),
     res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
   )
   
@@ -210,7 +191,7 @@ for (subclass in subclass_list) {
     mutate(mean_expression = mean(expression)) |> 
     ungroup() |> 
     group_by(gene) |> 
-    mutate(z_expression = scale(mean_expression)) |> 
+    mutate(z_expression = scale(mean_expression)) |>   # Z-SCORE EXPRESSION
     select(gene, ZT, z_expression) |> 
     distinct() |> 
     pivot_wider(names_from = ZT, values_from = z_expression) |> 
@@ -218,33 +199,27 @@ for (subclass in subclass_list) {
     as.matrix()
   
   
-  # run tau code on ZT genes -----------------------------------------------------------
-  df_expression_zt <- AverageExpression(celltype, 
-                                        features = gene_list, 
-                                        group.by = 'ZT', 
-                                        assay = 'SCT', 
-                                        layer = 'data')$SCT
-  df_zt <- df_expression_zt |> 
+  # get tau -----------------------------------------------------------
+  df_expression_zt <- counts_mat[gene_list,] |> 
     as.data.frame() |> 
-    rownames_to_column('gene') |>
-    pivot_longer(cols = -gene, names_to = 'zt', values_to = 'expression') |>
-    group_by(gene) |> 
-    mutate(tau = tau(expression)) |> 
+    rownames_to_column('gene') |> 
+    pivot_longer(cols = -gene, names_to = 'sample', values_to = 'expression') |> 
+    separate(sample, into = c('ZT', 'sample')) |> 
+    mutate(ZT = factor(ZT, levels = c('ZT0', 'ZT4', 'ZT12', 'ZT16'))) |>
+    group_by(gene, ZT) |> 
+    dplyr::summarize(expression = mean(expression), .groups = 'drop') |> 
+    dplyr::mutate(tau = tau(expression), .by = gene) |> 
     arrange(desc(tau)) |> 
     print()
   
-  df_zt |> 
-    group_by(gene) |> 
-    slice_max(expression) |> 
-    group_by(zt) |> 
-    slice_max(tau) |> 
-    arrange(desc(tau))
-  
-  VlnPlot(celltype, features = 'Hif3a')
+  df_expression_zt |> 
+    slice_max(expression, by = gene) |> 
+    slice_max(tau, by = ZT) |> 
+    arrange(ZT)
   
   
   # seriate matrix -----------------------------------------------------------
-  o <- seriate(gene_mat, method = 'Heatmap', seriation_method = 'HC_average') |> get_order(1)
+  o <- seriate(gene_mat, method = 'Heatmap', seriation_method = 'OLO_average') |> get_order(1)
   gene_mat_ordered <- gene_mat[names(o),]
   hc <- hclust(dist(gene_mat), method = "average")
   dend <- as.dendrogram(hc)
@@ -252,40 +227,65 @@ for (subclass in subclass_list) {
   
   # make tau anno -----------------------------------------------------------
   tau_thresh <- 0.75
-  df_anno <- df_zt |> 
-    slice_head() |> 
-    mutate(gene = factor(gene, levels = rownames(gene_mat))) |> 
-    mutate(color = ifelse(tau > tau_thresh, 'red', 'black')) |> 
-    arrange(gene)
+  genes_tyssowski <- c(LoadGeneList('tyssowski'), 'Adcy1', 'Adcy8')
+  genes_clock <- LoadGeneList('circadian')
+  
+  anno_colors <- setNames(c('red', 'orange', 'black'), c('high_tau', 'clock', 'tyssowski'))
+  anno_colors
+  
+  # df for tau plot
+  df_anno <- df_expression_zt |> 
+    group_by(gene, tau) |> 
+    summarize() |> 
+    mutate(gene = factor(gene, levels = rownames(gene_mat_ordered))) |> 
+    arrange(gene) |> 
+    mutate(color = ifelse(tau > tau_thresh, anno_colors[1], 
+                          ifelse(gene %in% genes_clock, anno_colors[2], 
+                                 anno_colors[3]))) |> print()
   
   # get high tau genes
   high_tau_genes <- df_anno |> 
     filter(tau > tau_thresh) |> 
-    mutate(text_color = 'red') |> 
-    select(gene, text_color)
+    mutate(text_color = anno_colors[1]) |> 
+    select(gene, text_color) |> 
+    group_by(gene) |> 
+    slice_head() |> 
+    mutate(type = 'high_tau') |>
+    print()
   
   # add any other genes of interest to list
-  curated_genes <- tibble(
-    gene = c('Per1', 'Per2', 'Bmal1', 'Cry1', 'Cry2', 'Adcy1', 'Adcy8'),
-    text_color = 'black'
-  )
+  clock_genes <- tibble(
+    gene = genes_clock,
+    text_color = anno_colors[2],
+    type = 'clock'
+  ) |> 
+    filter(!gene %in% high_tau_genes$gene)
+  tyssowski_genes <- tibble(
+    gene = genes_tyssowski,
+    text_color = anno_colors[3],
+    type = 'tyssowski'
+  ) |> 
+    filter(!gene %in% high_tau_genes$gene) |>
+    filter(!gene %in% clock_genes$gene)
   
-  df_marked_genes <- rbind(high_tau_genes, curated_genes) |> 
-    mutate(gene = factor(gene, levels = rownames(gene_mat))) |> 
-    arrange(gene)
+  df_marked_genes <- rbind(high_tau_genes, clock_genes, tyssowski_genes) |> 
+    filter(gene %in% rownames(gene_mat_ordered)) |> 
+    mutate(gene = factor(gene, levels = rownames(gene_mat_ordered))) |> 
+    arrange(gene) |> 
+    print(n = 31)
   
   anno_right <- HeatmapAnnotation(
     tau = anno_barplot(
       df_anno$tau, 
       bar_width = 0.7,
-      width = unit(3, 'cm'),
+      width = unit(1, 'in'),
       ylim = c(0,1),
       gp = gpar(fill = df_anno$color, col = df_anno$color),
       which = 'row'
     ),
     genes = anno_mark(
-      at = which(rownames(gene_mat) %in% df_marked_genes$gene),
-      labels = intersect(rownames(gene_mat), df_marked_genes$gene),
+      at = which(rownames(gene_mat_ordered) %in% df_marked_genes$gene),
+      labels = intersect(rownames(gene_mat_ordered), df_marked_genes$gene),
       lines_gp = gpar(col = df_marked_genes$text_color),
       labels_gp = gpar(col = df_marked_genes$text_color, angle = 315),
       side = 'right',
@@ -297,28 +297,53 @@ for (subclass in subclass_list) {
   )
   
   
-  # plot -----------------------------------------------------------
-  hm <- Heatmap(
-    gene_mat,
-    col = colorRamp2(c(-2,0,2), hcl_palette = "blue-red2"),
-    column_names_gp = gpar(rot = 180),
-    right_annotation = anno_right,
-    cluster_columns = FALSE,
-    cluster_rows = dend,
-    show_row_names = FALSE,
-    show_column_names = FALSE,
-    show_heatmap_legend = FALSE
+  # find km clusters ----------------------------------------
+  # extract seeds and orders that work well for each subclass
+  subclass_seeds_orders <- tibble(
+    subclass_title = c('CA1', 'DG', 'Astro', 'Oligo'),
+    seed    = c(17, 1, 9, 5),
+    km_order   = list(c(4,1,3,2), c(4,2,3,1), c(1,3,2,4), c(2,4,1,3))
   )
+  subclass_specifics <- subclass_seeds_orders |> filter(subclass_title == subclass) |> print()
+  seed <- subclass_specifics$seed
+  desired_order <- subclass_specifics$km_order[[1]]
+  
+  # run km
+  set.seed(seed)
+  km <- kmeans(gene_mat_ordered, centers = 4)
+  split <- factor(km$cluster, levels = desired_order)
+  
+  # plot ----------------------------------------
+  hm <- Heatmap(
+    gene_mat_ordered,
+    right_annotation = anno_right,
+    row_split = split,
+    cluster_rows = T,
+    cluster_row_slices = F,  # keeps your factor level order for the slices
+    cluster_columns = F,
+    show_row_names = F,
+    show_column_names = F,
+    show_heatmap_legend = T,
+    row_title = NULL,
+    width = unit(4, 'in'), # width of the heatmap body
+    row_dend_width = unit(0.3, 'in'),
+    col = colorRamp2(c(-2,0,2), hcl_palette = "blue-red2")
+  ) |> draw()
   
   if (SAVE_PLOTS) {
     subclass_fname <- ShrinkSubclassName(subclass)
-    save_path <- "05-results/ORCA/raw_R_plots"
-    png(glue("{save_path}/SE_ZT_heatmap_{subclass_fname}.png"), 
-        width = 5, height = 10, units = "in", res = 900)
+    save_path <- "05-results/MOTH/raw_R_plots"
+    # png
+    png(glue("{save_path}/SE_ZT_heatmap_{subclass_fname}.png"),
+        width = 8, height = 10, units = "in", res = 900)
+    draw(hm); dev.off()
+    
+    # svg
+    # svg(glue("{save_path}/SE_ZT_heatmap_{subclass_fname}.svg"),
+    svg(glue("{save_path}/SE_ZT_heatmap_LEGEND.svg"),
+        width = 8, height = 10, bg = 'transparent')
     draw(hm)
     dev.off()
-  } else{
-    draw(hm)
   }
 }
 
