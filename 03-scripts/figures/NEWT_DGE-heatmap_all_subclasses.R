@@ -351,27 +351,29 @@ for (gigaclass in names(subclass_sets)) {
     plots <- c(plots, list(p)) # add to list of plots
   } # end loop for ERG/LRG figures
 } # end loop for this set of subclasses
-htShiny(plots[[1]], action = 'hover', output_ui_float = T)
+htShiny(plots[[2]], action = 'hover', output_ui_float = T)
 
 
 # save ----------------------------------------------------------------------------
 if (SAVE_PLOTS) {
-  file_str <- "05-results/NEWT/raw_R_plots/DGE-heatmap_all_subclasses_pseudobulk_"
+  save_dir <- "05-results/NEWT/raw_R_plots/"
+  file_str <- "DGE-heatmap_all_subclasses_pseudobulk_"
+  file_path <- paste0(save_dir, file_str)  
   # as PNG
-  png(paste0(file_str, 'ERG_Ex.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[1]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_str, 'ERG_In.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[3]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_str, 'ERG_Gl.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[5]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_str, 'LRG_Ex.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[2]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_str, 'LRG_In.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[4]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_str, 'LRG_Gl.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[6]], heatmap_legend_side = 'bottom'); dev.off()
+  png(paste0(file_path, 'ERG_Ex.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[1]], heatmap_legend_side = 'bottom'); dev.off()
+  png(paste0(file_path, 'ERG_In.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[3]], heatmap_legend_side = 'bottom'); dev.off()
+  png(paste0(file_path, 'ERG_Gl.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[5]], heatmap_legend_side = 'bottom'); dev.off()
+  png(paste0(file_path, 'LRG_Ex.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[2]], heatmap_legend_side = 'bottom'); dev.off()
+  png(paste0(file_path, 'LRG_In.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[4]], heatmap_legend_side = 'bottom'); dev.off()
+  png(paste0(file_path, 'LRG_Gl.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[6]], heatmap_legend_side = 'bottom'); dev.off()
   
   # as SVG
-  svg(paste0(file_str, 'ERG_Ex.svg'), width = 8, height = 5); draw(plots[[1]], heatmap_legend_side = 'bottom'); dev.off()
-  svg(paste0(file_str, 'ERG_In.svg'), width = 8, height = 5); draw(plots[[3]], heatmap_legend_side = 'bottom'); dev.off()
-  svg(paste0(file_str, 'ERG_Gl.svg'), width = 8, height = 5); draw(plots[[5]], heatmap_legend_side = 'bottom'); dev.off()
-  svg(paste0(file_str, 'LRG_Ex.svg'), width = 5, height = 5); draw(plots[[2]], heatmap_legend_side = 'bottom'); dev.off()
-  svg(paste0(file_str, 'LRG_In.svg'), width = 5, height = 5); draw(plots[[4]], heatmap_legend_side = 'bottom'); dev.off()
-  svg(paste0(file_str, 'LRG_Gl.svg'), width = 5, height = 5); draw(plots[[6]], heatmap_legend_side = 'bottom'); dev.off()
+  svgsave(plot = plots[[1]], filename = glue('{file_str}_ERG_Ex.svg'), save_dir = save_dir, w = 8, h = 5)
+  svgsave(plot = plots[[3]], filename = glue('{file_str}_ERG_In.svg'), save_dir = save_dir, w = 8, h = 5)
+  svgsave(plot = plots[[5]], filename = glue('{file_str}_ERG_Gl.svg'), save_dir = save_dir, w = 8, h = 5)
+  svgsave(plot = plots[[2]], filename = glue('{file_str}_LRG_Ex.svg'), save_dir = save_dir, w = 5, h = 5)
+  svgsave(plot = plots[[4]], filename = glue('{file_str}_LRG_In.svg'), save_dir = save_dir, w = 5, h = 5)
+  svgsave(plot = plots[[6]], filename = glue('{file_str}_LRG_Gl.svg'), save_dir = save_dir, w = 5, h = 5)
 }
 
 print(glue("Script {basename(sys.frame(1)$ofile)} complete!"))

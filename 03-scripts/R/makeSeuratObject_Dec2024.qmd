@@ -120,10 +120,6 @@ allen_meta <- read_csv(allen_meta_path, skip = 4)
 meta_merged <- left_join(nuclei_trailmaker_filtered@meta.data, allen_meta, by = join_by('barcode' == 'cell_id'))
 ```
 
-I am getting Allen taxonomy information from a different h5ad that I ran through MapMyCells. That h5ad was created from a Seurat that loaded in the unfiltered matrix. The Trailmaker seurat should be a subset of the seurat from the unfiltered matrix, although the Trailmaker one could be missing some cells. Anyway, for now we'll get the identities from the unfiltered Seurat `seurat_rawMapped` since that's the only one run through MapMyCells.
-
-`{# {r merge with Allen IDs from seurat_raw} # seurat_rawMapped <- readRDS("04-analysis/Seurats/Dec2024/seurat_unfiltered.Rds") #  # meta_raw <- seurat_rawMapped@meta.data # meta_trailmaker_noMapping <- nuclei_trailmaker_filtered@meta.data #  # meta_trailmaker <- meta_trailmaker_noMapping |>  #   left_join(meta_raw, by = c('barcode' = 'bc_wells')) #  # sum(is.na(meta_trailmaker$class_name) == T) #  # nuclei_trailmaker_filtered <- AddMetaData(nuclei_trailmaker_filtered, meta_trailmaker) #  # rm(seurat_rawMapped)`
-
 # Add metadata
 
 ```{r mutate meta variables}

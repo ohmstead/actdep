@@ -93,4 +93,4 @@ for (set_name in names(seurat_subsets)) {
   plots_tau[[paste(set_name, 'ERG', sep = "_")]] <- p
 }
 
-htShiny(plots_tau[[1]])
+InteractiveComplexHeatmap::htShiny(plots_tau[[1]])

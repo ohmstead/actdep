@@ -2,6 +2,8 @@
 
 # load libs useful for all scripts
 library(ggplot2)
+library(plotly)
+library(patchwork)
 library(glue)
 library(forcats)
 library(readr)
@@ -480,7 +482,7 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, show_plot = TRUE, save_p
 }
 
 
-FindActiveCells <- function(seurat_obj, subclass = '016 CA1-ProS Glut', gene_list, gene_threshold = 3) {
+FindActiveCells <- function(seurat_obj, subclass = '016 CA1-ProS Glut', gene_list = LoadGneList('IEG'), gene_threshold = 3) {
 # Returns a tibble of cells that are "active" according to the following
 # criterion: >= gene_threshold IEGs in a cell are expressed at counts >= 90th
 # percentile of expression in the standard-environment condition.
@@ -868,8 +870,8 @@ LoadH5SeuratObject <- function(filename, verbose = TRUE) {
 svgsave <- function(
     plot, 
     filename = 'tmp.svg', 
-    savedir = '~/Downloads/', 
-    h = 5, w = 5, 
+    path = '~/Downloads/', 
+    height = 5, width = 5, 
     bg_color = 'transparent'
 ) {
   # Saves the current plot as an SVG file with the specified dimensions.
@@ -879,22 +881,22 @@ svgsave <- function(
   if (str_detect(filename, '.svg$') == F) {
     filename <- paste0(filename, '.svg')
   }
-  # clean savedir
-  if (str_sub(savedir, -1) != '/') {
-    savedir <- paste0(savedir, '/')
+  # clean path
+  if (str_sub(path, -1) != '/') {
+    path <- paste0(path, '/')
   }
-  full_path <- paste0(savedir, filename)
+  full_path <- paste0(path, filename)
   
   svglite(filename = full_path, 
-          width = w,
-          height = h,
+          width = width,
+          height = height,
           bg = bg_color)
   print(plot)
   dev.off()
 }
 
 
-si <- function(w = 800, h = 800, format = 'svg') {
+si <- function(width = 800, height = 800, format = 'svg', bg = 'white') {
   # Generate filename with an incrementing number
   fname <- "~/Downloads/tmp_1.svg"
   i <- 1
@@ -906,11 +908,11 @@ si <- function(w = 800, h = 800, format = 'svg') {
   # toggle SVG vs PNG
   if (format == 'png') {
     fname <- gsub('svg', 'png', fname)
-    dev.copy(png, file = fname, width = w, height = h)
+    dev.copy(png, file = fname, width = width, height = height, bg = bg)
     dev.off()
   } else {
     # Open SVG device, copy current plot, and close
-    dev.copy(svg, file = fname, width = w / 100, height = h / 100)  # Convert pixels to inches
+    dev.copy(svg, file = fname, width = w / 100, height = height / 100, bg = bg)  # Convert pixels to inches
     dev.off()
   }
 }

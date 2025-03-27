@@ -48,9 +48,10 @@ SaveHMobject <- function(hm, save_path, plot_title) {
   draw(hm)
   dev.off()
   # svg
-  svg(glue("{save_path}/{plot_title}.svg"), width = 9, height = 10)
-  draw(hm)
-  dev.off()
+  svgsave(plot = hm,
+          savedir = save_path,
+          filename = plot_title,
+          w = 9, h = 10)
 }
 
 
@@ -144,7 +145,7 @@ cluster_seurats <- clusters |>
   set_names() |> 
   map(~ subset(nuclei, cluster_name == .x), .progress = T)
 
-# ACTIVE/INACTIVE --------------------------------------------
+# plot clusters --------------------------------------------
 for (cluster in clusters) {
   nuclei_cluster <- cluster_seurats[[cluster]]
   save_path <- glue("05-results/LION/raw_R_plots/cluster_coexpression")
