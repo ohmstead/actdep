@@ -1,11 +1,6 @@
 # Load required libraries
-library(ggplot2)
 library(ggrepel)
 library(ggsignif)
-library(tidyr)
-library(tibble)
-library(stringr)
-library(glue)
 
 library(Seurat)
 library(DESeq2)
@@ -13,7 +8,6 @@ library(SingleCellExperiment)
 library(ComplexHeatmap)
 library(circlize)
 library(seriation)
-library(dplyr)
 
 source("03-scripts/R/seq_functions.R")
 
@@ -28,7 +22,8 @@ getConstrastResults <- function(dds, contrast, threshold) {
                ifelse(log2FoldChange < -thresh & padj < 0.05, "downregulated", 
                       "no_change")
         )
-    )
+    ) |> 
+    arrange(padj)
   
   print(tibble(res))
   
@@ -95,6 +90,8 @@ seurat_subsets <- list(
 )
 
 
+# run loop ----------------------------------------------------------------------------------------------------
+plots <- list()
 for (subclass in names(seurat_subsets)) {
   nuclei_subclass <- seurat_subsets[[subclass]]
   Idents(nuclei_subclass) <- nuclei_subclass$ZT
@@ -154,6 +151,15 @@ for (subclass in names(seurat_subsets)) {
   res_ZT16_vs_ZT4 <- getConstrastResults(dds, c("ZT", "ZT16", "ZT4"), thresh)
   res_ZT16_vs_ZT12 <- getConstrastResults(dds, c("ZT", "ZT16", "ZT12"), thresh)
   
+  # save results to file
+  deg_save_path <- '04-analysis/DEGs/Dec2024_ZT_SE_pseudobulk/'
+  write_csv(res_ZT4_vs_ZT0, glue("{deg_save_path}{subclass}_ZT4_vs_ZT0.csv"))
+  write_csv(res_ZT12_vs_ZT0, glue("{deg_save_path}{subclass}_ZT12_vs_ZT0.csv"))
+  write_csv(res_ZT16_vs_ZT0, glue("{deg_save_path}{subclass}_ZT16_vs_ZT0.csv"))
+  write_csv(res_ZT12_vs_ZT4, glue("{deg_save_path}{subclass}_ZT12_vs_ZT4.csv"))
+  write_csv(res_ZT16_vs_ZT4, glue("{deg_save_path}{subclass}_ZT16_vs_ZT4.csv"))
+  write_csv(res_ZT16_vs_ZT12, glue("{deg_save_path}{subclass}_ZT16_vs_ZT12.csv"))
+  
   # p <- volcanoPlot(res_ZT4_vs_ZT0, glue("ZT4 vs ZT0: {subclass}"), thresh)
   # p <- volcanoPlot(res_ZT12_vs_ZT0, glue("ZT12 vs ZT0: {subclass}"), thresh)
   # p <- volcanoPlot(res_ZT16_vs_ZT0, glue("ZT16 vs ZT0: {subclass}"), thresh)
@@ -172,6 +178,7 @@ for (subclass in names(seurat_subsets)) {
     res_ZT16_vs_ZT4 |> mutate(contrast = "ZT16 vs ZT4")   |> filter(classification != 'no_change'),
     res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
   )
+  write_csv(all_genes, glue("{deg_save_path}{subclass}_all_DEGs.csv"))
   
   # remove duplicates
   gene_list <- all_genes |> 
@@ -191,10 +198,11 @@ for (subclass in names(seurat_subsets)) {
     mutate(mean_expression = mean(expression)) |> 
     ungroup() |> 
     group_by(gene) |> 
-    mutate(z_expression = scale(mean_expression)) |>   # Z-SCORE EXPRESSION
-    select(gene, ZT, z_expression) |> 
+    mutate(norm_expression = scale(mean_expression)) |>   # Z-SCORE EXPRESSION
+    # mutate(norm_expression = mean_expression / max(mean_expression)) |>  # MAX-NORMALIZED EXPRESSION
+    select(gene, ZT, norm_expression) |> 
     distinct() |> 
-    pivot_wider(names_from = ZT, values_from = z_expression) |> 
+    pivot_wider(names_from = ZT, values_from = norm_expression) |> 
     column_to_rownames('gene') |> 
     as.matrix()
   
@@ -224,6 +232,7 @@ for (subclass in names(seurat_subsets)) {
   hc <- hclust(dist(gene_mat), method = "average")
   dend <- as.dendrogram(hc)
   dend <- dendextend::rotate(dend, order = o)
+  
   
   # make tau anno -----------------------------------------------------------
   tau_thresh <- 0.75
@@ -272,6 +281,8 @@ for (subclass in names(seurat_subsets)) {
     filter(gene %in% rownames(gene_mat_ordered)) |> 
     mutate(gene = factor(gene, levels = rownames(gene_mat_ordered))) |> 
     arrange(gene) |> 
+    left_join(read_csv("04-analysis/gene_biotypes.csv", show_col_types = FALSE),
+              by = c('gene' = 'gene_name')) |> 
     print(n = 31)
   
   anno_right <- HeatmapAnnotation(
@@ -314,6 +325,13 @@ for (subclass in names(seurat_subsets)) {
   split <- factor(km$cluster, levels = desired_order)
   
   # plot ----------------------------------------
+  width_scalar <- 2
+  width_params <- list(
+    width = unit(width_scalar, 'in'),
+    row_dend_width = unit(width_scalar * 0.075, 'in')
+    # tau_width = unit(width_scalar * 0., 'in')
+  )
+  # anno_right@width <- width_params$tau_width
   hm <- Heatmap(
     gene_mat_ordered,
     right_annotation = anno_right,
@@ -323,129 +341,31 @@ for (subclass in names(seurat_subsets)) {
     cluster_columns = F,
     show_row_names = F,
     show_column_names = F,
-    show_heatmap_legend = T,
+    show_heatmap_legend = F,
     row_title = NULL,
-    width = unit(4, 'in'), # width of the heatmap body
-    row_dend_width = unit(0.3, 'in'),
-    col = colorRamp2(c(-2,0,2), hcl_palette = "blue-red2")
+    width = width_params$width, # width of the heatmap body
+    row_dend_width = width_params$row_dend_width, # width of the row dendrogram
+    col = colorRamp2(c(-2,0,2), hcl_palette = "inferno")
   ) |> draw()
   
-  if (SAVE_PLOTS) {
+  plots <- c(plots, setNames(list(hm), subclass))
+}
+
+# InteractiveComplexHeatmap::htShiny(hm)
+
+if (SAVE_PLOTS) {
+  for (subclass in names(plots)) {
     subclass_fname <- ShrinkSubclassName(subclass)
     save_path <- "05-results/MOTH/raw_R_plots"
     # png
     png(glue("{save_path}/SE_ZT_heatmap_{subclass_fname}.png"),
-        width = 8, height = 10, units = "in", res = 900)
+        width = 6, height = 10, units = "in", res = 900)
     draw(hm); dev.off()
     
     # svg
-    # svg(glue("{save_path}/SE_ZT_heatmap_{subclass_fname}.svg"),
-    svg(glue("{save_path}/SE_ZT_heatmap_LEGEND.svg"),
-        width = 8, height = 10, bg = 'transparent')
-    draw(hm)
-    dev.off()
+    svgsave(plot = hm,
+            path = save_path,
+            filename = glue("SE_ZT_heatmap_{subclass_fname}"),
+            width = 6, height = 10)
   }
 }
-
-InteractiveComplexHeatmap::htShiny(hm)
-
-# use compareCluster from clusterProfiler ----
-# make ensemble biomart object
-# ensembl <- useEnsembl(biomart = "ensembl", 
-#                       dataset = "mmusculus_gene_ensembl",
-#                       version = 113)
-# 
-# df_background_genes <- getBM(
-#   attributes = c("mgi_symbol", "entrezgene_id", "ensembl_gene_id"),
-#   mart = ensembl
-# )
-# df_background_genes$entrezgene_id <- as.character(df_background_genes$entrezgene_id)
-# 
-# list_cluster_genes <- list(
-#   cluster.1 = df_background_genes[df_background_genes$mgi_symbol %in% cluster_genes[[1]], "entrezgene_id"],
-#   cluster.2 = df_background_genes[df_background_genes$mgi_symbol %in% cluster_genes[[2]], "entrezgene_id"],
-#   cluster.3 = df_background_genes[df_background_genes$mgi_symbol %in% cluster_genes[[3]], "entrezgene_id"],
-#   cluster.4 = df_background_genes[df_background_genes$mgi_symbol %in% cluster_genes[[4]], "entrezgene_id"]
-# )
-# list_cluster_genes <- lapply(list_cluster_genes, as.character)
-# 
-# ego <- compareCluster(list_cluster_genes, 
-#                fun = "enrichGO",
-#                ont = 'BP',
-#                pvalueCutoff = 0.05,
-#                OrgDb = org.Mm.eg.db,
-#                universe = df_background_genes$entrezgene_id,
-#                )
-# ego <- setReadable(ego, org.Mm.eg.db, keyType = 'ENTREZID') |> 
-#   as_tibble()
-# 
-# ego |> 
-#   group_by(Cluster) |> 
-#   arrange(desc(FoldEnrichment)) |> 
-#   head()
-# 
-# 
-# # GO analysis ----
-# cluster_genes <- lapply(row_order(hm), function(idx) rownames(mat)[idx])
-# background_genes <- rownames(mat)
-# 
-# 
-# terms_1 <- RunGOEnrichment(cluster_genes[[1]]) |> mutate(cluster = 1) |> arrange(p.adjust)
-# terms_2 <- RunGOEnrichment(cluster_genes[[2]]) |> mutate(cluster = 2) |> arrange(p.adjust)
-# terms_3 <- RunGOEnrichment(cluster_genes[[3]]) |> mutate(cluster = 3) |> arrange(p.adjust)
-# terms_4 <- RunGOEnrichment(cluster_genes[[4]]) |> mutate(cluster = 4) |> arrange(p.adjust)
-# 
-# # remove redundant IDs from each set of top terms
-# terms_1_curated <- terms_1 |> slice(-c(4, 5, 6))
-# terms_2_curated <- terms_2 |> slice(-c(3, 4))
-# terms_3_curated <- terms_3 |> slice(-c(2, 3, 4))
-# terms_4_curated <- terms_4 |> slice(-c(5))
-# 
-# 
-# go_terms_all <- rbind(
-#   terms_1_curated,
-#   terms_2_curated,
-#   terms_3_curated,
-#   terms_4_curated
-# )
-# 
-# # get the top 5 terms from each cluster
-# top5_each_cluster <- go_terms_all |> 
-#   arrange(p.adjust) |> 
-#   slice_head(n = 5, by = cluster) |> 
-#   arrange(cluster)
-# 
-# # get values in all clusters from top5_each_cluster
-# cluster1_values <- terms_1_curated |> right_join(top5_each_cluster, by = "ID", suffix = c('.unique', '.ascertainment'))
-# cluster2_values <- terms_2_curated |> right_join(top5_each_cluster, by = "ID", suffix = c('.unique', '.ascertainment'))
-# cluster3_values <- terms_3_curated |> right_join(top5_each_cluster, by = "ID", suffix = c('.unique', '.ascertainment'))
-# cluster4_values <- terms_4_curated |> right_join(top5_each_cluster, by = "ID", suffix = c('.unique', '.ascertainment'))
-# 
-# all_cluster_vals <- rbind(
-#   cluster1_values, 
-#   cluster2_values, 
-#   cluster3_values, 
-#   cluster4_values
-# ) |> 
-#   mutate(cluster.ascertainment = factor(cluster.ascertainment)) |> 
-#   mutate(Description.unique = factor(Description.unique, levels = unique(top5_each_cluster$Description))) |> 
-#   mutate(Description.ascertainment = factor(Description.ascertainment, levels = unique(top5_each_cluster$Description)))
-# 
-# # plot with geom_tile
-# ggplot(all_cluster_vals) +
-#   aes(x = cluster.unique, y = Description.ascertainment, fill = -log10(p.adjust.unique)) +
-#   geom_tile(color = 'black', linewidth = 0.25) +
-#   scale_fill_gradient(limits = c(0,3), oob = scales::squish) +
-#   scale_y_discrete(position = 'right', limits = rev) +
-#   theme_minimal() +
-#   labs(fill = 'z-score') +
-#   theme(
-#     axis.title.x = element_blank(),
-#     axis.title.y = element_blank(),
-#     axis.text.x = element_blank(),
-#     axis.text.y.right = element_text(size = 12),
-#     legend.title = element_blank(),
-#     legend.position = 'bottom',
-#     legend.title.position = 'top'
-#     )
-# 
