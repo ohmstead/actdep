@@ -3,9 +3,11 @@
 04-analysis/*
 03-scripts/junk_drawer/
 
+
 # include dummy files to track empty folders
 !02-data/.gitkeep
 !04-analysis/.gitkeep
+
 
 # tool-specific
 .quarto/
@@ -13,10 +15,12 @@
 .Rproj.user/
 *_files/
 
+
 # OS-created
 *.DS_STORE
 *.DS_STORE?
 *._
+
 
 # common formats
 *.pptx
@@ -25,6 +29,7 @@
 *~
 
 *.ai
+*.pdf
 *.bam
 *.sam.gz
 *.sam
