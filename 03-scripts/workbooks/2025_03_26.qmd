@@ -2,6 +2,7 @@
 title: "2025_03_27 workbook"
 ---
 
+# fc shrinkage comparison
 
 ```{r fc shrink}
 res_apeglm <- results(dds, name = "activity_condition_EE30m_vs_SE") %>%
@@ -68,6 +69,7 @@ p <- p1 + p2 + plot_annotation(title = 'Comparing shrunken FC values for EE30m-S
 ggplotly(p)
 ```
 
+# DG cluster plot (CRAB fig)
 
 ```{r DG cluster plot}
 df_cluster_counts |> 
@@ -76,5 +78,49 @@ df_cluster_counts |>
   mutate(cluster_pct = cluster_count / sum(cluster_count) * 100) |> 
   arrange(activity_condition, cluster_name) |> 
   print(n=31)
+```
 
+# make pseudobulk seurat
+
+```{r make pseudobulk seurat}
+nuclei_pb <- AggregateExpression(
+      nuclei_gigaclass,
+      assays = 'RNA',
+      # features = df_distinct_DEGs$gene,
+      group.by = c("subclass_name", "activity_condition"),
+      return.seurat = T
+    )
+Idents(nuclei_pb) <- nuclei_pb$activity_condition
+
+for (subclass in unique(nuclei_pb$subclass_name)) {
+nuclei_pb |> 
+  subset(subclass_name == subclass) |> 
+  FoldChange(
+    features = df_distinct_DEGs$gene,
+    cells.1 = 'EE30m',
+    cells.2 = 'SE',
+    fc.name = 'log2FoldChange'
+  )
+}
+
+
+list_fc_gigaclass <- map(
+  sort(unique(nuclei_pb$subclass_name)),
+  function(subclass) {
+    nuclei_pb |> 
+      subset(subclass_name == subclass) |> 
+      FoldChange(
+        features = df_distinct_DEGs$gene,
+        ident.1 = 'EE30m',
+        ident.2 = 'SE',
+        fc.name = 'log2FoldChange'
+      ) |> 
+      as_tibble(rownames = 'gene') |> 
+      arrange(desc(log2FoldChange))
+  }, # end fxn
+  .progress = T
+) |> 
+  set_names(str_sub(sort(unique(nuclei_pb$subclass_name)), 2, -1))
+
+VlnPlot(nuclei_pb, list_fc_gigaclass$`016 CA1-ProS Glut`$gene |> head())
 ```
