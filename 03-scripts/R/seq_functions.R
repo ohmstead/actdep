@@ -1,6 +1,6 @@
 # A script housing a collection of commonly called functions in the actdep project.
 
-# load libs useful for all scripts
+# load common libs ----------------------------------------
 library(ggplot2)
 library(plotly)
 library(patchwork)

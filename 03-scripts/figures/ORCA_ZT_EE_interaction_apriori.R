@@ -32,7 +32,11 @@ for (subclass in names(seurat_subsets)) {
   Idents(nuclei_subclass) <- nuclei_subclass$activity_condition
   
   # only test a priori genes
-  gene_list <- c(LoadGeneList('circadian'), LoadGeneList('tyssowski'))
+  # only test genes expressed in 5% of cells
+  mat <- nuclei_subclass[["SCT"]]@data
+  mat <- mat[rowMeans(mat > 0) > 0.01, ]
+  gene_list <- rownames(mat)
+  
   pseudobulk_counts <- AggregateExpression(nuclei_subclass, 
                                            group.by = "sample", 
                                            features = gene_list, 
@@ -56,37 +60,55 @@ for (subclass in names(seurat_subsets)) {
   dds <- DESeq(dds)
   FC_thresh <- 0.585
   
+  # define a priori gene list
+  a_priori_genes <- c(LoadGeneList('circadian'), LoadGeneList('tyssowski'))
+  
   # get DEG
   print(resultsNames(dds))
   
-  res1 <- results(dds, name = "activity_conditionEE30m.ZTZT4", tidy = T) |> 
-    filter(padj < 0.05) |> 
+  res1 <- results(dds, name = "activity_conditionEE30m.ZTZT4") %>%
+    lfcShrink(dds = dds, coef = 'activity_conditionEE30m.ZTZT4', res = ., type = 'apeglm') |> 
+    as.data.frame() |>
+    as_tibble(rownames = 'gene') |> 
+    arrange(padj) |> 
     mutate(contrast = 'ZT4_vs_ZT0') |> print()
-  res2 <- results(dds, name = "activity_conditionEE30m.ZTZT12", tidy = T) |> 
-    filter(padj < 0.05) |> 
+  res2 <- results(dds, name = "activity_conditionEE30m.ZTZT12") %>%
+    lfcShrink(dds = dds, coef = 'activity_conditionEE30m.ZTZT12', res = ., type = 'apeglm') |> 
+    as.data.frame() |>
+    as_tibble(rownames = 'gene') |> 
+    arrange(padj) |> 
     mutate(contrast = 'ZT12_vs_ZT0') |> print()
-  res3 <- results(dds, name = "activity_conditionEE30m.ZTZT16", tidy = T) |> 
-    filter(padj < 0.05) |> 
+  res3 <- results(dds, name = "activity_conditionEE30m.ZTZT16") %>%
+    lfcShrink(dds = dds, coef = 'activity_conditionEE30m.ZTZT16', res = ., type = 'apeglm') |>
+    as.data.frame() |>
+    as_tibble(rownames = 'gene') |>
+    arrange(padj) |>
     mutate(contrast = 'ZT16_vs_ZT0') |> print()
-  res4 <- results(dds, 
-                  contrast = list(c('activity_conditionEE30m.ZTZT12', 'activity_conditionEE30m.ZTZT4')), 
-                  tidy = T) |> 
-    filter(padj < 0.05) |> 
-    mutate(contrast = 'ZT12_vs_ZT4') |> print()
-  res5 <- results(dds, 
-                  contrast = list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT4')), 
-                  tidy = T) |> 
-    filter(padj < 0.05) |> 
-    mutate(contrast = 'ZT16_vs_ZT4') |> print()
-  res6 <- results(dds, 
-                  contrast = list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT12')), 
-                  tidy = T) |>
-    filter(padj < 0.05) |> 
-    mutate(contrast = 'ZT16_vs_ZT12') |> print()
+  # res4 <- results(dds, contrast = list(c('activity_conditionEE30m.ZTZT12', 'activity_conditionEE30m.ZTZT4'))) %>%
+  #   as.data.frame() |>
+  #   as_tibble(rownames = 'gene') |> 
+  #   arrange(padj) |> 
+  #   mutate(contrast = 'ZT12_vs_ZT4') |> print()
+  # con <- list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT4'))
+  # res5 <- results(dds, contrast = con) %>%
+  #   lfcShrink(dds, res = ., contrast = con, type = 'ashr') |> summary()
+  #   filter(padj < 0.05) |> 
+  #   mutate(contrast = 'ZT16_vs_ZT4') |> print()
+  # res6 <- results(dds, 
+  #                 contrast = list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT12')), 
+  #                 tidy = T) |>
+  #   filter(padj < 0.05) |> 
+  #   mutate(contrast = 'ZT16_vs_ZT12') |> print()
   
   # assemble results
-  res <- rbind(res1, res2, res3, res4, res5, res6) |> 
-    dplyr::rename(gene = row) |> print()
+  res <- rbind(res1, res2, res3) |> 
+    filter(gene %in% LoadGeneList('DEGs')) |>
+    group_by(contrast) |> 
+    mutate(padj_subset = p.adjust(pvalue, method = 'fdr')) |> 
+    arrange(padj_subset) |> 
+    print()
+  
+  plotCounts(dds, 'Bmal1', intgroup = c("activity_condition", "ZT"))
   
   if (nrow(res) == 0) {
     next
