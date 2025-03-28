@@ -11,13 +11,13 @@ library(readxl)
 library(stringr)
 library(tibble)
 library(tidyr)
+library(Seurat)
 
 # always load at end of tidyverse to mask plyr; plyr fucking sucks
 library(dplyr)
 
 # This function will get called every time the script is sourced!
 set_ggplot_font <- function(font = 'Aptos') {
-  library(ggplot2)
   theme_set(theme_minimal(base_family = font))
   message(glue("{font} is now the default font for ggplot2."))
 }
@@ -66,37 +66,35 @@ tau <- function(subclass_expression_vector, direction = 'up') {
 
 LoadDataset <- function(dataset, as_gigaclasses = FALSE, sublibrary = "combined") {
   library(Seurat)
-  library(glue)
-
+  
+  # try gigaclasses first
+  if (as_gigaclasses) {
+    load_dir <- glue("04-analysis/Seurats/{dataset}/")
+    seurat_gigaclasses <- c(
+      excitatory = LoadSeuratRds(paste0(load_dir, "seurat_excitatory.Rds")),
+      inhibitory = LoadSeuratRds(paste0(load_dir, "seurat_inhibitory.Rds")),
+      glia       = LoadSeuratRds(paste0(load_dir, "seurat_glia.Rds"))
+    )
+    return(seurat_gigaclasses)  # return list of seurats
+  }
+  
+  # try Yao next
   if (dataset %in% c('yao', 'Yao', 'yao2023', 'Yao2023')) {
     # try to load from local file
     if (file.exists("04-analysis/Seurats/Yao2023/seurat.Rds")){
-      local_file_loc <- "04-analysis/Seurats/Yao2023/seurat.Rds"
+      local_file_path <- "04-analysis/Seurats/Yao2023/seurat.Rds"
     } else {
       data_path <- "/Volumes/jack/Yao2023/"
       seurat_obj <- LoadSeuratRds(paste0(data_path, "yao_seurat.rds"))
     }
-  } else {
-    # try to load from local file
-    local_file_loc <- glue("04-analysis/Seurats/{dataset}/seurat.Rds")
-    if (file.exists(local_file_loc)) {
-      seurat_obj <- LoadSeuratRds(local_file_loc)
-    } else { # load from SSD
-      ssd_file_loc <- glue("/Volumes/jack/seq/analysis_{dataset}/{sublibrary}/0_all-sample/DGE_filtered/seurat.Rds")
-      seurat_obj <- LoadSeuratRds(ssd_file_loc)
+  } else {  # try e.g. "Dec2024"
+    local_file_path <- glue("04-analysis/Seurats/{dataset}/seurat.Rds")
+    ssd_file_path <- glue("/Volumes/jack/seq/analysis_{dataset}/{sublibrary}/0_all-sample/DGE_filtered/seurat.Rds")
+    if (file.exists(local_file_path)) {
+      seurat_obj <- LoadSeuratRds(local_file_path)
+    } else {
+      seurat_obj <- LoadSeuratRds(ssd_file_path)
     }
-  }
-  
-  if (as_gigaclasses) {
-    subclass_sets <- LoadSubclassesToUse(seurat_obj, as_gigaclasses = TRUE)
-    seurat_subsets <- c(
-      excitatory = subset(seurat_obj, subclass_name %in% subclass_sets[[1]]),
-      inhibitory = subset(seurat_obj, subclass_name %in% subclass_sets[[2]]),
-      glia       = subset(seurat_obj, subclass_name %in% subclass_sets[[3]])
-    )
-    return(seurat_subsets)
-  } else{
-    return(seurat_obj)
   }
 }
 
@@ -261,7 +259,7 @@ LoadSexColors <- function() {
 }
 
 
-LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', as_gigaclasses = F, cell_cutoff = 150) {
+LoadSubclassesToUse <- function(seurat_obj=NULL, ascertainment = 'custom', as_gigaclasses = F, cell_cutoff = 150) {
 # returns a list of subclass_names to use. 
 # subclasses with fewer than cell_cutoff are excluded.
   library(Seurat)
@@ -271,22 +269,24 @@ LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', as_gigacla
       '016 CA1-ProS Glut',
       '025 CA2-FC-IG Glut',
       '017 CA3 Glut',
-      '037 DG Glut',
       '023 SUB-ProS Glut',
       '031 CT SUB Glut',
       '033 NP SUB Glut',
-      '038 DG-PIR Ex IMN',
+      '037 DG Glut',
+      
+      '053 Sst Gaba',
+      '052 Pvalb Gaba',
+      '051 Pvalb chandelier Gaba',
       '046 Vip Gaba',
       '047 Sncg Gaba',
-      '048 RHP-COA Ndnf Gaba',
       '049 Lamp5 Gaba',
       '050 Lamp5 Lhx6 Gaba',
-      '051 Pvalb chandelier Gaba',
-      '052 Pvalb Gaba',
-      '053 Sst Gaba',
+      '048 RHP-COA Ndnf Gaba',
+      
+      '038 DG-PIR Ex IMN',
       '319 Astro-TE NN',
-      '326 OPC NN',
       '327 Oligo NN',
+      '326 OPC NN',
       '334 Microglia NN'
     )
   } else if (ascertainment == 'auto') {
@@ -301,9 +301,10 @@ LoadSubclassesToUse <- function(seurat_obj, ascertainment = 'custom', as_gigacla
   if (as_gigaclasses) {
     subclass_sets <- c(
       excitatory = list(subclass_list[1:7]),
-      inhibitory = list(subclass_list[9:16]),
-      glia = list(subclass_list[c(8,17:20)])
+      inhibitory = list(subclass_list[8:15]),
+      glia = list(subclass_list[c(16:20)])
     )
+    
     return(subclass_sets)
   } else {
     return(subclass_list)
