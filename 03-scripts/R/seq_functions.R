@@ -913,7 +913,7 @@ si <- function(width = 800, height = 800, format = 'svg', bg = 'white') {
     dev.off()
   } else {
     # Open SVG device, copy current plot, and close
-    dev.copy(svg, file = fname, width = w / 100, height = height / 100, bg = bg)  # Convert pixels to inches
+    dev.copy(svg, file = fname, width = width / 100, height = height / 100, bg = bg)  # Convert pixels to inches
     dev.off()
   }
 }
