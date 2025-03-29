@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_2" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 132.2 102.7">
+  <!-- Generator: Adobe Illustrator 29.3.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 151)  -->
+  <defs>
+    <style>
+      .st0, .st1 {
+        fill: none;
+      }
+
+      .st0, .st1, .st2, .st3 {
+        stroke-miterlimit: 10;
+      }
+
+      .st0, .st2 {
+        stroke: #231f20;
+      }
+
+      .st4, .st5, .st6, .st7 {
+        isolation: isolate;
+      }
+
+      .st4, .st6 {
+        font-size: 12px;
+      }
+
+      .st4, .st6, .st2, .st7 {
+        fill: #231f20;
+      }
+
+      .st4, .st7 {
+        font-family: Helvetica, Helvetica;
+      }
+
+      .st1, .st3 {
+        stroke: #a7a9ac;
+      }
+
+      .st6 {
+        font-family: Helvetica-Bold, Helvetica;
+        font-weight: 700;
+      }
+
+      .st3 {
+        fill: #fff;
+      }
+
+      .st7 {
+        font-size: 10px;
+      }
+    </style>
+  </defs>
+  <g id="Layer_1-2">
+    <g class="st5">
+      <text class="st4" transform="translate(28.3 10.3)"><tspan x="0" y="0">Cell-type taxonomy</tspan></text>
+    </g>
+    <g>
+      <g>
+        <g>
+          <path class="st1" d="M121.3,77.1c0,8.3-8.3,8.3-8.3,16.6"/>
+          <path class="st1" d="M121.3,77.1c0,8.3,8.3,8.3,8.3,16.6"/>
+        </g>
+        <circle class="st3" cx="129.6" cy="95.8" r="2.1"/>
+        <circle class="st3" cx="113" cy="95.1" r="1.4"/>
+        <g>
+          <path class="st1" d="M113.1,56.4c0,8.3-8.3,8.3-8.3,16.6"/>
+          <path class="st1" d="M113.1,56.4c0,8.3,8.3,8.3,8.3,16.6"/>
+        </g>
+        <circle class="st1" cx="121.3" cy="75.1" r="2.1"/>
+        <circle class="st1" cx="104.7" cy="74.4" r="1.4"/>
+        <g>
+          <path class="st1" d="M104.8,35.6c0,8.3-8.3,8.3-8.3,16.6"/>
+          <path class="st1" d="M104.8,35.6c0,8.3,8.3,8.3,8.3,16.6"/>
+        </g>
+        <circle class="st3" cx="113" cy="54.3" r="2.1"/>
+        <circle class="st3" cx="96.4" cy="53.6" r="1.4"/>
+        <g>
+          <path class="st0" d="M96.5,14.9c0,8.3-8.3,8.3-8.3,16.6"/>
+          <path class="st0" d="M96.5,14.9c0,8.3,8.3,8.3,8.3,16.6"/>
+        </g>
+        <circle class="st2" cx="104.7" cy="33.5" r="2.1"/>
+        <circle class="st2" cx="88.2" cy="32.9" r="1.4"/>
+      </g>
+      <g class="st5">
+        <text class="st6" transform="translate(52.2 35.6)"><tspan x="0" y="0">class</tspan></text>
+      </g>
+      <g class="st5">
+        <text class="st7" transform="translate(50.6 56.4)"><tspan x="0" y="0">subclass</tspan></text>
+      </g>
+      <g class="st5">
+        <text class="st7" transform="translate(53.9 77.1)"><tspan x="0" y="0">supertype</tspan></text>
+      </g>
+      <g class="st5">
+        <text class="st7" transform="translate(76.7 97.9)"><tspan x="0" y="0">cluster</tspan></text>
+      </g>
+    </g>
+  </g>
+</svg>
