@@ -1,0 +1,502 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 360 360">
+  <!-- Generator: Adobe Illustrator 29.3.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 151)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #0b97c4;
+        stroke: #0b97c4;
+      }
+
+      .st0, .st1, .st2, .st3, .st4, .st5, .st6, .st7, .st8, .st9, .st10, .st11, .st12, .st13, .st14, .st15, .st16, .st17, .st18, .st19, .st20, .st21, .st22, .st23, .st24, .st25, .st26, .st27, .st28, .st29, .st30, .st31, .st32, .st33, .st34, .st35, .st36, .st37, .st38, .st39, .st40, .st41, .st42, .st43, .st44, .st45, .st46, .st47, .st48, .st49, .st50, .st51, .st52, .st53, .st54, .st55, .st56, .st57, .st58, .st59, .st60, .st61, .st62, .st63, .st64, .st65, .st66, .st67, .st68, .st69, .st70, .st71, .st72, .st73 {
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: .8px;
+      }
+
+      .st1 {
+        fill: #da715c;
+        stroke: #da715c;
+      }
+
+      .st2 {
+        fill: #61a9ce;
+        stroke: #61a9ce;
+      }
+
+      .st3 {
+        fill: #eaa9a0;
+        stroke: #eaa9a0;
+      }
+
+      .st4 {
+        fill: #0091c0;
+        stroke: #0091c0;
+      }
+
+      .st5 {
+        fill: #c84507;
+        stroke: #c84507;
+      }
+
+      .st6 {
+        fill: #9e2800;
+        stroke: #9e2800;
+      }
+
+      .st7 {
+        fill: #f1d3d0;
+        stroke: #f1d3d0;
+      }
+
+      .st8 {
+        fill: #0079b3;
+        stroke: #0079b3;
+      }
+
+      .st9 {
+        fill: #0073b0;
+        stroke: #0073b0;
+      }
+
+      .st10 {
+        fill: #bd3200;
+        stroke: #bd3200;
+      }
+
+      .st11 {
+        fill: #c33b00;
+        stroke: #c33b00;
+      }
+
+      .st12 {
+        fill: #dae7f0;
+        stroke: #dae7f0;
+      }
+
+      .st13 {
+        fill: #942400;
+        stroke: #942400;
+      }
+
+      .st14 {
+        fill: #95c0db;
+        stroke: #95c0db;
+      }
+
+      .st15 {
+        fill: #b3d0e4;
+        stroke: #b3d0e4;
+      }
+
+      .st16 {
+        fill: #003560;
+        stroke: #003560;
+      }
+
+      .st17 {
+        fill: #dc7a67;
+        stroke: #dc7a67;
+      }
+
+      .st18 {
+        fill: #f1f4f7;
+        stroke: #f1f4f7;
+      }
+
+      .st19 {
+        fill: #c5dae9;
+        stroke: #c5dae9;
+      }
+
+      .st20 {
+        fill: #f4e6e5;
+        stroke: #f4e6e5;
+      }
+
+      .st21 {
+        fill: #f0cdc8;
+        stroke: #f0cdc8;
+      }
+
+      .st22 {
+        fill: #611300;
+        stroke: #611300;
+      }
+
+      .st23 {
+        fill: #d3e3ee;
+        stroke: #d3e3ee;
+      }
+
+      .st24 {
+        fill: #e8a296;
+        stroke: #e8a296;
+      }
+
+      .st25 {
+        fill: #f7f1f0;
+        stroke: #f7f1f0;
+      }
+
+      .st26 {
+        fill: #e7eef4;
+        stroke: #e7eef4;
+      }
+
+      .st74 {
+        font-family: ArialMT, Arial;
+        font-size: 44.3px;
+        isolation: isolate;
+      }
+
+      .st27 {
+        fill: #f8f8f9;
+        stroke: #f8f8f9;
+      }
+
+      .st28 {
+        fill: #ccdeeb;
+        stroke: #ccdeeb;
+      }
+
+      .st29 {
+        fill: #b32f00;
+        stroke: #b32f00;
+      }
+
+      .st30 {
+        fill: #801d00;
+        stroke: #801d00;
+      }
+
+      .st31 {
+        fill: #f2dad7;
+        stroke: #f2dad7;
+      }
+
+      .st32 {
+        fill: #005b90;
+        stroke: #005b90;
+      }
+
+      .st33 {
+        fill: #e69a8e;
+        stroke: #e69a8e;
+      }
+
+      .st34 {
+        fill: #70afd1;
+        stroke: #70afd1;
+      }
+
+      .st35 {
+        fill: #f5f6f8;
+        stroke: #f5f6f8;
+      }
+
+      .st36 {
+        fill: #004b7c;
+        stroke: #004b7c;
+      }
+
+      .st37 {
+        fill: none;
+        stroke: #fff;
+      }
+
+      .st38 {
+        fill: #e49285;
+        stroke: #e49285;
+      }
+
+      .st39 {
+        fill: #aacbe1;
+        stroke: #aacbe1;
+      }
+
+      .st40 {
+        fill: #f8f6f6;
+        stroke: #f8f6f6;
+      }
+
+      .st41 {
+        fill: #8a2100;
+        stroke: #8a2100;
+      }
+
+      .st42 {
+        fill: #006ca7;
+        stroke: #006ca7;
+      }
+
+      .st43 {
+        fill: #a92b00;
+        stroke: #a92b00;
+      }
+
+      .st44 {
+        fill: #cc4e25;
+        stroke: #cc4e25;
+      }
+
+      .st45 {
+        fill: #379ec7;
+        stroke: #379ec7;
+      }
+
+      .st46 {
+        fill: #e28a7b;
+        stroke: #e28a7b;
+      }
+
+      .st47 {
+        fill: #efc6c1;
+        stroke: #efc6c1;
+      }
+
+      .st48 {
+        fill: #f3e0de;
+        stroke: #f3e0de;
+      }
+
+      .st49 {
+        fill: #004371;
+        stroke: #004371;
+      }
+
+      .st50 {
+        fill: #005386;
+        stroke: #005386;
+      }
+
+      .st51 {
+        fill: #0085b9;
+        stroke: #0085b9;
+      }
+
+      .st52 {
+        fill: #a0c6de;
+        stroke: #a0c6de;
+      }
+
+      .st53 {
+        fill: #df8272;
+        stroke: #df8272;
+      }
+
+      .st54 {
+        fill: #003c68;
+        stroke: #003c68;
+      }
+
+      .st55 {
+        fill: #f9f9f9;
+        stroke: #f9f9f9;
+      }
+
+      .st56 {
+        fill: #ebb0a8;
+        stroke: #ebb0a8;
+      }
+
+      .st57 {
+        fill: #00639b;
+        stroke: #00639b;
+      }
+
+      .st58 {
+        fill: #d76951;
+        stroke: #d76951;
+      }
+
+      .st59 {
+        fill: #d05737;
+        stroke: #d05737;
+      }
+
+      .st60 {
+        fill: #e1ebf2;
+        stroke: #e1ebf2;
+      }
+
+      .st61 {
+        fill: #eebfb8;
+        stroke: #eebfb8;
+      }
+
+      .st62 {
+        fill: #ecf1f5;
+        stroke: #ecf1f5;
+      }
+
+      .st63 {
+        fill: #008bbd;
+        stroke: #008bbd;
+      }
+
+      .st64 {
+        fill: #751a00;
+        stroke: #751a00;
+      }
+
+      .st65 {
+        fill: #007fb6;
+        stroke: #007fb6;
+      }
+
+      .st66 {
+        fill: #d36144;
+        stroke: #d36144;
+      }
+
+      .st67 {
+        fill: #4fa4cb;
+        stroke: #4fa4cb;
+      }
+
+      .st68 {
+        fill: #7db5d5;
+        stroke: #7db5d5;
+      }
+
+      .st69 {
+        fill: #ecb8b0;
+        stroke: #ecb8b0;
+      }
+
+      .st70 {
+        fill: #6b1600;
+        stroke: #6b1600;
+      }
+
+      .st71 {
+        fill: #f5eceb;
+        stroke: #f5eceb;
+      }
+
+      .st72 {
+        fill: #89bbd8;
+        stroke: #89bbd8;
+      }
+
+      .st73 {
+        fill: #bbd5e6;
+        stroke: #bbd5e6;
+      }
+    </style>
+  </defs>
+  <text class="st74" transform="translate(21.6 204.8)"><tspan x="0" y="0">-4</tspan></text>
+  <text class="st74" transform="translate(93.9 204.8)"><tspan x="0" y="0">-2</tspan></text>
+  <text class="st74" transform="translate(173.6 204.8)"><tspan x="0" y="0">0</tspan></text>
+  <text class="st74" transform="translate(245.9 204.8)"><tspan x="0" y="0">2</tspan></text>
+  <text class="st74" transform="translate(318.3 204.8)"><tspan x="0" y="0">4</tspan></text>
+  <rect class="st16" x="32.5" y="110.2" width="14" height="50.3"/>
+  <rect class="st16" x="42.8" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="45.8" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="48.8" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="51.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="54.8" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="57.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="60.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="63.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="66.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="69.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="72.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="75.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st16" x="78.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st54" x="81.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st49" x="84.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st36" x="87.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st50" x="90.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st32" x="93.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st57" x="96.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st42" x="99.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st9" x="102.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st8" x="105.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st65" x="108.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st51" x="111.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st63" x="114.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st4" x="117.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st0" x="120.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st45" x="123.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st67" x="126.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st2" x="129.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st34" x="132.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st68" x="135.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st72" x="138.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st14" x="141.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st52" x="144.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st39" x="147.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st15" x="150.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st73" x="153.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st19" x="156.1" y="110.2" width="3" height="50.3"/>
+  <rect class="st28" x="159.1" y="110.2" width="3" height="50.3"/>
+  <rect class="st23" x="162.1" y="110.2" width="3" height="50.3"/>
+  <rect class="st12" x="165.1" y="110.2" width="3" height="50.3"/>
+  <rect class="st60" x="168.1" y="110.2" width="3" height="50.3"/>
+  <rect class="st26" x="171" y="110.2" width="3" height="50.3"/>
+  <rect class="st62" x="174" y="110.2" width="3" height="50.3"/>
+  <rect class="st18" x="177" y="110.2" width="3" height="50.3"/>
+  <rect class="st35" x="180" y="110.2" width="3" height="50.3"/>
+  <rect class="st27" x="183" y="110.2" width="3" height="50.3"/>
+  <rect class="st55" x="186" y="110.2" width="3" height="50.3"/>
+  <rect class="st40" x="188.9" y="110.2" width="3" height="50.3"/>
+  <rect class="st25" x="191.9" y="110.2" width="3" height="50.3"/>
+  <rect class="st71" x="194.9" y="110.2" width="3" height="50.3"/>
+  <rect class="st20" x="197.9" y="110.2" width="3" height="50.3"/>
+  <rect class="st48" x="200.9" y="110.2" width="3" height="50.3"/>
+  <rect class="st31" x="203.9" y="110.2" width="3" height="50.3"/>
+  <rect class="st7" x="206.8" y="110.2" width="3" height="50.3"/>
+  <rect class="st21" x="209.8" y="110.2" width="3" height="50.3"/>
+  <rect class="st47" x="212.8" y="110.2" width="3" height="50.3"/>
+  <rect class="st61" x="215.8" y="110.2" width="3" height="50.3"/>
+  <rect class="st69" x="218.8" y="110.2" width="3" height="50.3"/>
+  <rect class="st56" x="221.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st3" x="224.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st24" x="227.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st33" x="230.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st38" x="233.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st46" x="236.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st53" x="239.7" y="110.2" width="3" height="50.3"/>
+  <rect class="st17" x="242.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st1" x="245.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st58" x="248.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st66" x="251.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st59" x="254.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st44" x="257.6" y="110.2" width="3" height="50.3"/>
+  <rect class="st5" x="260.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st11" x="263.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st10" x="266.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st29" x="269.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st43" x="272.5" y="110.2" width="3" height="50.3"/>
+  <rect class="st6" x="275.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st13" x="278.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st41" x="281.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st30" x="284.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st64" x="287.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st70" x="290.4" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="293.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="296.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="299.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="302.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="305.3" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="308.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="311.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="314.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="317.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="320.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="323.2" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="326.1" y="110.2" width="3" height="50.3"/>
+  <rect class="st22" x="329.1" y="110.2" width="14" height="50.3"/>
+  <line class="st37" x1="41.3" y1="160.5" x2="41.3" y2="150.4"/>
+  <line class="st37" x1="113.6" y1="160.5" x2="113.6" y2="150.4"/>
+  <line class="st37" x1="186" y1="160.5" x2="186" y2="150.4"/>
+  <line class="st37" x1="258.3" y1="160.5" x2="258.3" y2="150.4"/>
+  <line class="st37" x1="330.6" y1="160.5" x2="330.6" y2="150.4"/>
+  <line class="st37" x1="41.3" y1="120.3" x2="41.3" y2="110.2"/>
+  <line class="st37" x1="113.6" y1="120.3" x2="113.6" y2="110.2"/>
+  <line class="st37" x1="186" y1="120.3" x2="186" y2="110.2"/>
+  <line class="st37" x1="258.3" y1="120.3" x2="258.3" y2="110.2"/>
+  <line class="st37" x1="330.6" y1="120.3" x2="330.6" y2="110.2"/>
+</svg>
