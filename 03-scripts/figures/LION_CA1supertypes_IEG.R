@@ -1,6 +1,5 @@
 # This script plots percent activated cells in each CA1 supertype by activity condition.
 # It also plots the distribution of active cells along anatomical axes.
-
 source("03-scripts/R/seq_functions.R")
 
 library(dplyr)
@@ -82,7 +81,7 @@ p_supertypes_IEG <- ggplot(df_activity_plotting_IEGs) +
 print(p_supertypes_IEG)
 
 
-# print table ------------------------------------------
+# table ------------------------------------------
 ca1_supertype_colors <- supertype_colors[sort(unique(df_activity_plotting_IEGs$supertype_name))]
 gt_summary <- df_activity_plotting_IEGs |> 
   group_by(supertype_name, activity_condition) |> 
@@ -91,9 +90,11 @@ gt_summary <- df_activity_plotting_IEGs |>
   ungroup() |> 
 gt() |>  # Do NOT set rowname_col here
   tab_header(title = "Percent of active CA1 cells by supertype") |> 
-  fmt_percent(decimals = 1) |> 
+  fmt_percent(decimals = 0) |> 
   opt_table_font(font = "Aptos") |> 
   cols_label(supertype_name = '') |> 
+  cols_align(align = "left", columns = everything()) |>
+  cols_width(2:6 ~ px(70)) |>
   data_color(
     columns = "supertype_name",
     fn = scales::col_factor(
@@ -103,6 +104,7 @@ gt() |>  # Do NOT set rowname_col here
   )
 print(gt_summary)
 gtsave(gt_summary, "05-results/LION/raw_R_plots/CA1_supertypes_activation_table.png")
+gtsave(gt_summary, "05-results/LION/raw_R_plots/CA1_supertypes_activation_table.pdf")
 
 
 # p_CA1_supertypes_APaxis_IEG ------------------------------------------------
