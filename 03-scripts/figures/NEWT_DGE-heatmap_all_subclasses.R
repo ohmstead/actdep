@@ -20,200 +20,16 @@ list_df_expression <- list(excitatory = NULL, inhibitory = NULL, glia = NULL)
 for (gigaclass_str in names(gigaclasses)) {
   subclass_list <- gigaclasses[[gigaclass_str]]
   
-  # get list of subclasses to use
-  # nuclei_gigaclass <- seurat_gigaclasses[[gigaclass_str]]
-  # Idents(nuclei_gigaclass) <- nuclei_gigaclass$subclass_name
-  
   
   # read in df_expression ----------------------------------------------------
   print("Loading ERGs/LRGs (defined in classify_ERG-LRG.R)...")
   load_dir <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
   
-  df_expression <- read_csv(glue("{load_dir}/0_df_expression_{gigaclass_str}.csv"))
-  df_classification <- read_csv(glue("{load_dir}/0_DEG_classifications_{gigaclass_str}.csv"))
+  df_expression <- read_csv(glue("{load_dir}/0_df_expression_{gigaclass_str}.csv"),show_col_types = F)
+  df_classification <- read_csv(glue("{load_dir}/0_DEG_classifications_{gigaclass_str}.csv"),show_col_types = F)
   df_distinct_DEGs <- df_classification
   
-  # # read in df_expression ----------------------------------------------------
-  # print("Loading ERGs/LRGs (defined in classify_ERG-LRG.R)...")
-  # contrast_list <- c("EE30m_vs_SE", "EE6h_vs_SE")
-  # dir_deg <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
-  # deg_files <- list.files(dir_deg, full.names = TRUE)
-  # 
-  # # loop thru CSVs and load in DEGs
-  # df_all_DEGs <- data.frame()  # init empty df
-  # for (file in deg_files) {
-  #   fname <- basename(file)
-  #   fname <- str_remove(fname, "\\.csv$")
-  #   # Extract the contrast (last two underscore-separated parts in filename)
-  #   contrast <- str_extract(fname, "[^_]+_[^_]+_[^_]+$")
-  #   # Extract the subclass (everything before the contrast in filename)
-  #   subclass <- str_remove(fname, paste0("_", contrast, "$"))
-  #   subclass <- str_replace_all(subclass, "_", " ")
-  #   subclass <- str_sub(subclass, 1, -2)
-  #   
-  #   # skip excluded subclasses or contrasts
-  #   if (!(contrast %in% contrast_list)) {
-  #     next
-  #   } else if (!(subclass %in% subclass_list)) {
-  #     next
-  #   }
-  #   
-  #   # add gene list to df
-  #   deg <- read_csv(file) |> 
-  #     arrange(desc(log2FoldChange)) |> 
-  #     filter(classification != 'no_change')
-  #     # filter(padj < 0.05)
-  #   
-  #   deg$subclass <- subclass
-  #   deg$contrast <- contrast
-  #   
-  #   df_all_DEGs <- rbind(df_all_DEGs, deg)
-  # }
-  # 
-  # 
-  # # classify DEGs ----------------------------------------------------------------------------
-  # print("Filtering DEGs")
-  # 
-  # df_gene_classifications <- df_all_DEGs |> 
-  #   mutate(is_ERG = contrast == "EE30m_vs_SE",
-  #          is_LRG = contrast == 'EE6h_vs_SE') |> 
-  #   group_by(gene) |>
-  #   summarize(
-  #     is_ERG = any(is_ERG, na.rm = T),
-  #     is_LRG = any(is_LRG, na.rm = T),
-  #   ) |> 
-  #   mutate(classification = case_when(
-  #     is_ERG & is_LRG ~ "both",
-  #     is_ERG ~ "ERG",
-  #     is_LRG ~ "LRG",
-  #     TRUE ~ NA_character_
-  #   )) |> print()
-  # 
-  # # for each subclass, get expression for each activity_condition
-  # df_distinct_DEGs <- df_all_DEGs |> 
-  #   filter(subclass %in% subclass_list) |> 
-  #   filter(abs(log2FoldChange) >= 0.585) |> 
-  #   mutate(activity_condition = case_when(
-  #     contrast == "EE30m_vs_SE" ~ "EE30m",
-  #     contrast == "EE6h_vs_SE" ~ "EE6h",
-  #     contrast == "KA30m_vs_SE" ~ "KA30m",
-  #     contrast == "KA6h_vs_SE" ~ "KA6h",
-  #     TRUE ~ NA_character_
-  #   )) |>
-  #   filter(!str_detect(contrast, "KA")) |>
-  #   group_by(gene, subclass, contrast) |> 
-  #   summarize(log2FoldChange = log2FoldChange, .groups = 'drop') |> 
-  #   left_join(df_gene_classifications, by = 'gene') |> 
-  #   mutate(subclass_by_contrast = paste(subclass, contrast, sep = " x ")) |> 
-  #   distinct(gene, .keep_all = TRUE) |> 
-  #   mutate(direction = ifelse(log2FoldChange > 0, 'up', 'down')) |> 
-  #   select(-subclass) # remove subclass for future joins
-  # 
-  # 
-  # # normalize data ----------------------------------------------------------------------------
-  # print("Normalizing expression data...")
-  # # get big gene list so DEseq can estimate size factors
-  # mat <- nuclei_gigaclass[["SCT"]]@counts
-  # mat <- mat[rowMeans(mat > 0) > 0.01, ]
-  # gene_list <- rownames(mat)
-  # 
-  # # DESeq log2FC
-  # pseudobulk_counts <- AggregateExpression(
-  #     nuclei_gigaclass,
-  #     assays = 'RNA',
-  #     features = gene_list,
-  #     group.by = c("subclass_name", "activity_condition"),
-  #   )$RNA |>
-  #   as.matrix()
-  # 
-  # coldata <- data.frame(
-  #   group = colnames(pseudobulk_counts),
-  #   stringsAsFactors = FALSE
-  # )
-  # coldata <- coldata |>
-  #   separate(group, into = c("subclass", "activity_condition"), sep = "_", remove = F)
-  # rownames(coldata) <- coldata$group
-  # 
-  # dds <- DESeqDataSetFromMatrix(
-  #   countData = pseudobulk_counts,
-  #   colData = coldata,
-  #   design = ~ subclass + activity_condition
-  # )
-  # 
-  # # Set "SE" as the reference level for activity_condition:
-  # dds$activity_condition <- relevel(dds$activity_condition, ref = "SE")
-  # dds <- DESeq(dds)
-  # 
-  # # log-transform normalized counts
-  # norm_counts <- counts(dds, normalized = TRUE)
-  # norm_log2 <- log2(norm_counts + 1)  # Adding a pseudocount to avoid log(0)
-  # df_norm <- as_tibble(norm_log2, rownames = 'gene') |>
-  #   pivot_longer(cols = -gene, names_to = "group", values_to = "avg_expression_log2") |> 
-  #   separate(group, into = c("subclass", "activity_condition"), sep = "_") |>
-  #   mutate(subclass = str_sub(subclass, 2, -1)) |> print()
-  # 
-  # # re-extract variables
-  # df_norm <- df_norm |>
-  #   separate(group, into = c("subclass", "activity_condition"), sep = "_") |>
-  #   mutate(subclass = str_sub(subclass, 2, -1))
-  # 
-  # # calculate log2FoldChange for each gene x subclass combo
-  # df_expression.DESeq <- df_norm |>
-  #   filter(!str_detect(activity_condition, 'KA')) |>
-  #   group_by(gene, subclass) |>
-  #   mutate(log2FC_calculated = avg_expression_log2 - avg_expression_log2[activity_condition == "SE"]) |>
-  #   left_join(df_distinct_DEGs, by = 'gene') |>
-  #   group_by(gene, subclass) |>
-  #   mutate(subclass_by_activity_condition = paste(subclass, activity_condition, sep = ' x ')) |>
-  #   mutate(activity_condition = factor(activity_condition, levels = c('SE', 'EE30m', 'EE6h', 'KA30m', 'KA6h'))) |>
-  #   mutate(subclass = factor(subclass, levels = subclass_list)) |>
-  #   relocate(gene, subclass, activity_condition, log2FC_calculated) |>
-  #   ungroup()
-  # 
-  # 
-  # # for genes in the "both" category, force ERG/LRG ----------------------------------------------------------------------------
-  # df_expression <- df_expression.DESeq
-  # expression_range <- df_expression |>
-  #   group_by(gene, subclass) |>
-  #   summarise(
-  #     max_expr_condition = activity_condition[which.max(log2FC_calculated)],
-  #     min_expr_condition = activity_condition[which.min(log2FC_calculated)]
-  #   )
-  # 
-  # # re-classify as ERG or LRG
-  # df_expression <- df_expression |>
-  # left_join(expression_range, by = c("gene", "subclass")) |>
-  # mutate(classification = if_else(
-  #   classification == "both",
-  #   if_else(
-  #     direction == "up",
-  #     if_else(max_expr_condition == "EE30m", "ERG", "LRG"), # if upregulated
-  #     if_else(min_expr_condition == "EE30m", "ERG", "LRG"),   # if downregulated
-  #     ),
-  #   classification  # For genes not labeled "both", keep original classification.
-  #   ),
-  # )
-  # 
-  # # for any genes that may be ERG in one subclass and LRG in another, force to modal classification
-  # df_expression <- df_expression |>
-  #   group_by(gene) |>
-  #   mutate(modal_classification = names(sort(table(classification), decreasing = TRUE))[1]) |>
-  #   ungroup() |>
-  #   mutate(classification = modal_classification) |>
-  #   select(-modal_classification)
-  # 
-  # # store 
-  # list_df_expression[[gigaclass_str]] <- df_expression
-  
   # get TF genes ----------------------------------------------------------------------------
-  print("Make mat for heatmap...")
-  
-  # get gene classifications from df_expression
-  # df_gene_levels <- df_distinct_DEGs |>
-  #   select(-classification) |> # remove old classification that includes 'both' category
-  #   left_join(distinct(select(df_expression, gene, classification))) |> 
-  #   filter(!is.na(classification))
-  
   df_gene_levels <- df_classification
   
   # determine whether genes are TFs
@@ -250,37 +66,6 @@ for (gigaclass_str in names(gigaclasses)) {
       df_gene_levels$classification == 'LRG'
       ]
   )
-  
-  # # seriate gene columns ----------------------------------------------------------------------------
-  # print('Seriating gene order')
-  # expression_matrix <- expression_matrix[,df_gene_levels$gene]
-  # 
-  # erg_matrix <- expression_matrix[
-  #   str_detect(rownames(expression_matrix), 'EE30m'), 
-  #   df_gene_levels$classification == 'ERG'
-  # ]
-  # lrg_matrix <- expression_matrix[
-  #   str_detect(rownames(expression_matrix), 'EE6h'),
-  #   df_gene_levels$classification == 'LRG'
-  # ]
-  # 
-  # ser_method <- 'OLO_average'
-  # 
-  # erg_seriation <- seriate(erg_matrix, method = 'Heatmap', seriation_method = ser_method)
-  # lrg_seriation <- seriate(lrg_matrix, method = 'Heatmap', seriation_method = ser_method)
-  # erg_order <- erg_seriation |> get_order(2)
-  # lrg_order <- lrg_seriation |> get_order(2)
-  # col_order <- c(erg_order, lrg_order+length(erg_order))
-  # 
-  # erg_matrix <- erg_matrix[,names(erg_order)]
-  # lrg_matrix <- lrg_matrix[,names(lrg_order)]
-  # 
-  # mat <- list(ERG = erg_matrix, LRG = lrg_matrix)
-  # 
-  # # relevel/arrange df_gene_levels for annotation objects
-  # df_gene_levels <- df_gene_levels |> 
-  #   mutate(gene = factor(gene, levels = names(col_order))) |> 
-  #   arrange(gene)
   
   
   # make annotation objects ----------------------------------------------------------------------------
@@ -354,6 +139,7 @@ for (gigaclass_str in names(gigaclasses)) {
     
     
     # plot ----------------------------------------------------------------------------
+    print(rownames(plotting_matrix))
     p <- Heatmap(
       plotting_matrix, # exclude the first column (subclass_by_activity_condition)
       name = 'HC_average',
@@ -363,20 +149,15 @@ for (gigaclass_str in names(gigaclasses)) {
       ),
       # col = circlize::colorRamp2(c(-2, 0, 2), hcl_palette = 'Blue-Red 2'),
       col = circlize::colorRamp2(c(-3,0,3), hcl_palette = 'RdBu', reverse=T),
-      cluster_rows = FALSE,
-      # cluster_columns = as.dendrogram(looping$seriation[[1]][[2]]),
-      column_dend_reorder = TRUE,
-      # cluster_columns = F,
-      # left_annotation = left_annotation,
-      # right_annotation = right_annotation,
+      cluster_rows = F,
+      column_dend_reorder = T,
       top_annotation = top_annotation,
       bottom_annotation = bottom_annotation,
-      row_gap = unit(2, "mm"),
-      column_gap = unit(2, "mm"),
-      show_row_names = FALSE,
-      show_column_names = FALSE,
-      use_raster = FALSE,
-      show_heatmap_legend = FALSE
+      height = unit(7.5*length(subclass_list), 'mm'),
+      show_row_names = F,
+      show_column_names = F,
+      show_heatmap_legend = F,
+      use_raster = F,
     )
     draw(p, heatmap_legend_side = 'bottom')
     plots <- c(plots, list(p)) # add to list of plots
@@ -388,6 +169,8 @@ for (gigaclass_str in names(gigaclasses)) {
 
 # save ----------------------------------------------------------------------------
 if (SAVE_PLOTS) {
+  print('Saving plots...')
+  
   save_dir <- "05-results/NEWT/raw_R_plots/"
   file_str <- "DGE-heatmap_all_subclasses_pseudobulk_"
   file_path <- paste0(save_dir, file_str)  
@@ -400,12 +183,12 @@ if (SAVE_PLOTS) {
   png(paste0(file_path, 'LRG_Gl.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[6]], heatmap_legend_side = 'bottom'); dev.off()
   
   # as SVG
-  svgsave(plot = plots[[1]], filename = glue('{file_str}_ERG_Ex.svg'), save_dir = save_dir, w = 8, h = 5)
-  svgsave(plot = plots[[3]], filename = glue('{file_str}_ERG_In.svg'), save_dir = save_dir, w = 8, h = 5)
-  svgsave(plot = plots[[5]], filename = glue('{file_str}_ERG_Gl.svg'), save_dir = save_dir, w = 8, h = 5)
-  svgsave(plot = plots[[2]], filename = glue('{file_str}_LRG_Ex.svg'), save_dir = save_dir, w = 5, h = 5)
-  svgsave(plot = plots[[4]], filename = glue('{file_str}_LRG_In.svg'), save_dir = save_dir, w = 5, h = 5)
-  svgsave(plot = plots[[6]], filename = glue('{file_str}_LRG_Gl.svg'), save_dir = save_dir, w = 5, h = 5)
+  svgsave(plot = plots[[1]], filename = glue('{file_str}_ERG_Ex.svg'), path = save_dir, width = 8, height = 5)
+  svgsave(plot = plots[[3]], filename = glue('{file_str}_ERG_In.svg'), path = save_dir, width = 8, height = 5)
+  svgsave(plot = plots[[5]], filename = glue('{file_str}_ERG_Gl.svg'), path = save_dir, width = 8, height = 5)
+  svgsave(plot = plots[[2]], filename = glue('{file_str}_LRG_Ex.svg'), path = save_dir, width = 5, height = 5)
+  svgsave(plot = plots[[4]], filename = glue('{file_str}_LRG_In.svg'), path = save_dir, width = 5, height = 5)
+  svgsave(plot = plots[[6]], filename = glue('{file_str}_LRG_Gl.svg'), path = save_dir, width = 5, height = 5)
 }
 
 print(glue("Script {basename(sys.frame(1)$ofile)} complete!"))

@@ -1,35 +1,52 @@
-<?xml version='1.0' encoding='UTF-8' ?>
-<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' class='svglite' width='360.00pt' height='360.00pt' viewBox='0 0 360.00 360.00'>
-<defs>
-  <style type='text/css'><![CDATA[
-    .svglite line, .svglite polyline, .svglite polygon, .svglite path, .svglite rect, .svglite circle {
-      fill: none;
-      stroke: #000000;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      stroke-miterlimit: 10.00;
-    }
-    .svglite text {
-      white-space: pre;
-    }
-  ]]></style>
-</defs>
-<rect width='100%' height='100%' style='stroke: none; fill: none;'/>
-<defs>
-  <clipPath id='cpMC4wMHwzNjAuMDB8MC4wMHwzNjAuMDA='>
-    <rect x='0.00' y='0.00' width='360.00' height='360.00' />
-  </clipPath>
-</defs>
-<g clip-path='url(#cpMC4wMHwzNjAuMDB8MC4wMHwzNjAuMDA=)'>
-<rect x='0.00' y='0.00' width='360.00' height='360.00' style='stroke-width: 0.75; stroke: #FFFFFF; fill: #FFFFFF;' />
-<rect x='5.48' y='22.49' width='349.04' height='37.61' style='stroke-width: 0.75; stroke: none; fill: #CC4E25;' />
-<rect x='5.48' y='60.09' width='349.04' height='37.61' style='stroke-width: 0.75; stroke: none; fill: #F7F4F4;' />
-<rect x='5.48' y='97.70' width='349.04' height='37.61' style='stroke-width: 0.75; stroke: none; fill: #8DBDD9;' />
-<rect x='5.48' y='135.31' width='349.04' height='37.61' style='stroke-width: 0.75; stroke: none; fill: #B0CFE3;' />
-<rect x='5.48' y='172.91' width='349.04' height='37.61' style='stroke-width: 0.75; stroke: none; fill: #EAA9A0;' />
-<rect x='5.48' y='210.52' width='349.04' height='37.61' style='stroke-width: 0.75; stroke: none; fill: #F9F9F9;' />
-<rect x='5.48' y='248.13' width='349.04' height='37.61' style='stroke-width: 0.75; stroke: none; fill: #F9F8F8;' />
-<rect x='5.48' y='285.73' width='349.04' height='37.61' style='stroke-width: 0.75; stroke: none; fill: #CA4A1D;' />
-<rect x='5.48' y='5.48' width='349.04' height='14.17' style='stroke-width: 0.75; stroke: none; fill: #CCCCCC;' />
-</g>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 360 360">
+  <!-- Generator: Adobe Illustrator 29.3.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 151)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #f9f8f8;
+      }
+
+      .st1 {
+        fill: #cc4e25;
+      }
+
+      .st2 {
+        fill: #ca4a1d;
+      }
+
+      .st3 {
+        fill: #8dbdd9;
+      }
+
+      .st4 {
+        fill: #eaa9a0;
+      }
+
+      .st5 {
+        fill: #ccc;
+      }
+
+      .st6 {
+        fill: #b0cfe3;
+      }
+
+      .st7 {
+        fill: #f9f9f9;
+      }
+
+      .st8 {
+        fill: #f7f4f4;
+      }
+    </style>
+  </defs>
+  <rect class="st1" x="5.5" y="87.9" width="349" height="21.3"/>
+  <rect class="st8" x="5.5" y="109.1" width="349" height="21.3"/>
+  <rect class="st3" x="5.5" y="130.4" width="349" height="21.3"/>
+  <rect class="st6" x="5.5" y="151.6" width="349" height="21.3"/>
+  <rect class="st4" x="5.5" y="172.9" width="349" height="21.3"/>
+  <rect class="st7" x="5.5" y="194.2" width="349" height="21.3"/>
+  <rect class="st0" x="5.5" y="215.4" width="349" height="21.3"/>
+  <rect class="st2" x="5.5" y="236.7" width="349" height="21.3"/>
+  <rect class="st5" x="5.5" y="70.9" width="349" height="14.2"/>
 </svg>
