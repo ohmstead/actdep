@@ -1,5 +1,5 @@
 ---
-title: "Create Seurat object for Dec2024_pilot dataset"
+title: "Create Seurat object for actdep manuscript"
 editor_options: 
   chunk_output_type: console
 ---
@@ -13,10 +13,9 @@ SAVE_NEW_SEURAT_OBJECT <- TRUE
 
 ```{r load libs and functions}
 #| message: false
+source("03-scripts/R/seq_functions.R")
 
 library(Seurat)
-library(tidyverse)
-library(glue)
 library(reticulate)
 library(scCustomize)
 library(patchwork)
@@ -24,8 +23,6 @@ library(future)
 
 plan("sequential")
 options(future.globals.maxSize = 400000 * 1024^2) # Allow large variables (300 GB)
-
-source("03-scripts/R/seq_functions.R")
 ```
 
 ```{r create basic Seurat obj}
@@ -116,7 +113,6 @@ as.anndata(x = nuclei_trailmaker_filtered, file_path = save_dir, file_name = "nu
 allen_meta_path = "04-analysis/Seurats/Dec2024/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738089323143/nuclei_MapMyCells_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738089323143.csv"
 allen_meta <- read_csv(allen_meta_path, skip = 4)
 
-# meta_merged <- merge(nuclei_filtered@meta.data, allen_meta, by.x = 'bc_wells', by.y = 'cell_id')
 meta_merged <- left_join(nuclei_trailmaker_filtered@meta.data, allen_meta, by = join_by('barcode' == 'cell_id'))
 ```
 
