@@ -1,17 +1,12 @@
 # This script will plot the expression of marker genes for dentate supertypes 
 # in different activity conditions.
+source('03-scripts/R/seq_functions.R')
 
-library(ggplot2)
 library(ggvenn)
-library(patchwork)
-library(readr)
-library(dplyr)
 library(readxl)
-library(glue)
 
 library(Seurat)
 
-source('03-scripts/R/seq_functions.R')
 
 nuclei <- LoadDataset('Dec2024')
 activity_colors  <- LoadActivityColors()
@@ -106,39 +101,46 @@ critical_genes <- c('Cenpa', 'Egr2', 'Egr4', # for cluster 0508
 df |> 
   filter(gene %in% critical_genes) |>
   mutate(gene = factor(gene, levels = critical_genes)) |> 
+  filter(str_detect(activity_condition, '^KA')) |>
 ggplot() +
   aes(x = activity_condition, y = expression, fill = activity_condition) +
-  # geom_jitter(width = 0.4, height = 0.1, shape = 21, alpha = 0.3, set.seed(17)) +
-  geom_jitter(width = 0.4, height = 0.1, shape = 21, size = 5, set.seed(17)) +
+  geom_jitter(size = 3, width = 0.4, height = 0.1, shape = 21, alpha = 1, set.seed(17)) +
+  # geom_jitter(width = 0.4, height = 0.1, shape = 21, size = 5, set.seed(17)) +
   geom_boxplot(width = 0.3, alpha = 0.8, outlier.shape = NA, fill = 'gray80') +
   facet_wrap(~gene, scales = 'free_y') +
   scale_fill_manual(values = activity_colors) +
   theme(
-    # legend.position = 'none',
-    strip.text = element_text(size = 20),
+    legend.position = 'none',
+    strip.text = element_text(size = 20, face = 'italic'),
     axis.title = element_blank(),
     axis.text.x = element_blank(),
   )
-si(1000, 500, format = 'png')
+ggsave(filename = 'critical_genes_activity.png', 
+       path = '05-results/CRAB/raw_R_plots', 
+       width = 8, height = 4, dpi = 900)
+# si(800, 400, format = 'png')
 
 # supertype
 df |> 
   filter(gene %in% critical_genes) |>
   mutate(gene = factor(gene, levels = critical_genes)) |> 
-  ggplot() +
+  filter(str_detect(cluster_name, '0508|0509')) |>
+ggplot() +
   aes(x = cluster_name, y = expression, fill = cluster_name) +
-  geom_jitter(width = 0.4, height = 0.1, shape = 21, alpha = 0.3, set.seed(17)) +
+  geom_jitter(size = 3, width = 0.4, height = 0.1, shape = 21, alpha = 1, set.seed(17)) +
   # geom_jitter(width = 0.4, height = 0.1, shape = 21, size = 5, set.seed(17)) +
   geom_boxplot(width = 0.3, alpha = 0.8, outlier.shape = NA, fill = 'gray80') +
   facet_wrap(~gene, scales = 'free_y') +
   scale_fill_manual(values = cluster_colors) +
   theme(
-    # legend.position = 'none',
-    strip.text = element_text(size = 20),
+    legend.position = 'none',
+    strip.text = element_text(size = 20, face = 'italic'),
     axis.title = element_blank(),
     axis.text.x = element_blank(),
   )
-si(1000, 500, format = 'png')
+ggsave(filename = 'critical_genes_cluster.png', 
+       path = '05-results/CRAB/raw_R_plots', 
+       width = 8, height = 4, dpi = 900)
 
 
 
