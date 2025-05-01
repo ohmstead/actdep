@@ -5,9 +5,6 @@ source('03-scripts/R/seq_functions.R')
 library(ggvenn)
 library(readxl)
 
-library(Seurat)
-
-
 nuclei <- LoadDataset('Dec2024')
 activity_colors  <- LoadActivityColors()
 subclass_colors  <- LoadAllenColors('subclass')
@@ -35,7 +32,6 @@ cluster_genes_DG <- cluster_sheet |>
   separate_rows(gene, sep = ",") |> 
   distinct(gene) |> 
   pull(gene)
-
 
 
 # df expression ---------------------------------------------
@@ -98,7 +94,7 @@ DoHeatmap(nuclei_DG,
 critical_genes <- c('Cenpa', 'Egr2', 'Egr4', # for cluster 0508
                     'Bhlhe41', 'Lct', 'Npy') # for cluster 0509
 # activity_condition
-df |> 
+p1 <- df |> 
   filter(gene %in% critical_genes) |>
   mutate(gene = factor(gene, levels = critical_genes)) |> 
   filter(str_detect(activity_condition, '^KA')) |>
@@ -115,13 +111,18 @@ ggplot() +
     axis.title = element_blank(),
     axis.text.x = element_blank(),
   )
-ggsave(filename = 'critical_genes_activity.png', 
+p1
+
+ggsave(filename = 'critical__genes_activity.png', 
        path = '05-results/CRAB/raw_R_plots', 
        width = 8, height = 4, dpi = 900)
-# si(800, 400, format = 'png')
+ggsave(filename = 'critical_genes_activity.svg', 
+       plot = p1 + LoadBarebonesTheme(ticks = 'y'),
+       path = '05-results/CRAB/raw_R_plots', 
+       width = 8, height = 4, dpi = 900)
 
 # supertype
-df |> 
+p2 <- df |> 
   filter(gene %in% critical_genes) |>
   mutate(gene = factor(gene, levels = critical_genes)) |> 
   filter(str_detect(cluster_name, '0508|0509')) |>
@@ -138,9 +139,15 @@ ggplot() +
     axis.title = element_blank(),
     axis.text.x = element_blank(),
   )
-ggsave(filename = 'critical_genes_cluster.png', 
+p2
+
+ggsave(filename = 'critical__genes_cluster.png', 
        path = '05-results/CRAB/raw_R_plots', 
        width = 8, height = 4, dpi = 900)
+ggsave(filename = 'critical_genes_cluster.svg', 
+       plot = p2 + LoadBarebonesTheme(ticks = 'y'),
+       path = '05-results/CRAB/raw_R_plots', 
+       width = 8, height = 4)
 
 
 
