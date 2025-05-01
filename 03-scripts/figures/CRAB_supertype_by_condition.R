@@ -24,25 +24,25 @@ subclass_sets$glia <- subclass_sets$glia[-1] # rm IMNs
 for (gigaclass in names(seurat_subsets)) {
   nuclei_gigaclass <- seurat_subsets[[gigaclass]] |> 
     RunUMAP(dims = 1:41, seed.use = 17)
-  p1 <- DimPlot(nuclei_gigaclass, group.by = 'subclass_name') +
+  p1 <- DimPlot(nuclei_gigaclass, group.by = 'subclass_name', shuffle = T, seed = 17) +
     scale_color_manual(values = subclass_colors) +
     theme_void() +
     theme(legend.position = 'none',
           # panel.border = element_rect(color = "black", fill = NA, linewidth = 1),
           plot.title = element_blank())
-  p2 <- DimPlot(nuclei_gigaclass, group.by = 'activity_condition') +
+  p2 <- DimPlot(nuclei_gigaclass, group.by = 'activity_condition', shuffle = T, seed = 17) +
     scale_color_manual(values = activity_colors) +
     theme_void() +
     theme(legend.position = 'none',
           # panel.border = element_rect(color = "black", fill = NA, linewidth = 1),
           plot.title = element_blank())
-  p3 <- DimPlot(nuclei_gigaclass, group.by = 'supertype_name') +
+  p3 <- DimPlot(nuclei_gigaclass, group.by = 'supertype_name', shuffle = T, seed = 17) +
     scale_color_manual(values = supertype_colors) +
     theme_void() +
     theme(legend.position = 'none',
           # panel.border = element_rect(color = "black", fill = NA, linewidth = 1),
           plot.title = element_blank())
-  p4 <- DimPlot(nuclei_gigaclass, group.by = 'cluster_name') +
+  p4 <- DimPlot(nuclei_gigaclass, group.by = 'cluster_name', shuffle = T, seed = 17) +
     scale_color_manual(values = cluster_colors) +
     theme_void() +
     theme(legend.position = 'none',
