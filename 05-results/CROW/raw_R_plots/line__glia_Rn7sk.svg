@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 288 144">
+  <!-- Generator: Adobe Illustrator 29.4.0, SVG Export Plug-In . SVG Version: 2.1.0 Build 152)  -->
+  <defs>
+    <style>
+      .st0 {
+        stroke: #333;
+        stroke-width: .8px;
+      }
+
+      .st0, .st1 {
+        stroke-linecap: round;
+      }
+
+      .st0, .st1, .st2, .st3 {
+        fill: none;
+        stroke-linejoin: round;
+      }
+
+      .st1 {
+        stroke-width: 2.1px;
+      }
+
+      .st1, .st2, .st3 {
+        stroke: #000;
+      }
+
+      .st2 {
+        stroke-width: 4.3px;
+      }
+
+      .st3 {
+        stroke-dasharray: 5.7 5.7;
+        stroke-width: 1.1px;
+      }
+    </style>
+  </defs>
+  <g>
+    <polyline class="st2" points="39.9 11.4 92.6 31.5 145.4 18.2 198.1 50.1 250.9 32.8"/>
+    <line class="st3" x1="8.2" y1="129.9" x2="282.5" y2="129.9"/>
+  </g>
+  <g>
+    <line class="st1" x1="8.2" y1="135.8" x2="8.2" y2="5.5"/>
+    <line class="st0" x1="5.5" y1="129.9" x2="8.2" y2="129.9"/>
+    <line class="st0" x1="5.5" y1="105.8" x2="8.2" y2="105.8"/>
+    <line class="st0" x1="5.5" y1="81.7" x2="8.2" y2="81.7"/>
+    <line class="st0" x1="5.5" y1="57.7" x2="8.2" y2="57.7"/>
+    <line class="st0" x1="5.5" y1="33.6" x2="8.2" y2="33.6"/>
+    <line class="st0" x1="5.5" y1="9.5" x2="8.2" y2="9.5"/>
+  </g>
+</svg>

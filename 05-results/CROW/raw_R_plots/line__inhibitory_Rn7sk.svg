@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 288 144">
+  <!-- Generator: Adobe Illustrator 29.4.0, SVG Export Plug-In . SVG Version: 2.1.0 Build 152)  -->
+  <defs>
+    <style>
+      .st0, .st1, .st2, .st3, .st4 {
+        fill: none;
+      }
+
+      .st1 {
+        stroke: #333;
+        stroke-width: .8px;
+      }
+
+      .st1, .st2 {
+        stroke-linecap: round;
+      }
+
+      .st1, .st2, .st3, .st4 {
+        stroke-linejoin: round;
+      }
+
+      .st2 {
+        stroke-width: 2.1px;
+      }
+
+      .st2, .st3, .st4 {
+        stroke: #000;
+      }
+
+      .st3 {
+        stroke-width: 4.3px;
+      }
+
+      .st4 {
+        stroke-dasharray: 5.7 5.7;
+        stroke-width: 1.1px;
+      }
+
+      .st5 {
+        clip-path: url(#clippath);
+      }
+    </style>
+    <clipPath id="clippath">
+      <rect class="st0" x="8.2" y="5.5" width="274.3" height="130.3"/>
+    </clipPath>
+  </defs>
+  <g class="st5">
+    <g>
+      <polyline class="st3" points="28.3 11.4 61.7 38.2 95.2 73 128.6 49.1 162.1 32.1 195.6 52.4 229 37 262.5 38"/>
+      <line class="st4" x1="8.2" y1="129.9" x2="282.5" y2="129.9"/>
+    </g>
+  </g>
+  <g>
+    <line class="st2" x1="8.2" y1="135.8" x2="8.2" y2="5.5"/>
+    <line class="st1" x1="5.5" y1="129.9" x2="8.2" y2="129.9"/>
+    <line class="st1" x1="5.5" y1="104.4" x2="8.2" y2="104.4"/>
+    <line class="st1" x1="5.5" y1="78.9" x2="8.2" y2="78.9"/>
+    <line class="st1" x1="5.5" y1="53.4" x2="8.2" y2="53.4"/>
+    <line class="st1" x1="5.5" y1="28" x2="8.2" y2="28"/>
+  </g>
+</svg>
