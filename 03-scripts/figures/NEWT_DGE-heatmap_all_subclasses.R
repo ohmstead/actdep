@@ -149,7 +149,7 @@ for (gigaclass_str in names(gigaclasses)) {
       ),
       # col = circlize::colorRamp2(c(-2, 0, 2), hcl_palette = 'Blue-Red 2'),
       col = circlize::colorRamp2(c(-3,0,3), hcl_palette = 'RdBu', reverse=T),
-      row_order = subclass_list,
+      row_order = paste(subclass_list, 'x', looping$condition),
       cluster_rows = F,
       column_dend_reorder = T,
       top_annotation = top_annotation,
