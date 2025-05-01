@@ -1,38 +1,68 @@
-library(ggplot2)
-library(dplyr)
-library(glue)
-library(tibble)
-library(rstatix)
-
-library(Seurat)
+# This script produces simple plots of Clock genes at different ZTs
+# as part of figure MOTH.
 
 source('03-scripts/R/seq_functions.R')
-save_path <- "05-results/ORCA/raw_R_plots"
+
+library(rstatix)
+library(Seurat)
+
+nuclei <- LoadDataset('Dec2024')
 
 activity_colors <- LoadActivityColors('Dec2024')
-# nuclei <- LoadDataset('Dec2024')
-# nuclei_subclass <- nuclei |> subset(subclass_name == '016 CA1-ProS Glut' & activity_condition == 'SE')
+subclass_colors <- LoadAllenColors('subclass')
+subclass_list <- c(
+  '016 CA1-ProS Glut',
+  '037 DG Glut',
+  '319 Astro-TE NN',
+  '327 Oligo NN'
+)
+
+nuclei_subclass <- nuclei |> 
+  subset(activity_condition == 'SE' & subclass_name %in% subclass_list)
 
 
 calc_sem <- function(data, varname, groupnames) {
   #+++++++++++++++++++++++++
-  # Function to calculate the mean and the standard deviation
-  # for each group
+  # Calculatse mean and sd for each group
   #+++++++++++++++++++++++++
   # data : a data frame
   # varname : the name of a column containing the variable
-  #to be summariezed
+  #           to be summarized
   # groupnames : vector of column names to be used as
-  # grouping variables
+  #              grouping variables
   require(plyr)
   
-  summary_func <- function(x, col){
-    c(mean = mean(x[[col]], na.rm=TRUE),
-      sem = sd(x[[col]], na.rm=TRUE) / sqrt(length(x[[col]])) )
+  # Step 1: Summarize expression within each ZT, subclass, and gene group
+  summary_func <- function(x) {
+    # Count non-missing values
+    n <- sum(!is.na(x$expression))
+    
+    # Calculate mean, standard deviation, and SEM for expression
+    mean <- mean(x$expression, na.rm = TRUE)
+    expression_sd   <- sd(x$expression, na.rm = TRUE)
+    sem  <- expression_sd / sqrt(n)
+    
+    c(mean = mean,
+      sem  = sem)
   }
   
-  data_sum <- ddply(data, groupnames, .fun=summary_func, varname)
-  data_sum <- rename(data_sum, c("mean" = varname))
+  # Group by ZT, subclass_name, and gene to compute summary statistics
+  data_sum <- ddply(data, c("ZT", "subclass_name", "gene"), summary_func)
+  
+  # Step 2: Normalize the expression values within each gene and subclass across ZTs
+  # Get the maximum expression mean per gene in each subclass
+  data_sum <- ddply(data_sum, c("gene", "subclass_name"),
+                    transform, 
+                    max_expression_mean = max(mean, na.rm = TRUE))
+  
+  # Create normalized columns by dividing by the maximum mean
+  data_sum <- transform(data_sum,
+                        mean_norm = mean / max_expression_mean,
+                        sem_norm  = sem  / max_expression_mean)
+  
+  # Remove the temporary column
+  data_sum$max_expression_mean <- NULL
+  
   return(data_sum)
 }
 
@@ -54,40 +84,47 @@ nuclei_subclass@meta.data <- nuclei_subclass@meta.data |>
 
 # merge circadian gene expression with cell metadata
 df_circadian <- as.matrix(mat_circadian) |> 
-  as.data.frame() |> 
-  rownames_to_column(var = 'barcode') |> 
-  as_tibble() |> 
+  as_tibble(rownames = 'barcode') |> 
   right_join(nuclei_subclass@meta.data) |> 
-  tidyr::pivot_longer(cols = all_of(known_circadian_genes), names_to = 'gene', values_to = 'expression')
+  pivot_longer(cols = all_of(known_circadian_genes), names_to = 'gene', values_to = 'expression') |> 
+  select(gene, barcode, ZT, activity_condition, subclass_name, expression) |> 
+  calc_sem('mean_expression', c('ZT', 'subclass_name', 'gene')) |> 
+  arrange(gene, subclass_name, ZT) |> 
+  relocate(gene, subclass_name) |> 
+  as_tibble()
+df_circadian
 
 
+# plot clock genes ----------------------------------------
 for (gene_to_plot in known_circadian_genes) {
   p <- df_circadian |> 
-    calc_sem('expression', c('ZT', 'gene')) |>
-    filter(gene == gene_to_plot) |> 
+    filter(gene == gene_to_plot) |>
   ggplot() +
-    aes(x = ZT, y = expression, group = gene) +
+    aes(x = ZT, y = mean_norm, group = subclass_name, color = subclass_name) +
     geom_line(linewidth = 2) +
-    geom_errorbar(aes(ymin = expression-sem, ymax = expression+sem), linewidth = 2, width = 0.1) +
+    geom_errorbar(aes(ymin = mean_norm-sem_norm, ymax = mean_norm+sem_norm), 
+                  linewidth = 2, width = 0.1) +
     geom_point(size = 5) +
-    labs(title = glue('{gene_to_plot} in CA1 SE'),
+    scale_color_manual(values = subclass_colors) +
+    labs(title = glue('{gene_to_plot} in SE'),
          y = 'Normalized expression') +
     theme(
-      axis.text.x = element_text(size = 15, angle = 30),
-      axis.title.y = element_text(size = 15),
+      legend.position = 'none',
+      axis.text.x = element_text(size = 12, angle = 30),
+      axis.title.y = element_text(size = 12),
       axis.title.x = element_blank(),
-      plot.title = element_text(size = 15, hjust = 0.5)
+      plot.title = element_text(size = 12, hjust = 0.5)
     )
   print(p)
   
   if (SAVE_PLOTS) {
-    save_path <- "05-results/MOTH/raw_R_plots"
+    save_path <- "05-results/MOTH/raw_R_plots/4_subclass_plots"
     ggsave(plot = p,  # png
-           filename = glue('CA1_{gene_to_plot}_inset.png'),
+           filename = glue('inset__{gene_to_plot}.png'),
            path = save_path,
-           width = 4, height = 5, units = 'in', dpi = 900, bg = 'white')
+           width = 4, height = 4, units = 'in', dpi = 900, bg = 'white')
     ggsave(plot = p + LoadBarebonesTheme(ticks = 'y'),  # svg
-           filename = glue('CA1_{gene_to_plot}_inset.svg'),
+           filename = glue('inset_{gene_to_plot}.svg'),
            path = save_path,
            width = 5, height = 5, units = 'in')
   }
