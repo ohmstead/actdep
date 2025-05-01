@@ -15,16 +15,18 @@ nuclei <- LoadDataset("Dec2024")
 zt_colors <- LoadZTColors()
 activity_colors <- LoadActivityColors()
 
+# define a priori genes to test ----------------------------------------
+a_priori_genes <- c(LoadGeneList('circadian'), LoadGeneList('IEG'))
+
 # establish subclasses to use ------------------------------------
 subclass_list <- LoadSubclassesToUse(nuclei)
 
 seurat_subsets <- list(
   CA1   = nuclei |> subset(subclass_name == subclass_list[1]  & activity_condition %in% c('SE', 'EE30m')),
-  DG    = nuclei |> subset(subclass_name == subclass_list[4]  & activity_condition %in% c('SE', 'EE30m')),
+  DG    = nuclei |> subset(subclass_name == subclass_list[7]  & activity_condition %in% c('SE', 'EE30m')),
   Astro = nuclei |> subset(subclass_name == subclass_list[17] & activity_condition %in% c('SE', 'EE30m')),
-  Oligo = nuclei |> subset(subclass_name == subclass_list[19] & activity_condition %in% c('SE', 'EE30m'))
+  Oligo = nuclei |> subset(subclass_name == subclass_list[18] & activity_condition %in% c('SE', 'EE30m'))
 )
-fig1_degs <- LoadGeneList('DEGs')
 
 for (subclass in names(seurat_subsets)) {
 # make DESeq -----------------------------------------------------
@@ -35,11 +37,13 @@ for (subclass in names(seurat_subsets)) {
   # only test genes expressed in 5% of cells
   mat <- nuclei_subclass[["SCT"]]@data
   mat <- mat[rowMeans(mat > 0) > 0.01, ]
-  gene_list <- rownames(mat)
+  expressed_genes <- rownames(mat)
+  # ensure all a priori genes are in there too
+  expressed_genes <- c(expressed_genes, a_priori_genes) |> unique()
   
   pseudobulk_counts <- AggregateExpression(nuclei_subclass, 
                                            group.by = "sample", 
-                                           features = gene_list, 
+                                           features = expressed_genes, 
                                            return.seurat = FALSE)$RNA
   col_data <- nuclei_subclass@meta.data |> 
     as_tibble() |> 
@@ -59,9 +63,6 @@ for (subclass in names(seurat_subsets)) {
   # run DESeq --------------------------------------------
   dds <- DESeq(dds)
   FC_thresh <- 0.585
-  
-  # define a priori gene list
-  a_priori_genes <- c(LoadGeneList('circadian'), LoadGeneList('tyssowski'))
   
   # get DEG
   print(resultsNames(dds))
@@ -102,115 +103,132 @@ for (subclass in names(seurat_subsets)) {
   
   # assemble results
   res <- rbind(res1, res2, res3) |> 
-    filter(gene %in% LoadGeneList('DEGs')) |>
+    filter(gene %in% a_priori_genes) |>
+    select(-padj) |> # remove genome-wide fdr to avoid confusion
     group_by(contrast) |> 
-    mutate(padj_subset = p.adjust(pvalue, method = 'fdr')) |> 
-    arrange(padj_subset) |> 
+    mutate(padj_apriori = p.adjust(pvalue, method = 'fdr')) |> 
+    arrange(padj_apriori) |> 
     print()
   
-  plotCounts(dds, 'Bmal1', intgroup = c("activity_condition", "ZT"))
+  # save as csv
+  csv_dir <- "04-analysis/DEGs/Dec2024_ZT-EE_interaction"
+  write_csv(res, glue("{csv_dir}/a_priori_DEGs_{subclass}.csv"))
   
-  if (nrow(res) == 0) {
-    next
+  # # plot Bmal
+  # plotCounts(dds, 'Bmal1', intgroup = c("activity_condition", "ZT"), normalized = T)
+  
+  # make plots for circadian and IEG lists
+  gene_sets_to_plot <- list(
+    clock = LoadGeneList('circadian'),
+    IEG = LoadGeneList('IEG')
+  )
+  
+  for (gene_set in names(gene_sets_to_plot)) {
+    genes_to_plot <- gene_sets_to_plot[[gene_set]]
+    
+    # bar plot ----------------------------------------
+    bulk_counts <- counts(dds, normalized = T) |> 
+      t() |> 
+      as.data.frame() |>
+      rownames_to_column('sample') |> 
+      select(sample, all_of(genes_to_plot)) |> 
+      tibble() |> 
+      print()
+    
+    # 1) build df
+    df <- col_data |> 
+      left_join(bulk_counts) |> 
+      pivot_longer(
+        cols = -c(sample, activity_condition, ZT), 
+        names_to = 'gene', 
+        values_to = 'count'
+      ) |>
+      arrange(gene, activity_condition, ZT, desc(count)) |> 
+      mutate(sample = factor(sample, levels = unique(sample)))
+    
+    # 2) find mean counts per (gene, activity_condition, ZT)
+    df_means <- df |>
+      group_by(gene, activity_condition, ZT) |>
+      summarize(
+        mean_count = mean(count),
+        x_min = min(as.numeric(sample)) - 0.4,  # a little left margin
+        x_max = max(as.numeric(sample)) + 0.4,  # a little right margin
+        sem = sd(count) / sqrt(n()),
+        .groups = "drop"
+      )
+    
+    # 3) plot
+    p1 <- ggplot(df) +
+      aes(x = sample, y = count, fill = ZT) +
+      geom_col(position = 'dodge') +
+      scale_fill_manual(values = zt_colors) +
+      # lines for each group's mean
+      geom_segment(
+        data = df_means,
+        aes(x = x_min, xend = x_max, y = mean_count, yend = mean_count),
+        inherit.aes = FALSE,   # don't use x=sample, y=count from ggplot(df)
+        color = "black",
+        linewidth = 1 
+      ) +
+      facet_wrap(vars(gene), ncol=3, scales = 'free_y') +
+      labs(title = glue('{gene_set} genes in {subclass}'),
+           x = 'Pseudobulk samples',
+           y = 'Expression') +
+      theme_classic() +
+      theme(axis.text.x = element_blank(),
+            axis.line.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.title = element_text(size = 15),
+            plot.title = element_text(size = 20, hjust = 0.5),
+            strip.background = element_blank(),)
+    print(p1)
+    
+    
+    # line plot ----------------------------------------
+    p2 <- df_means |> 
+    ggplot() +
+      aes(x = ZT, y = mean_count, color = activity_condition, group = activity_condition) +
+      geom_line(linewidth = 1) +
+      geom_point(size = 2) +
+      geom_errorbar(aes(ymin = mean_count - sem, ymax = mean_count + sem), width = 0.1) +
+      facet_wrap(vars(gene), ncol=3, scales = "free_y") +
+      scale_color_manual(values = activity_colors) +
+      labs(title = glue('{gene_set} genes in {subclass}'),
+           y = 'Expression') +
+      theme_classic() +
+      theme(axis.text.x = element_text(size = 8, angle = 30),
+            axis.title.x = element_blank(),
+            axis.line.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.title = element_text(size = 15),
+            plot.title = element_text(size = 20, hjust = 0.5),
+            strip.background = element_blank(),)
+    print(p2)
+    
+    
+    # save plots ----------------------------------------
+    if (SAVE_PLOTS) {
+    subclass_fname <- ShrinkSubclassName(subclass)
+    save_dir = '05-results/ORCA/raw_R_plots'
+    
+    # png
+    ggsave(plot = p1,
+           path = save_dir,
+           filename = glue('apriori_{gene_set}-set__{subclass_fname}_barplot.png'),
+           width =  6, height = 4, dpi = 900, bg = 'white')
+    ggsave(plot = p2,
+           path = save_dir,
+           filename = glue('apriori_genes_{gene_set}-set__{subclass_fname}_lineplot.png'),
+           width =  6, height = 4, dpi = 900, bg = 'white')
+    # svg
+    ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
+           path = save_dir,
+           filename = glue('apriori_genes_{gene_set}-set_{subclass_fname}_barplot.svg'),
+           width =  6, height = 4)
+    ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'both'),
+           path = save_dir,
+           filename = glue('apriori_genes_{gene_set}-set_{subclass_fname}_lineplot.svg'),
+           width =  6, height = 4)
+    }
   }
-  
-  for (gene in res$gene) {
-    plotCounts(dds, gene, intgroup = c("activity_condition", "ZT"))
-  }
-  
-  
-  # test ----------------------------------------
-  bulk_counts <- counts(dds, normalized = T) |> 
-    t() |> 
-    as.data.frame() |>
-    rownames_to_column('sample') |> 
-    select(sample, res$gene) |> 
-    tibble() |> 
-    print()
-  
-  # 1) build df
-  df <- col_data |> 
-    left_join(bulk_counts) |> 
-    pivot_longer(
-      cols = -c(sample, activity_condition, ZT), 
-      names_to = 'gene', 
-      values_to = 'count'
-    ) |>
-    arrange(gene, activity_condition, ZT, desc(count)) |> 
-    mutate(sample = factor(sample, levels = unique(sample)))
-  
-  # 2) find mean counts per (gene, activity_condition, ZT)
-  df_means <- df |>
-    group_by(gene, activity_condition, ZT) |>
-    summarize(
-      mean_count = mean(count),
-      x_min = min(as.numeric(sample)) - 0.4,  # a little left margin
-      x_max = max(as.numeric(sample)) + 0.4,  # a little right margin
-      sem = sd(count) / sqrt(n()),
-      .groups = "drop"
-    )
-  
-  # 3) plot
-  p1 <- ggplot(df) +
-    aes(x = sample, y = count, fill = ZT) +
-    geom_col(position = 'dodge') +
-    scale_fill_manual(values = zt_colors) +
-    # lines for each group's mean
-    geom_segment(
-      data = df_means,
-      aes(x = x_min, xend = x_max, y = mean_count, yend = mean_count),
-      inherit.aes = FALSE,   # don't use x=sample, y=count from ggplot(df)
-      color = "black",
-      linewidth = 2
-    ) +
-    facet_wrap(vars(gene), nrow=2, scales = 'free_y') +
-    labs(title = glue('Significant ZT:Activity interaction genes: {subclass}'),
-         x = 'Pseudobulk samples',
-         y = 'Normalized pseudobulk counts') +
-    theme(axis.text.x = element_blank(),
-          axis.title = element_text(size = 15),
-          plot.title = element_text(size = 20, hjust = 0.5))
-  print(p1)
-  
-  
-  # line plot ----------------------------------------
-  p2 <- df_means |> 
-  ggplot() +
-    aes(x = ZT, y = mean_count, color = activity_condition, group = activity_condition) +
-    geom_line(linewidth = 1) +
-    geom_point(size = 3) +
-    geom_errorbar(aes(ymin = mean_count - sem, ymax = mean_count + sem), width = 0.1) +
-    facet_wrap(vars(gene), nrow=2, scales = "free_y") +
-    scale_color_manual(values = activity_colors) +
-    labs(title = glue('Significant ZT:Activity interaction genes: {subclass}'),
-         x = 'ZT',
-         y = 'Normalized pseudobulk counts') +
-    theme(axis.text.x = element_text(size = 12, angle = 30, hjust = 1),
-          axis.title.x = element_blank(),
-          axis.title.y = element_text(size = 15),
-          plot.title = element_text(size = 20, hjust = 0.5))
-  print(p2)
-  
-  # save plots ----------------------------------------
-  if (SAVE_PLOTS) {
-  subclass_fname <- ShrinkSubclassName(subclass)
-  # png
-  ggsave(plot = p1,
-         path = '05-results/ORCA/raw_R_plots/',
-         filename = glue('interacting_genes_apriori_{subclass_fname}_barplot.png'),
-         width =  10, height = 4, dpi = 900, bg = 'white')
-  ggsave(plot = p2,
-         path = '05-results/ORCA/raw_R_plots/',
-         filename = glue('interacting_genes_apriori_{subclass_fname}_lineplot.png'),
-         width =  10, height = 4, dpi = 900, bg = 'white')
-  # svg
-  ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
-         path = '05-results/ORCA/raw_R_plots/',
-         filename = glue('interacting_genes_apriori_{subclass_fname}_barplot.svg'),
-         width =  10, height = 4)
-  ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'both'),
-         path = '05-results/ORCA/raw_R_plots/',
-         filename = glue('interacting_genes_apriori_{subclass_fname}_lineplot.svg'),
-         width =  10, height = 4)
-  }
-}
+} # end subclass loop
