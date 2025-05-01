@@ -1,15 +1,11 @@
 # This script will use DESeq2 to run an interaction analysis on whether genes
 # are signficiantly changing in expression at different times of day.
 
-library(ggplot2)
-library(dplyr)
-library(glue)
+source('03-scripts/R/seq_functions.R')
 
 library(Seurat)
 library(DESeq2)
 library(ComplexHeatmap)
-
-source('03-scripts/R/seq_functions.R')
 
 nuclei <- LoadDataset("Dec2024")
 zt_colors <- LoadZTColors()
@@ -17,18 +13,16 @@ activity_colors <- LoadActivityColors()
 
 # establish subclasses to use ------------------------------------
 subclass_list <- LoadSubclassesToUse(nuclei)
-subclasses <- subclass_list[c(1, 4, 17, 19)]
 
 seurat_subsets <- list(
   CA1   = nuclei |> subset(subclass_name == subclass_list[1]  & activity_condition %in% c('SE', 'EE30m')),
-  DG    = nuclei |> subset(subclass_name == subclass_list[4]  & activity_condition %in% c('SE', 'EE30m')),
+  DG    = nuclei |> subset(subclass_name == subclass_list[7]  & activity_condition %in% c('SE', 'EE30m')),
   Astro = nuclei |> subset(subclass_name == subclass_list[17] & activity_condition %in% c('SE', 'EE30m')),
-  Oligo = nuclei |> subset(subclass_name == subclass_list[19] & activity_condition %in% c('SE', 'EE30m'))
+  Oligo = nuclei |> subset(subclass_name == subclass_list[18] & activity_condition %in% c('SE', 'EE30m'))
 )
-fig1_degs <- LoadGeneList('DEGs')
 
 for (subclass in names(seurat_subsets)) {
-# make DESeq -----------------------------------------------------
+  # make DESeq -----------------------------------------------------
   nuclei_subclass <- seurat_subsets[[subclass]]
   Idents(nuclei_subclass) <- nuclei_subclass$activity_condition
   subclass_fname <- ShrinkSubclassName(subclass)
@@ -93,16 +87,12 @@ for (subclass in names(seurat_subsets)) {
   res <- rbind(res1, res2, res3, res4, res5, res6) |> 
     dplyr::rename(gene = row) |> print()
   
+  # continue if empty; nothing to plot
   if (nrow(res) == 0) {
     next
   }
   
-  for (gene in res$gene) {
-    plotCounts(dds, gene, intgroup = c("activity_condition", "ZT"))
-  }
-  
-  
-  # test ----------------------------------------
+  # gene types ----------------------------------------
   types <- list(
     CA1 = list(
       type1 = c('Cecr2' ,'Daglb', 'Enoph1', 'Poc1b', 'Zfp420'),
@@ -166,55 +156,78 @@ for (subclass in names(seurat_subsets)) {
       aes(x = x_min, xend = x_max, y = mean_count, yend = mean_count),
       inherit.aes = FALSE,   # don't use x=sample, y=count from ggplot(df)
       color = "black",
-      linewidth = 2
+      linewidth = 1 
     ) +
-    facet_wrap(vars(type, gene), nrow=2, scales = 'free_y') +
-    labs(title = glue('Significant ZT:Activity interaction genes: {subclass}'),
+    facet_wrap(vars(gene), ncol=3, scales = 'free_y') +
+    labs(title = glue('ZT:EE genes in {subclass}'),
          x = 'Pseudobulk samples',
-         y = 'Normalized pseudobulk counts') +
+         y = 'Expression') +
+    theme_classic() +
     theme(axis.text.x = element_blank(),
+          axis.line.x = element_blank(),
+          axis.ticks.x = element_blank(),
           axis.title = element_text(size = 15),
-          plot.title = element_text(size = 20, hjust = 0.5))
+          plot.title = element_text(size = 20, hjust = 0.5),
+          strip.background = element_blank(),
+          legend.position = 'none')
   print(p1)
   
   
   # line plot ----------------------------------------
   p2 <- df_means |> 
-  ggplot() +
+    ggplot() +
     aes(x = ZT, y = mean_count, color = activity_condition, group = activity_condition) +
     geom_line(linewidth = 1) +
-    geom_point(size = 3) +
+    geom_point(size = 2) +
     geom_errorbar(aes(ymin = mean_count - sem, ymax = mean_count + sem), width = 0.1) +
-    facet_wrap(vars(type, gene), nrow=2, scales = "free_y") +
+    facet_wrap(vars(gene), ncol=3, scales = "free_y") +
     scale_color_manual(values = activity_colors) +
-    labs(title = glue('Significant ZT:Activity interaction genes: {subclass}'),
-         x = 'ZT',
-         y = 'Normalized pseudobulk counts') +
-    theme(axis.text.x = element_text(size = 12, angle = 30, hjust = 1),
+    labs(title = glue('ZT:EE genes in {subclass}'),
+         y = 'Expression') +
+    theme_classic() +
+    theme(axis.text.x = element_text(size = 8, angle = 30),
           axis.title.x = element_blank(),
-          axis.title.y = element_text(size = 15),
-          plot.title = element_text(size = 20, hjust = 0.5))
+          axis.line.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.title = element_text(size = 15),
+          plot.title = element_text(size = 20, hjust = 0.5),
+          strip.background = element_blank(),
+          legend.position = 'none')
   print(p2)
+  
   
   # save plots ----------------------------------------
   if (SAVE_PLOTS) {
-  # png
-  ggsave(plot = p1,
-         path = '05-results/ORCA/raw_R_plots/',
-         filename = glue('interacting_genes_genomewide_{subclass_fname}_barplot.png'),
-         width =  10, height = 4, dpi = 900, bg = 'white')
-  ggsave(plot = p2,
-         path = '05-results/ORCA/raw_R_plots/',
-         filename = glue('interacting_genes_genomewide_{subclass_fname}_lineplot.png'),
-         width =  10, height = 4, dpi = 900, bg = 'white')
-  # svg
-  ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
-         path = '05-results/ORCA/raw_R_plots/',
-         filename = glue('interacting_genes_genomewide_{subclass_fname}_barplot.svg'),
-         width =  10, height = 4)
-  ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'both'),
-         path = '05-results/ORCA/raw_R_plots/',
-         filename = glue('interacting_genes_genomewide_{subclass_fname}_lineplot.svg'),
-         width =  10, height = 4)
+    subclass_fname <- ShrinkSubclassName(subclass)
+    save_dir = '05-results/ORCA/raw_R_plots'
+    
+    save_dims <- tibble(
+      celltype = c('CA1', 'DG'),
+      width = c(5, 3),
+      height = c(4, 1.5)
+    ) |> 
+      filter(celltype == subclass) |> 
+      select(-celltype) |> 
+      as.list() |> 
+      unlist()
+    
+    # png
+    ggsave(plot = p1,
+           path = save_dir,
+           filename = glue('genomewide__{subclass_fname}_barplot.png'),
+           width =  5, height = 4, dpi = 900, bg = 'white')
+    ggsave(plot = p2,
+           path = save_dir,
+           filename = glue('genomewide__{subclass_fname}_lineplot.png'),
+           width =  3.4, height = 1.5, dpi = 900, bg = 'white')
+    # svg
+    ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
+           path = save_dir,
+           filename = glue('genomewide_{subclass_fname}_barplot.svg'),
+           width =  6, height = 4)
+    ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'both'),
+           path = save_dir,
+           filename = glue('genomewide_{subclass_fname}_lineplot.svg'),
+           width =  6, height = 4)
   }
 }
