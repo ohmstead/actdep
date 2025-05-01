@@ -40,7 +40,7 @@ CA1_30m
 # CA1 6h
 CA1_6h <- ggvenn(
   deg_sets[c("CA1_EE_6h", "CA1_KA_6h")],
-  fill_color = c("#D81B60", "#63a45e"),
+  fill_color = c("#FFC107", "#63a45e"),
   auto_scale = T,
   stroke_size = 0.5,
   set_name_size = 4,
@@ -64,7 +64,7 @@ DG_30m
 # DG 6h
 DG_6h <- ggvenn(
   deg_sets[c("DG_EE_6h", "DG_KA_6h")],
-  fill_color = c("#D81B60", "#63a45e"),
+  fill_color = c("#FFC107", "#63a45e"),
   auto_scale = T,
   stroke_size = 0.5,
   set_name_size = 4,
