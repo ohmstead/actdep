@@ -1,11 +1,11 @@
-library(tidyverse)
+source("03-scripts/R/seq_functions.R")
+
 library(ggsankey)
-library(reticulate)
 library(scCustomize)
+library(reticulate)
 
 reticulate::use_condaenv("sc")
-source("03-scripts/R/seq_functions.R")
-plot_save_dir <- '05-results/figure_supp_assignmentStability/raw_R_plots'
+plot_save_dir <- "05-results/ZUPP_NEWT_assignment_stability/raw_R_plots"
 
 # load in seurat
 nuclei_with <- LoadDataset("Dec2024")
@@ -47,7 +47,7 @@ meta <- meta_merge |>
       mutate(subclass_bootstrapping_probability_diff = subclass_bootstrapping_probability.with - subclass_bootstrapping_probability.without) |> 
       mutate(supertype_bootstrapping_probability_diff = supertype_bootstrapping_probability.with - supertype_bootstrapping_probability.without) |> 
       mutate(cluster_bootstrapping_probability_diff = cluster_bootstrapping_probability.with - cluster_bootstrapping_probability.without) |> 
-      filter(subclass_name.with %in% subclasses_to_use$subclass_name) |> 
+      filter(subclass_name.with %in% subclasses_to_use) |> 
       select(-starts_with('emptyDrops_'))
 
 
@@ -87,7 +87,7 @@ meta |>
       filter(subclass_name.with == '016 CA1-ProS Glut') |> 
 ggplot() +
       aes(x = cluster_name.with, y = cluster_bootstrapping_probability_diff, fill = cluster_name.with) +
-      geom_jitter(shape = 21) +
+      # geom_jitter(shape = 21) +
       geom_boxplot(alpha = 0.5, outliers = F) +
       scale_fill_manual(values = cluster_colors)
 
@@ -128,53 +128,89 @@ ggplot() +
       scale_color_manual(values = active_binary_colors)
 
 
-# sankey diagrams of re-assignment ----
-# class sankey
-meta |> 
-      make_long(class_name.with, class_name.without) |> 
-ggplot() +
-      aes(x = x, next_x = next_x, node = node, next_node = next_node,
-          fill = node) +
-      geom_sankey() +
-      scale_fill_manual(values = class_colors) +
-      theme_void() +
-      theme(legend.position = 'none')
-ggsave(filename = 'reassignment_sankey_class.png', path = plot_save_dir, width = 4, height = 8, dpi = 900)
+# sankeys ----------------------------------------
+subclass_list <- list(
+  CA1 = '016 CA1-ProS Glut',
+  DG  = '037 DG Glut'
+)
 
-# subclass sankey
-meta |> 
-      make_long(subclass_name.with, subclass_name.without) |> 
-ggplot() +
-      aes(x = x, next_x = next_x, node = node, next_node = next_node,
-          fill = node) +
-      geom_sankey() +
-      scale_fill_manual(values = subclass_colors) +
-      theme_void() +
-      theme(legend.position = 'none')
-ggsave(filename = 'reassignment_sankey_subclass.png', path = plot_save_dir, width = 4, height = 8, dpi = 900)
-
-# supertype sankey
-meta |> 
-      filter(subclass_name.with == '016 CA1-ProS Glut') |> 
-      make_long(supertype_name.with, supertype_name.without) |> 
-ggplot() +
-      aes(x = x, next_x = next_x, node = node, next_node = next_node,
-          fill = node) +
-      geom_sankey() +
-      scale_fill_manual(values = supertype_colors) +
-      theme_void() +
-      theme(legend.position = 'none')
-ggsave(filename = 'reassignment_sankey_supertype.png', path = plot_save_dir, width = 4, height = 8, dpi = 900)
-
-# cluster sankey
-meta |> 
-      filter(subclass_name.with == '016 CA1-ProS Glut') |> 
-      make_long(cluster_name.with, cluster_name.without) |> 
-ggplot() +
-      aes(x = x, next_x = next_x, node = node, next_node = next_node,
-          fill = node) +
-      geom_sankey() +
-      scale_fill_manual(values = cluster_colors) +
-      theme_void() +
-      theme(legend.position = 'none')
-ggsave(filename = 'reassignment_sankey_cluster.png', path = plot_save_dir, width = 4, height = 8, dpi = 900)
+for (celltype in names(subclass_list)) {
+  # class
+  p <- meta |> 
+    make_long(class_name.with, class_name.without) |> 
+  ggplot() +
+    aes(x = x, next_x = next_x, node = node, next_node = next_node,
+        fill = node) +
+    geom_sankey() +
+    scale_fill_manual(values = class_colors) +
+    theme(legend.position = 'none')
+  print(p)
+  
+  ggsave(plot = p,
+         filename = 'reassignment_sankey_class.png', 
+         path = plot_save_dir, 
+         width = 4, height = 8, dpi = 900)
+  svgsave(plot = p + LoadBarebonesTheme(),
+          filename = 'reassignment__sankey_class.svg', 
+          path = plot_save_dir, 
+          width = 4, height = 8)
+  
+  # subclass
+  p <- meta |> 
+    make_long(subclass_name.with, subclass_name.without) |> 
+  ggplot() +
+    aes(x = x, next_x = next_x, node = node, next_node = next_node,
+        fill = node) +
+    geom_sankey() +
+    scale_fill_manual(values = subclass_colors) +
+    theme(legend.position = 'none')
+  print(p)
+  ggsave(plot = p,
+         filename = 'reassignment_sankey_subclass.png', 
+         path = plot_save_dir, 
+         width = 4, height = 8, dpi = 900)
+  svgsave(plot = p + LoadBarebonesTheme(),
+          filename = 'reassignment__sankey_subclass.svg', 
+          path = plot_save_dir, 
+          width = 4, height = 8)
+  
+  # supertype sankey
+  p <- meta |> 
+    filter(subclass_name.with == subclass_list[[celltype]]) |>
+    make_long(supertype_name.with, supertype_name.without) |> 
+  ggplot() +
+    aes(x = x, next_x = next_x, node = node, next_node = next_node,
+        fill = node) +
+    geom_sankey() +
+    scale_fill_manual(values = supertype_colors) +
+    theme(legend.position = 'none')
+  print(p)
+  ggsave(plot = p,
+         filename = glue('reassignment_sankey_supertype_{celltype}.png'), 
+         path = plot_save_dir, 
+         width = 4, height = 8, dpi = 900)
+  svgsave(plot = p + LoadBarebonesTheme(),
+          filename = glue('reassignment__sankey_supertype_{celltype}.svg'), 
+          path = plot_save_dir, 
+          width = 4, height = 8)
+  
+  # cluster
+  p <- meta |> 
+    filter(subclass_name.with == subclass_list[[celltype]]) |>
+    make_long(cluster_name.with, cluster_name.without) |> 
+  ggplot() +
+    aes(x = x, next_x = next_x, node = node, next_node = next_node,
+        fill = node) +
+    geom_sankey() +
+    scale_fill_manual(values = cluster_colors) +
+    theme(legend.position = 'none')
+  print(p)
+  ggsave(plot = p,
+         filename = glue('reassignment_sankey_cluster_{celltype}.png'),
+         path = plot_save_dir, 
+         width = 4, height = 8, dpi = 900)
+  svgsave(plot = p + LoadBarebonesTheme(),
+          filename = glue('reassignment__sankey_cluster_{celltype}.svg'), 
+          path = plot_save_dir, 
+          width = 4, height = 8)
+}
