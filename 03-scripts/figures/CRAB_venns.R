@@ -40,7 +40,7 @@ CA1_30m
 # CA1 6h
 CA1_6h <- ggvenn(
   deg_sets[c("CA1_EE_6h", "CA1_KA_6h")],
-  fill_color = c("#D81B60", "#098154FF"),
+  fill_color = c("#D81B60", "#63a45e"),
   auto_scale = T,
   stroke_size = 0.5,
   set_name_size = 4,
@@ -64,7 +64,7 @@ DG_30m
 # DG 6h
 DG_6h <- ggvenn(
   deg_sets[c("DG_EE_6h", "DG_KA_6h")],
-  fill_color = c("#D81B60", "#098154FF"),
+  fill_color = c("#D81B60", "#63a45e"),
   auto_scale = T,
   stroke_size = 0.5,
   set_name_size = 4,
@@ -77,19 +77,19 @@ DG_6h
 save_dir <- "05-results/CRAB/raw_R_plots"
 # png
 ggsave(plot = CA1_30m,
-       filename = "venn_CA1_30m.png",
+       filename = "venn__CA1_30m.png",
        width = 4, height = 4,
        path = save_dir)
 ggsave(plot = CA1_6h,
-       filename = "venn_CA1_6h.png",
+       filename = "venn__CA1_6h.png",
        width = 4, height = 4,
        path = save_dir)
 ggsave(plot = DG_30m,
-       filename = "venn_DG_30m.png",
+       filename = "venn__DG_30m.png",
        width = 4, height = 4,
        path = save_dir)
 ggsave(plot = DG_6h,
-       filename = "venn_DG_6h.png",
+       filename = "venn__DG_6h.png",
        width = 4, height = 4,
        path = save_dir)
 # svg
