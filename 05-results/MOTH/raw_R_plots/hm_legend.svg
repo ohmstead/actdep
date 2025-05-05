@@ -1,0 +1,623 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 360 360">
+  <!-- Generator: Adobe Illustrator 29.4.0, SVG Export Plug-In . SVG Version: 2.1.0 Build 152)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: #f69d24;
+        stroke: #f69d24;
+      }
+
+      .st0, .st1, .st2, .st3, .st4, .st5, .st6, .st7, .st8, .st9, .st10, .st11, .st12, .st13, .st14, .st15, .st16, .st17, .st18, .st19, .st20, .st21, .st22, .st23, .st24, .st25, .st26, .st27, .st28, .st29, .st30, .st31, .st32, .st33, .st34, .st35, .st36, .st37, .st38, .st39, .st40, .st41, .st42, .st43, .st44, .st45, .st46, .st47, .st48, .st49, .st50, .st51, .st52, .st53, .st54, .st55, .st56, .st57, .st58, .st59, .st60, .st61, .st62, .st63, .st64, .st65, .st66, .st67, .st68, .st69, .st70, .st71, .st72, .st73, .st74, .st75, .st76, .st77, .st78, .st79, .st80, .st81, .st82, .st83, .st84, .st85, .st86, .st87, .st88, .st89, .st90, .st91, .st92, .st93, .st94, .st95, .st96, .st97 {
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: .8px;
+      }
+
+      .st1 {
+        fill: #851170;
+        stroke: #851170;
+      }
+
+      .st2 {
+        fill: #ba2973;
+        stroke: #ba2973;
+      }
+
+      .st3 {
+        fill: #351349;
+        stroke: #351349;
+      }
+
+      .st4 {
+        fill: #77106c;
+        stroke: #77106c;
+      }
+
+      .st5 {
+        fill: #f58b23;
+        stroke: #f58b23;
+      }
+
+      .st6 {
+        fill: #f9da6b;
+        stroke: #f9da6b;
+      }
+
+      .st7 {
+        fill: #f8c953;
+        stroke: #f8c953;
+      }
+
+      .st8 {
+        fill: #f8c047;
+        stroke: #f8c047;
+      }
+
+      .st98 {
+        font-family: ArialMT, Arial;
+        font-size: 23.8px;
+        isolation: isolate;
+      }
+
+      .st9 {
+        fill: #9a1674;
+        stroke: #9a1674;
+      }
+
+      .st10 {
+        fill: #73106a;
+        stroke: #73106a;
+      }
+
+      .st11 {
+        fill: #211139;
+        stroke: #211139;
+      }
+
+      .st12 {
+        fill: #ee6046;
+        stroke: #ee6046;
+      }
+
+      .st13 {
+        fill: #aa1e75;
+        stroke: #aa1e75;
+      }
+
+      .st14 {
+        fill: #fcef89;
+        stroke: #fcef89;
+      }
+
+      .st15 {
+        fill: #f7b337;
+        stroke: #f7b337;
+      }
+
+      .st16 {
+        fill: #1a1032;
+        stroke: #1a1032;
+      }
+
+      .st17 {
+        fill: #25123c;
+        stroke: #25123c;
+      }
+
+      .st18 {
+        fill: #f48227;
+        stroke: #f48227;
+      }
+
+      .st19 {
+        fill: #d94664;
+        stroke: #d94664;
+      }
+
+      .st20 {
+        fill: #421352;
+        stroke: #421352;
+      }
+
+      .st21 {
+        fill: #be2b73;
+        stroke: #be2b73;
+      }
+
+      .st22 {
+        fill: #e2505a;
+        stroke: #e2505a;
+      }
+
+      .st23 {
+        fill: #fffe9e;
+        stroke: #fffe9e;
+      }
+
+      .st24 {
+        fill: #d33f69;
+        stroke: #d33f69;
+      }
+
+      .st25 {
+        fill: #e85852;
+        stroke: #e85852;
+      }
+
+      .st26 {
+        fill: #611163;
+        stroke: #611163;
+      }
+
+      .st27 {
+        fill: #f26839;
+        stroke: #f26839;
+      }
+
+      .st28 {
+        fill: #a21a75;
+        stroke: #a21a75;
+      }
+
+      .st29 {
+        fill: #f8b83c;
+        stroke: #f8b83c;
+      }
+
+      .st30 {
+        fill: #f69923;
+        stroke: #f69923;
+      }
+
+      .st31 {
+        fill: #f58725;
+        stroke: #f58725;
+      }
+
+      .st32 {
+        fill: #54125c;
+        stroke: #54125c;
+      }
+
+      .st33 {
+        fill: #fef997;
+        stroke: #fef997;
+      }
+
+      .st34 {
+        fill: #c12e71;
+        stroke: #c12e71;
+      }
+
+      .st35 {
+        fill: #cc386d;
+        stroke: #cc386d;
+      }
+
+      .st36 {
+        fill: #eb5c4c;
+        stroke: #eb5c4c;
+      }
+
+      .st37 {
+        fill: #1e1135;
+        stroke: #1e1135;
+      }
+
+      .st38 {
+        fill: #ae2075;
+        stroke: #ae2075;
+      }
+
+      .st39 {
+        fill: #050610;
+        stroke: #050610;
+      }
+
+      .st40 {
+        fill: #921373;
+        stroke: #921373;
+      }
+
+      .st41 {
+        fill: #d64267;
+        stroke: #d64267;
+      }
+
+      .st42 {
+        fill: none;
+        stroke: #fff;
+      }
+
+      .st43 {
+        fill: #f7af32;
+        stroke: #f7af32;
+      }
+
+      .st44 {
+        fill: #fdf490;
+        stroke: #fdf490;
+      }
+
+      .st45 {
+        fill: #6e1069;
+        stroke: #6e1069;
+      }
+
+      .st46 {
+        fill: #8d1272;
+        stroke: #8d1272;
+      }
+
+      .st47 {
+        fill: #0b0b1f;
+        stroke: #0b0b1f;
+      }
+
+      .st48 {
+        fill: #f69022;
+        stroke: #f69022;
+      }
+
+      .st49 {
+        fill: #040404;
+        stroke: #040404;
+      }
+
+      .st50 {
+        fill: #f36e35;
+        stroke: #f36e35;
+      }
+
+      .st51 {
+        fill: #f8bc42;
+        stroke: #f8bc42;
+      }
+
+      .st52 {
+        fill: #f37331;
+        stroke: #f37331;
+      }
+
+      .st53 {
+        fill: #f69522;
+        stroke: #f69522;
+      }
+
+      .st54 {
+        fill: #461354;
+        stroke: #461354;
+      }
+
+      .st55 {
+        fill: #961574;
+        stroke: #961574;
+      }
+
+      .st56 {
+        fill: #f9d664;
+        stroke: #f9d664;
+      }
+
+      .st57 {
+        fill: #4f125a;
+        stroke: #4f125a;
+      }
+
+      .st58 {
+        fill: #f0643f;
+        stroke: #f0643f;
+      }
+
+      .st59 {
+        fill: #891171;
+        stroke: #891171;
+      }
+
+      .st60 {
+        fill: #fae276;
+        stroke: #fae276;
+      }
+
+      .st61 {
+        fill: #f9cd58;
+        stroke: #f9cd58;
+      }
+
+      .st62 {
+        fill: #311346;
+        stroke: #311346;
+      }
+
+      .st63 {
+        fill: #cf3b6b;
+        stroke: #cf3b6b;
+      }
+
+      .st64 {
+        fill: #4b1257;
+        stroke: #4b1257;
+      }
+
+      .st65 {
+        fill: #160f2e;
+        stroke: #160f2e;
+      }
+
+      .st66 {
+        fill: #c8356f;
+        stroke: #c8356f;
+      }
+
+      .st67 {
+        fill: #58125f;
+        stroke: #58125f;
+      }
+
+      .st68 {
+        fill: #fbe77d;
+        stroke: #fbe77d;
+      }
+
+      .st69 {
+        fill: #a71c75;
+        stroke: #a71c75;
+      }
+
+      .st70 {
+        fill: #6a1067;
+        stroke: #6a1067;
+      }
+
+      .st71 {
+        fill: #651165;
+        stroke: #651165;
+      }
+
+      .st72 {
+        fill: #29123f;
+        stroke: #29123f;
+      }
+
+      .st73 {
+        fill: #3e134f;
+        stroke: #3e134f;
+      }
+
+      .st74 {
+        fill: #80106f;
+        stroke: #80106f;
+      }
+
+      .st75 {
+        fill: #0f0d25;
+        stroke: #0f0d25;
+      }
+
+      .st76 {
+        fill: #080918;
+        stroke: #080918;
+      }
+
+      .st77 {
+        fill: #f8c54d;
+        stroke: #f8c54d;
+      }
+
+      .st78 {
+        fill: #f7a227;
+        stroke: #f7a227;
+      }
+
+      .st79 {
+        fill: #5d1161;
+        stroke: #5d1161;
+      }
+
+      .st80 {
+        fill: #2d1243;
+        stroke: #2d1243;
+      }
+
+      .st81 {
+        fill: #39134c;
+        stroke: #39134c;
+      }
+
+      .st82 {
+        fill: #b22375;
+        stroke: #b22375;
+      }
+
+      .st83 {
+        fill: #7c106d;
+        stroke: #7c106d;
+      }
+
+      .st84 {
+        fill: #9e1875;
+        stroke: #9e1875;
+      }
+
+      .st85 {
+        fill: #fbeb83;
+        stroke: #fbeb83;
+      }
+
+      .st86 {
+        fill: #fade70;
+        stroke: #fade70;
+      }
+
+      .st87 {
+        fill: #c53270;
+        stroke: #c53270;
+      }
+
+      .st88 {
+        fill: #f9d25e;
+        stroke: #f9d25e;
+      }
+
+      .st89 {
+        fill: #e55456;
+        stroke: #e55456;
+      }
+
+      .st90 {
+        fill: #f4782e;
+        stroke: #f4782e;
+      }
+
+      .st91 {
+        fill: #f7a62a;
+        stroke: #f7a62a;
+      }
+
+      .st92 {
+        fill: #b62674;
+        stroke: #b62674;
+      }
+
+      .st93 {
+        fill: #dd4961;
+        stroke: #dd4961;
+      }
+
+      .st94 {
+        fill: #f47d2a;
+        stroke: #f47d2a;
+      }
+
+      .st95 {
+        fill: #f7aa2e;
+        stroke: #f7aa2e;
+      }
+
+      .st96 {
+        fill: #120e2a;
+        stroke: #120e2a;
+      }
+
+      .st97 {
+        fill: #df4d5e;
+        stroke: #df4d5e;
+      }
+    </style>
+  </defs>
+  <text class="st98" transform="translate(117.7 258)"><tspan x="0" y="0">-2</tspan></text>
+  <text class="st98" transform="translate(117.7 224.8)"><tspan x="0" y="0">-1</tspan></text>
+  <text class="st98" transform="translate(117.7 191.5)"><tspan x="0" y="0">0</tspan></text>
+  <text class="st98" transform="translate(117.7 158.3)"><tspan x="0" y="0">1</tspan></text>
+  <text class="st98" transform="translate(117.7 125.1)"><tspan x="0" y="0">2</tspan></text>
+  <rect class="st23" x="84" y="111.8" width="27" height="4.7"/>
+  <rect class="st23" x="84" y="116.5" width="27" height="1.4"/>
+  <rect class="st33" x="84" y="117.9" width="27" height="1.4"/>
+  <rect class="st44" x="84" y="119.3" width="27" height="1.4"/>
+  <rect class="st14" x="84" y="120.6" width="27" height="1.4"/>
+  <rect class="st85" x="84" y="122" width="27" height="1.4"/>
+  <rect class="st68" x="84" y="123.4" width="27" height="1.4"/>
+  <rect class="st60" x="84" y="124.7" width="27" height="1.4"/>
+  <rect class="st86" x="84" y="126.1" width="27" height="1.4"/>
+  <rect class="st6" x="84" y="127.5" width="27" height="1.4"/>
+  <rect class="st56" x="84" y="128.9" width="27" height="1.4"/>
+  <rect class="st88" x="84" y="130.2" width="27" height="1.4"/>
+  <rect class="st61" x="84" y="131.6" width="27" height="1.4"/>
+  <rect class="st7" x="84" y="133" width="27" height="1.4"/>
+  <rect class="st77" x="84" y="134.3" width="27" height="1.4"/>
+  <rect class="st8" x="84" y="135.7" width="27" height="1.4"/>
+  <rect class="st51" x="84" y="137.1" width="27" height="1.4"/>
+  <rect class="st29" x="84" y="138.5" width="27" height="1.4"/>
+  <rect class="st15" x="84" y="139.8" width="27" height="1.4"/>
+  <rect class="st43" x="84" y="141.2" width="27" height="1.4"/>
+  <rect class="st95" x="84" y="142.6" width="27" height="1.4"/>
+  <rect class="st91" x="84" y="143.9" width="27" height="1.4"/>
+  <rect class="st78" x="84" y="145.3" width="27" height="1.4"/>
+  <rect class="st0" x="84" y="146.7" width="27" height="1.4"/>
+  <rect class="st30" x="84" y="148" width="27" height="1.4"/>
+  <rect class="st53" x="84" y="149.4" width="27" height="1.4"/>
+  <rect class="st48" x="84" y="150.8" width="27" height="1.4"/>
+  <rect class="st5" x="84" y="152.1" width="27" height="1.4"/>
+  <rect class="st31" x="84" y="153.5" width="27" height="1.4"/>
+  <rect class="st18" x="84" y="154.9" width="27" height="1.4"/>
+  <rect class="st94" x="84" y="156.3" width="27" height="1.4"/>
+  <rect class="st90" x="84" y="157.6" width="27" height="1.4"/>
+  <rect class="st52" x="84" y="159" width="27" height="1.4"/>
+  <rect class="st50" x="84" y="160.4" width="27" height="1.4"/>
+  <rect class="st27" x="84" y="161.7" width="27" height="1.4"/>
+  <rect class="st58" x="84" y="163.1" width="27" height="1.4"/>
+  <rect class="st12" x="84" y="164.5" width="27" height="1.4"/>
+  <rect class="st36" x="84" y="165.9" width="27" height="1.4"/>
+  <rect class="st25" x="84" y="167.2" width="27" height="1.4"/>
+  <rect class="st89" x="84" y="168.6" width="27" height="1.4"/>
+  <rect class="st22" x="84" y="170" width="27" height="1.4"/>
+  <rect class="st97" x="84" y="171.3" width="27" height="1.4"/>
+  <rect class="st93" x="84" y="172.7" width="27" height="1.4"/>
+  <rect class="st19" x="84" y="174.1" width="27" height="1.4"/>
+  <rect class="st41" x="84" y="175.4" width="27" height="1.4"/>
+  <rect class="st24" x="84" y="176.8" width="27" height="1.4"/>
+  <rect class="st63" x="84" y="178.2" width="27" height="1.4"/>
+  <rect class="st35" x="84" y="179.5" width="27" height="1.4"/>
+  <rect class="st66" x="84" y="180.9" width="27" height="1.4"/>
+  <rect class="st87" x="84" y="182.3" width="27" height="1.4"/>
+  <rect class="st34" x="84" y="183.7" width="27" height="1.4"/>
+  <rect class="st21" x="84" y="185" width="27" height="1.4"/>
+  <rect class="st2" x="84" y="186.4" width="27" height="1.4"/>
+  <rect class="st92" x="84" y="187.8" width="27" height="1.4"/>
+  <rect class="st82" x="84" y="189.1" width="27" height="1.4"/>
+  <rect class="st38" x="84" y="190.5" width="27" height="1.4"/>
+  <rect class="st13" x="84" y="191.9" width="27" height="1.4"/>
+  <rect class="st69" x="84" y="193.3" width="27" height="1.4"/>
+  <rect class="st28" x="84" y="194.6" width="27" height="1.4"/>
+  <rect class="st84" x="84" y="196" width="27" height="1.4"/>
+  <rect class="st9" x="84" y="197.4" width="27" height="1.4"/>
+  <rect class="st55" x="84" y="198.7" width="27" height="1.4"/>
+  <rect class="st40" x="84" y="200.1" width="27" height="1.4"/>
+  <rect class="st46" x="84" y="201.5" width="27" height="1.4"/>
+  <rect class="st59" x="84" y="202.9" width="27" height="1.4"/>
+  <rect class="st1" x="84" y="204.2" width="27" height="1.4"/>
+  <rect class="st74" x="84" y="205.6" width="27" height="1.4"/>
+  <rect class="st83" x="84" y="206.9" width="27" height="1.4"/>
+  <rect class="st4" x="84" y="208.3" width="27" height="1.4"/>
+  <rect class="st10" x="84" y="209.7" width="27" height="1.4"/>
+  <rect class="st45" x="84" y="211.1" width="27" height="1.4"/>
+  <rect class="st70" x="84" y="212.4" width="27" height="1.4"/>
+  <rect class="st71" x="84" y="213.8" width="27" height="1.4"/>
+  <rect class="st26" x="84" y="215.2" width="27" height="1.4"/>
+  <rect class="st79" x="84" y="216.5" width="27" height="1.4"/>
+  <rect class="st67" x="84" y="217.9" width="27" height="1.4"/>
+  <rect class="st32" x="84" y="219.3" width="27" height="1.4"/>
+  <rect class="st57" x="84" y="220.7" width="27" height="1.4"/>
+  <rect class="st64" x="84" y="222" width="27" height="1.4"/>
+  <rect class="st54" x="84" y="223.4" width="27" height="1.4"/>
+  <rect class="st20" x="84" y="224.8" width="27" height="1.4"/>
+  <rect class="st73" x="84" y="226.1" width="27" height="1.4"/>
+  <rect class="st81" x="84" y="227.5" width="27" height="1.4"/>
+  <rect class="st3" x="84" y="228.9" width="27" height="1.4"/>
+  <rect class="st62" x="84" y="230.3" width="27" height="1.4"/>
+  <rect class="st80" x="84" y="231.6" width="27" height="1.4"/>
+  <rect class="st72" x="84" y="233" width="27" height="1.4"/>
+  <rect class="st17" x="84" y="234.3" width="27" height="1.4"/>
+  <rect class="st11" x="84" y="235.7" width="27" height="1.4"/>
+  <rect class="st37" x="84" y="237.1" width="27" height="1.4"/>
+  <rect class="st16" x="84" y="238.5" width="27" height="1.4"/>
+  <rect class="st65" x="84" y="239.8" width="27" height="1.4"/>
+  <rect class="st96" x="84" y="241.2" width="27" height="1.4"/>
+  <rect class="st75" x="84" y="242.6" width="27" height="1.4"/>
+  <rect class="st47" x="84" y="243.9" width="27" height="1.4"/>
+  <rect class="st76" x="84" y="245.3" width="27" height="1.4"/>
+  <rect class="st39" x="84" y="246.7" width="27" height="1.4"/>
+  <rect class="st49" x="84" y="248.1" width="27" height="1.4"/>
+  <rect class="st49" x="84" y="249.4" width="27" height="4.7"/>
+  <line class="st42" x1="84" y1="249.4" x2="89.4" y2="249.4"/>
+  <line class="st42" x1="84" y1="216.2" x2="89.4" y2="216.2"/>
+  <line class="st42" x1="84" y1="183" x2="89.4" y2="183"/>
+  <line class="st42" x1="84" y1="149.7" x2="89.4" y2="149.7"/>
+  <line class="st42" x1="84" y1="116.5" x2="89.4" y2="116.5"/>
+  <line class="st42" x1="110.9" y1="249.4" x2="105.5" y2="249.4"/>
+  <line class="st42" x1="110.9" y1="216.2" x2="105.5" y2="216.2"/>
+  <line class="st42" x1="110.9" y1="183" x2="105.5" y2="183"/>
+  <line class="st42" x1="110.9" y1="149.7" x2="105.5" y2="149.7"/>
+  <line class="st42" x1="110.9" y1="116.5" x2="105.5" y2="116.5"/>
+</svg>

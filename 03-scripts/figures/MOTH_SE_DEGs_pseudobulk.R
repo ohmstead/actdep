@@ -1,19 +1,34 @@
-# Load required libraries
-library(ggrepel)
-library(ggsignif)
+# This script does 2 main things:
+#   1. DESeq-based ZT DEG analysis in SE condition
+#   2. Plots DEG heatmaps across ZT
+# 
+# These steps are performed for the 4 largest subclasses:
+# CA1, DG, astrocytes, and oligodendrocytes
 
-library(Seurat)
+source("03-scripts/R/seq_functions.R")
+
 library(DESeq2)
 library(SingleCellExperiment)
 library(ComplexHeatmap)
 library(circlize)
 library(seriation)
 
-source("03-scripts/R/seq_functions.R")
+USE_SHRUNKEN_FC <- F
+PLOT_VOLCANOS <- F
 
 
-# define fxns -----------------------------------------------------------
-getConstrastResults <- function(dds, contrast, threshold) {
+# load data ----------------------------------------
+nuclei <- LoadDataset('Dec2024')
+seurat_subsets <- list(
+  CA1   = subset(nuclei, subclass_name == '016 CA1-ProS Glut' & activity_condition %in% c('SE')),
+  DG    = subset(nuclei, subclass_name == '037 DG Glut'       & activity_condition %in% c('SE')),
+  Astro = subset(nuclei, subclass_name == '319 Astro-TE NN'   & activity_condition %in% c('SE')),
+  Oligo = subset(nuclei, subclass_name == '327 Oligo NN'      & activity_condition %in% c('SE'))
+)
+
+
+# define fxns ----------------------------------------
+getUnshrunkenConstrastResults <- function(dds, contrast, threshold) {
   res <- results(dds, contrast = contrast, tidy = T) |> 
     dplyr::rename(gene = row) |> 
     mutate(
@@ -33,7 +48,43 @@ getConstrastResults <- function(dds, contrast, threshold) {
 }
 
 
+getShrunkenConstrastResults <- function(dds, contrast_name, threshold) {
+  # get results from Wald test
+  res_raw <- results(dds, contrast = contrast_name)
+
+  # filter by shrunken lfc
+  res_shrink <- lfcShrink(dds = dds,
+                          res = res_raw,
+                          contrast = contrast_name,
+                          type = 'ashr')|>
+    as_tibble(rownames = 'gene') |>
+    left_join(select(as_tibble(res_raw, rownames = 'gene'), gene, log2FoldChange, lfcSE),
+              by = 'gene',
+              suffix = c('.shrink', '.raw'),
+              relationship = 'one-to-one') |>
+    arrange(padj) |>
+    relocate(log2FoldChange.raw, log2FoldChange.shrink, lfcSE.raw, lfcSE.shrink, .after = baseMean) |>
+    mutate(
+      classification =
+        ifelse(  # if upregulated
+          log2FoldChange.shrink > threshold & padj < 0.05,
+          "upregulated",
+          ifelse(  # if downregulated
+            log2FoldChange.shrink < -threshold & padj < 0.05,
+            "downregulated",
+            "no_change" # then no change
+          )
+        )
+    )
+  print(res_shrink)
+  return(res_shrink)
+}
+
+
 volcanoPlot <- function(res, title, threshold) {
+  library(ggrepel)
+  library(ggsignif)
+  
   point_color <- setNames(c("red", "blue", "black"), 
                           c("upregulated", "downregulated", "no_change"))
   
@@ -57,52 +108,20 @@ volcanoPlot <- function(res, title, threshold) {
 }
 
 
-data_summary <- function(data, varname, groupnames) {
-  #+++++++++++++++++++++++++
-  # Function to calculate the mean and the standard deviation
-  # for each group
-  #+++++++++++++++++++++++++
-  # data : a data frame
-  # varname : the name of a column containing the variable
-  #to be summariezed
-  # groupnames : vector of column names to be used as
-  # grouping variables
-  require(plyr)
-  
-  summary_func <- function(x, col){
-    c(mean = mean(x[[col]], na.rm=TRUE),
-      sem = sd(x[[col]], na.rm=TRUE) / sqrt(length(x[[col]])) )
-  }
-  
-  data_sum <- ddply(data, groupnames, .fun=summary_func, varname)
-  data_sum <- rename(data_sum, c("mean" = varname))
-  return(data_sum)
-}
-
-
-# load data ----------------------------------------------------------------------------------------------------
-nuclei <- LoadDataset('Dec2024')
-seurat_subsets <- list(
-  CA1   = subset(nuclei, subclass_name == '016 CA1-ProS Glut' & activity_condition %in% c('SE')),
-  DG    = subset(nuclei, subclass_name == '037 DG Glut'       & activity_condition %in% c('SE')),
-  Astro = subset(nuclei, subclass_name == '319 Astro-TE NN'   & activity_condition %in% c('SE')),
-  Oligo = subset(nuclei, subclass_name == '327 Oligo NN'      & activity_condition %in% c('SE'))
-)
-
-
-# run loop ----------------------------------------------------------------------------------------------------
+# run loop ----------------------------------------
 plots <- list()
 for (subclass in names(seurat_subsets)) {
   nuclei_subclass <- seurat_subsets[[subclass]]
   Idents(nuclei_subclass) <- nuclei_subclass$ZT
   
   
-  # prep data -----------------------------------------------------------
-  # scrambled_indices <- sample(seq_len(nrow(nuclei_subclass@meta.data)))   # scramble cell identities!!
+  # prep data ----------------------------------------
+  # scramble cell identities for control analysis!!
+  # scrambled_indices <- sample(seq_len(nrow(nuclei_subclass@meta.data)))
   # nuclei_subclass@meta.data$sample <- nuclei_subclass@meta.data$sample[scrambled_indices]
   # nuclei_subclass@meta.data$ZT <- nuclei_subclass@meta.data$ZT[scrambled_indices]
   
-  # only test genes expressed in 5% of cells
+  # only test genes expressed in 1% of cells
   mat <- nuclei_subclass[["SCT"]]@data
   mat <- mat[rowMeans(mat > 0) > 0.01, ]
   gene_list <- rownames(mat)
@@ -137,48 +156,65 @@ for (subclass in names(seurat_subsets)) {
   col_data$sample <- rownames(col_data)
   col_data
   
-  # run DESeq -----------------------------------------------------------
+  # run DESeq ----------------------------------------
   dds <- DESeqDataSetFromMatrix(countData = as.matrix(pseudobulk_counts), 
                                 colData = col_data, 
                                 design = ~ ZT)
   dds <- DESeq(dds)
   thresh = 0.585
   
-  res_ZT4_vs_ZT0 <- getConstrastResults(dds, c("ZT", "ZT4", "ZT0"), thresh)
-  res_ZT12_vs_ZT0 <- getConstrastResults(dds, c("ZT", "ZT12", "ZT0"), thresh)
-  res_ZT16_vs_ZT0 <- getConstrastResults(dds, c("ZT", "ZT16", "ZT0"), thresh)
-  res_ZT12_vs_ZT4 <- getConstrastResults(dds, c("ZT", "ZT12", "ZT4"), thresh)
-  res_ZT16_vs_ZT4 <- getConstrastResults(dds, c("ZT", "ZT16", "ZT4"), thresh)
-  res_ZT16_vs_ZT12 <- getConstrastResults(dds, c("ZT", "ZT16", "ZT12"), thresh)
+  if (USE_SHRUNKEN_FC) {
+    res_ZT4_vs_ZT0   <- getShrunkenConstrastResults(dds, c("ZT", "ZT4", "ZT0"), thresh)
+    res_ZT12_vs_ZT0  <- getShrunkenConstrastResults(dds, c("ZT", "ZT12", "ZT0"), thresh)
+    res_ZT16_vs_ZT0  <- getShrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT0"), thresh)
+    res_ZT12_vs_ZT4  <- getShrunkenConstrastResults(dds, c("ZT", "ZT12", "ZT4"), thresh)
+    res_ZT16_vs_ZT4  <- getShrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT4"), thresh)
+    res_ZT16_vs_ZT12 <- getShrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT12"), thresh)
+  } else {
+    res_ZT4_vs_ZT0   <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT4", "ZT0"), thresh)
+    res_ZT12_vs_ZT0  <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT12", "ZT0"), thresh)
+    res_ZT16_vs_ZT0  <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT0"), thresh)
+    res_ZT12_vs_ZT4  <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT12", "ZT4"), thresh)
+    res_ZT16_vs_ZT4  <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT4"), thresh)
+    res_ZT16_vs_ZT12 <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT12"), thresh)
+  }
   
   # save results to file
   deg_save_path <- '04-analysis/DEGs/Dec2024_ZT_SE_pseudobulk/'
-  write_csv(res_ZT4_vs_ZT0, glue("{deg_save_path}{subclass}_ZT4_vs_ZT0.csv"))
-  write_csv(res_ZT12_vs_ZT0, glue("{deg_save_path}{subclass}_ZT12_vs_ZT0.csv"))
-  write_csv(res_ZT16_vs_ZT0, glue("{deg_save_path}{subclass}_ZT16_vs_ZT0.csv"))
-  write_csv(res_ZT12_vs_ZT4, glue("{deg_save_path}{subclass}_ZT12_vs_ZT4.csv"))
-  write_csv(res_ZT16_vs_ZT4, glue("{deg_save_path}{subclass}_ZT16_vs_ZT4.csv"))
-  write_csv(res_ZT16_vs_ZT12, glue("{deg_save_path}{subclass}_ZT16_vs_ZT12.csv"))
   
-  # p <- volcanoPlot(res_ZT4_vs_ZT0, glue("ZT4 vs ZT0: {subclass}"), thresh)
-  # p <- volcanoPlot(res_ZT12_vs_ZT0, glue("ZT12 vs ZT0: {subclass}"), thresh)
-  # p <- volcanoPlot(res_ZT16_vs_ZT0, glue("ZT16 vs ZT0: {subclass}"), thresh)
-  # p <- volcanoPlot(res_ZT12_vs_ZT4, glue("ZT12 vs ZT4: {subclass}"), thresh)
-  # p <- volcanoPlot(res_ZT16_vs_ZT4, glue("ZT16 vs ZT4: {subclass}"), thresh)
-  # p <- volcanoPlot(res_ZT16_vs_ZT12, glue("ZT16 vs ZT12: {subclass}"), thresh)
+  if (PLOT_VOLCANOS) {
+    p <- volcanoPlot(res_ZT4_vs_ZT0, glue("ZT4 vs ZT0: {subclass}"), thresh)
+    p <- volcanoPlot(res_ZT12_vs_ZT0, glue("ZT12 vs ZT0: {subclass}"), thresh)
+    p <- volcanoPlot(res_ZT16_vs_ZT0, glue("ZT16 vs ZT0: {subclass}"), thresh)
+    p <- volcanoPlot(res_ZT12_vs_ZT4, glue("ZT12 vs ZT4: {subclass}"), thresh)
+    p <- volcanoPlot(res_ZT16_vs_ZT4, glue("ZT16 vs ZT4: {subclass}"), thresh)
+    p <- volcanoPlot(res_ZT16_vs_ZT12, glue("ZT16 vs ZT12: {subclass}"), thresh)
+  }
   
   
-  # heatmap -----------------------------------------------------------
+  # heatmap ----------------------------------------
   # assemble all genes and their contrast of origin
-  all_genes <- bind_rows(
-    res_ZT4_vs_ZT0 |> mutate(contrast = "ZT4 vs ZT0")     |> filter(classification != 'no_change'),
-    res_ZT12_vs_ZT0 |> mutate(contrast = "ZT12 vs ZT0")   |> filter(classification != 'no_change'),
-    res_ZT16_vs_ZT0 |> mutate(contrast = "ZT16 vs ZT0")   |> filter(classification != 'no_change'),
-    res_ZT12_vs_ZT4 |> mutate(contrast = "ZT12 vs ZT4")   |> filter(classification != 'no_change'),
-    res_ZT16_vs_ZT4 |> mutate(contrast = "ZT16 vs ZT4")   |> filter(classification != 'no_change'),
-    res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
-  )
-  write_csv(all_genes, glue("{deg_save_path}{subclass}_all_DEGs.csv"))
+  if (USE_SHRUNKEN_FC) {
+    all_genes <- bind_rows(
+      res_ZT4_vs_ZT0   |> mutate(contrast = "ZT4 vs ZT0")   |> filter(classification != 'no_change'),
+      res_ZT12_vs_ZT0  |> mutate(contrast = "ZT12 vs ZT0")  |> filter(classification != 'no_change'),
+      res_ZT16_vs_ZT0  |> mutate(contrast = "ZT16 vs ZT0")  |> filter(classification != 'no_change'),
+      res_ZT12_vs_ZT4  |> mutate(contrast = "ZT12 vs ZT4")  |> filter(classification != 'no_change'),
+      res_ZT16_vs_ZT4  |> mutate(contrast = "ZT16 vs ZT4")  |> filter(classification != 'no_change'),
+      res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
+    )
+    # write_csv(all_genes, glue("{deg_save_path}{subclass}_all_DEGs.csv"))
+  } else {
+    all_genes <- bind_rows(
+      res_ZT4_vs_ZT0   |> mutate(contrast = "ZT4 vs ZT0")   |> filter(classification != 'no_change'),
+      res_ZT12_vs_ZT0  |> mutate(contrast = "ZT12 vs ZT0")  |> filter(classification != 'no_change'),
+      res_ZT16_vs_ZT0  |> mutate(contrast = "ZT16 vs ZT0")  |> filter(classification != 'no_change'),
+      res_ZT12_vs_ZT4  |> mutate(contrast = "ZT12 vs ZT4")  |> filter(classification != 'no_change'),
+      res_ZT16_vs_ZT4  |> mutate(contrast = "ZT16 vs ZT4")  |> filter(classification != 'no_change'),
+      res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
+    )
+    # write_csv(all_genes, glue("{deg_save_path}{subclass}_all_DEGs.csv"))
+  }
   
   # remove duplicates
   gene_list <- all_genes |> 
@@ -207,7 +243,7 @@ for (subclass in names(seurat_subsets)) {
     as.matrix()
   
   
-  # get tau -----------------------------------------------------------
+  # get tau ----------------------------------------
   df_expression_zt <- counts_mat[gene_list,] |> 
     as.data.frame() |> 
     rownames_to_column('gene') |> 
@@ -226,7 +262,7 @@ for (subclass in names(seurat_subsets)) {
     arrange(ZT)
   
   
-  # seriate matrix -----------------------------------------------------------
+  # seriate matrix ----------------------------------------
   o <- seriate(gene_mat, method = 'Heatmap', seriation_method = 'OLO_average') |> get_order(1)
   gene_mat_ordered <- gene_mat[names(o),]
   hc <- hclust(dist(gene_mat), method = "average")
@@ -234,7 +270,7 @@ for (subclass in names(seurat_subsets)) {
   dend <- dendextend::rotate(dend, order = o)
   
   
-  # make tau anno -----------------------------------------------------------
+  # make tau anno ----------------------------------------
   tau_thresh <- 0.75
   genes_tyssowski <- c(LoadGeneList('tyssowski'), 'Adcy1', 'Adcy8')
   genes_clock <- LoadGeneList('circadian')
@@ -309,7 +345,9 @@ for (subclass in names(seurat_subsets)) {
   
   
   # find km clusters ----------------------------------------
-  # extract seeds and orders that work well for each subclass
+  # Extract seeds and orders that work well for each subclass.
+  # These orders were determined by running kmeans multiple times to
+  # find an aesthetically pleasing order.
   subclass_seeds_orders <- tibble(
     subclass_title = c('CA1', 'DG', 'Astro', 'Oligo'),
     seed    = c(17, 1, 9, 5),
@@ -323,6 +361,7 @@ for (subclass in names(seurat_subsets)) {
   set.seed(seed)
   km <- kmeans(gene_mat_ordered, centers = 4)
   split <- factor(km$cluster, levels = desired_order)
+  
   
   # plot ----------------------------------------
   width_scalar <- 2
@@ -358,12 +397,12 @@ if (SAVE_PLOTS) {
     subclass_fname <- ShrinkSubclassName(subclass)
     save_path <- "05-results/MOTH/raw_R_plots"
     # png
-    png(glue("{save_path}/SE_ZT_heatmap_{subclass_fname}.png"),
+    png(glue("{save_path}/SE__ZT_heatmap_{subclass_fname}.png"),
         width = 6, height = 10, units = "in", res = 900)
-    draw(hm); dev.off()
+    draw(plots[[subclass]]); dev.off()
     
     # svg
-    svgsave(plot = hm,
+    svgsave(plot = plots[[subclass]],
             path = save_path,
             filename = glue("SE_ZT_heatmap_{subclass_fname}"),
             width = 6, height = 10)
