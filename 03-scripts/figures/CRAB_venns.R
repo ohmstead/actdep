@@ -12,11 +12,15 @@ deg_sets <- list(
   DG_EE_30m = read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/037_DG_Glut__EE30m_vs_SE.csv"),
   DG_EE_6h  = read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/037_DG_Glut__EE6h_vs_SE.csv"),
   DG_KA_30m = read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/037_DG_Glut__KA30m_vs_SE.csv"),
-  DG_KA_6h  = read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/037_DG_Glut__KA6h_vs_SE.csv")
+  DG_KA_6h  = read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/037_DG_Glut__KA6h_vs_SE.csv"),
+  As_EE_30m = read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/319_Astro-TE_NN__EE30m_vs_SE.csv"),
+  As_EE_6h  = read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/319_Astro-TE_NN__EE6h_vs_SE.csv"),
+  As_KA_30m = read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/319_Astro-TE_NN__KA30m_vs_SE.csv"),
+  As_KA_6h  = read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/319_Astro-TE_NN__KA6h_vs_SE.csv")
 )
 
 # pull just the gene column for DEGs from each item in list
-deg_sets <- lapply(sets_degs, 
+deg_sets <- lapply(deg_sets, 
        function(df) 
          df |> 
          filter(padj < 0.05 & abs(log2FoldChange.raw) > 0.585) |> 
@@ -72,6 +76,31 @@ DG_6h <- ggvenn(
 ) +
   theme(legend.position = "none")
 DG_6h
+
+# Astrocyte 30m
+As_30m <- ggvenn(
+  deg_sets[c("As_EE_30m", "As_KA_30m")],
+  fill_color = c("#D81B60", "#098154FF"),
+  auto_scale = T,
+  stroke_size = 0.5,
+  set_name_size = 4,
+  show_percentage = FALSE
+) +
+  theme(legend.position = "none")
+As_30m
+
+# Astrocyte 6h
+As_6h <- ggvenn(
+  deg_sets[c("As_EE_6h", "As_KA_6h")],
+  fill_color = c("#FFC107", "#63a45e"),
+  auto_scale = T,
+  stroke_size = 0.5,
+  set_name_size = 4,
+  show_percentage = FALSE
+) +
+  theme(legend.position = "none")
+As_6h
+
 
 # save plots
 save_dir <- "05-results/CRAB/raw_R_plots"
