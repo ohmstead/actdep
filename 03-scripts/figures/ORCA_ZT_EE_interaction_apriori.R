@@ -1,10 +1,6 @@
 # This script will use DESeq2 to run an interaction analysis on whether genes
 # are signficiantly changing in expression at different times of day.
 
-library(ggplot2)
-library(dplyr)
-library(glue)
-
 library(Seurat)
 library(DESeq2)
 library(ComplexHeatmap)
