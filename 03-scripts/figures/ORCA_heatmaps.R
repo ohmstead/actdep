@@ -64,15 +64,15 @@ for (subclass in names(dds_subsets)) {
   # get hm count data
   dds <- dds_subsets[[subclass]]
   
-  bulk_counts <- counts(dds, normalized = T) |> 
+  # Get counts
+  bulk_counts <- counts(dds, normalized = TRUE) |> 
     t() |> 
     as.data.frame() |>
     rownames_to_column('sample') |> 
     select(sample, all_of(LoadGeneList('IEG'))) |> 
-    tibble() |> 
-    print()
+    tibble()
   
-  # 1) build df
+  # 1) build df ----------------------------------------
   df_bulk <- col_data |> 
     left_join(bulk_counts) |> 
     pivot_longer(
@@ -80,43 +80,78 @@ for (subclass in names(dds_subsets)) {
       names_to = 'gene', 
       values_to = 'count'
     ) |>
-    arrange(gene, ZT, activity_condition, sample) |> 
+    arrange(gene, ZT, activity_condition, sample) |>
     relocate(gene, activity_condition, ZT, sample) |>
-    mutate(sample = factor(sample, levels = unique(sample))) |> 
-    print()
+    mutate(sample = factor(sample, levels = unique(sample)))
   
-  # 2) find average FC of EE30m from SE
+  
+  # 2) calculate log2FC ----------------------------------------
   df_means <- df_bulk |>
     group_by(gene, activity_condition, ZT) |>
-    summarize(mean_count = mean(count, na.rm = T)+1, .groups = "drop") |> 
+    summarize(mean_count = mean(count, na.rm = TRUE) + 1, .groups = "drop") |> 
     group_by(gene, ZT) |> 
     summarize(log2FC = log2(
       mean_count[activity_condition == 'EE30m'] / 
-      mean_count[activity_condition == 'SE']
-      )) |>
-    print()
-
-  # 3) plot
-  p <- df_means |>
-    mutate(gene = factor(gene, levels = rev(LoadGeneList('IEG')))) |> 
-  ggplot() +
-    aes(x = ZT, y = gene, fill = log2FC) +
-    geom_tile(color = 'black', linewidth = 0.25) +
-    scale_fill_gradient2(low = 'blue', mid = 'white', high = 'red', 
-                         midpoint = 0, limits = c(-3, 3), oob = scales::squish) +
-    labs(
-      title = paste0(subclass),
-      x = 'ZT',
-      y = 'Gene',
-      fill = 'log2FC'
-    ) +
-    theme(axis.title = element_blank(),
-          axis.text.x  = element_text(size = 20, angle = 30, vjust = 0.8),
-          axis.text.y  = element_text(size = 20, face = 'italic'),
-          plot.title = element_text(size = 25, hjust = 0.5),
-          panel.grid.major = element_blank(),
-          # legend.position = 'none'
-          )
+        mean_count[activity_condition == 'SE']
+    ))
+  
+  
+  # 3) prepare matrix for ComplexHeatmap ----------------------------------------
+  mat <- df_means |> 
+    pivot_wider(names_from = ZT, values_from = log2FC) |> 
+    column_to_rownames('gene') |> 
+    as.matrix()
+  mat <- mat[LoadGeneList('IEG'), , drop = FALSE]  # order genes
+  
+  
+  # 4) ZT annotation ----------------------------------------
+  gene_means_by_zt <- df_bulk |> 
+    filter(activity_condition == 'EE30m') |> 
+    group_by(gene, ZT) |> 
+    summarize(mean_count = mean(count, na.rm = TRUE), .groups = "drop") |> 
+    pivot_wider(names_from = ZT, values_from = mean_count) |> 
+    column_to_rownames('gene') |> 
+    as.matrix()
+  
+  # ensure row order matches heatmap
+  gene_means_by_zt <- gene_means_by_zt[rownames(mat), , drop = FALSE]
+  
+  # get dim for hm dimensions
+  cell_dim <- 1.5
+  hm_h <- unit(nrow(mat) * cell_dim, "cm")
+  hm_w <- unit(ncol(mat) * cell_dim, "cm")
+  
+  # make anno
+  bar_anno <- rowAnnotation(
+    Expression = anno_barplot(
+      gene_means_by_zt,
+      gp = gpar(fill = LoadZTColors()),
+      width = unit(cell_dim, "cm"),
+      axis_param = list(side = "bottom"),
+      beside = T,
+    )
+  )
+  
+  
+  # 4) plot ----------------------------------------
+  p <- Heatmap(
+    mat,
+    name = 'log2FC',
+    col = colorRamp2(c(-3, 0, 3), c('blue', 'white', 'red')),
+    row_names_gp = gpar(fontsize = 16, fontface = 'italic'),
+    row_names_side = 'left',
+    column_names_gp = gpar(fontsize = 18),
+    heatmap_legend_param = list(title = 'log2FC'),
+    cluster_rows = FALSE,
+    cluster_columns = FALSE,
+    column_title = subclass,
+    column_title_gp = gpar(fontsize = 18, fontface = 'bold'),
+    column_names_rot = 45,
+    rect_gp = gpar(col = 'black', lwd = 0.5),
+    width = hm_w,
+    height = hm_h,
+    show_heatmap_legend = F,
+    ) + bar_anno
   print(p)
 }
 
@@ -124,119 +159,5 @@ for (subclass in names(dds_subsets)) {
 # Clock hm ----------------------------------------
 genes_to_plot <- rev(c('Per1', 'Per2', 'Cry2', 'Clock', 'Bmal1'))
 for (subclass in names(dds_subsets)) {
-  # get hm count data
-  dds <- dds_subsets[[subclass]]
-  
-  bulk_counts <- counts(dds, normalized = T) |> 
-    t() |> 
-    as.data.frame() |>
-    rownames_to_column('sample') |> 
-    select(sample, all_of(genes_to_plot)) |> 
-    tibble() |> 
-    print()
-  
-  # 1) build df
-  df_bulk <- col_data |> 
-    left_join(bulk_counts) |> 
-    pivot_longer(
-      cols = -c(sample, activity_condition, ZT), 
-      names_to = 'gene', 
-      values_to = 'count'
-    ) |>
-    arrange(gene, ZT, activity_condition, sample) |> 
-    relocate(gene, activity_condition, ZT, sample) |>
-    mutate(sample = factor(sample, levels = unique(sample))) |> 
-    print()
-  
-  # 2) find average FC of EE30m from SE
-  df_means <- df_bulk |>
-    group_by(gene, activity_condition, ZT) |>
-    summarize(mean_count = mean(count, na.rm = T)+1, .groups = "drop") |> 
-    group_by(gene, ZT) |> 
-    summarize(log2FC = log2(
-      mean_count[activity_condition == 'EE30m'] / 
-        mean_count[activity_condition == 'SE']
-    )) |>
-    mutate(gene = factor(gene, levels = genes_to_plot)) |> 
-    print()
-  
-  # 3) plot
-  p <- ggplot(df_means) +
-    aes(x = ZT, y = gene, fill = log2FC) +
-    geom_tile(color = 'black', linewidth = 0.25) +
-    scale_fill_gradient2(low = 'blue', mid = 'white', high = 'red', 
-                         midpoint = 0, limits = c(-3, 3), oob = scales::squish) +
-    labs(
-      title = paste0(subclass),
-      x = 'ZT',
-      y = 'Gene',
-      fill = 'log2FC'
-    ) +
-    theme(axis.title = element_blank(),
-          axis.text.x  = element_text(size = 20, angle = 30, vjust = 0.8),
-          axis.text.y  = element_text(size = 20, face = 'italic'),
-          plot.title = element_text(size = 25, hjust = 0.5),
-          panel.grid.major = element_blank(),
-          legend.position = 'none'
-    )
-  print(p)
+  foo
 }
-
-
-# tmp work with Brenda ----------------------------------------
-subclass <- 'DG'
-subclass <- 'CA1'
-dds <- dds_subsets[[subclass]]
-
-bulk_counts <- counts(dds, normalized = T) |> 
-  t() |> 
-  as.data.frame() |>
-  rownames_to_column('sample') |> 
-  # select(sample, all_of(c('Cecr2', 'Daglb', 'Enoph1', 'Fcho2', 'Gm5820', 'Itpkb', 'Poc1b', 'Trmt61a', 'Zfp420', 'Zfp523'))) |> 
-  select(sample, all_of(c('Kcnn2', 'Napepld'))) |>
-  tibble() |> 
-  print()
-
-# 1) build df
-df_bulk <- col_data |> 
-  left_join(bulk_counts) |> 
-  pivot_longer(
-    cols = -c(sample, activity_condition, ZT), 
-    names_to = 'gene', 
-    values_to = 'count'
-  ) |>
-  arrange(gene, ZT, activity_condition, sample) |> 
-  relocate(gene, activity_condition, ZT, sample) |>
-  mutate(sample = factor(sample, levels = unique(sample))) |> 
-  print()
-
-# 2) find average FC of EE30m from SE
-df_means <- df_bulk |>
-  group_by(gene, activity_condition, ZT) |>
-  summarize(mean_count = mean(count, na.rm = T)+1, .groups = "drop") |> 
-  group_by(gene, ZT) |> 
-  summarize(log2FC = log2(
-    mean_count[activity_condition == 'EE30m'] / 
-      mean_count[activity_condition == 'SE']
-  )) |>
-  print()
-
-p <- ggplot(df_means) +
-  aes(x = ZT, y = gene, fill = log2FC) +
-  geom_tile(color = 'black', linewidth = 0.25) +
-  scale_fill_gradient2(low = 'blue', mid = 'white', high = 'red', 
-                       midpoint = 0, limits = c(-3, 3), oob = scales::squish) +
-  labs(
-    title = paste0(subclass),
-    x = 'ZT',
-    y = 'Gene',
-    fill = 'log2FC'
-  ) +
-  theme(axis.title = element_blank(),
-        axis.text.x  = element_text(size = 20, angle = 30, vjust = 0.8),
-        axis.text.y  = element_text(size = 20, face = 'italic'),
-        plot.title = element_text(size = 25, hjust = 0.5),
-        panel.grid.major = element_blank(),
-        legend.position = 'none'
-  )
-print(p)
