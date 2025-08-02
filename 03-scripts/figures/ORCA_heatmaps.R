@@ -3,6 +3,7 @@
 
 library(DESeq2)
 library(ComplexHeatmap)
+library(circlize)
 
 source('03-scripts/R/seq_functions.R')
 
@@ -60,6 +61,7 @@ for (subclass in names(seurat_subsets)) {
 
 
 # IEG hm ----------------------------------------
+genes_to_plot <- LoadGeneList('IEG')
 for (subclass in names(dds_subsets)) {
   # get hm count data
   dds <- dds_subsets[[subclass]]
@@ -69,10 +71,10 @@ for (subclass in names(dds_subsets)) {
     t() |> 
     as.data.frame() |>
     rownames_to_column('sample') |> 
-    select(sample, all_of(LoadGeneList('IEG'))) |> 
+    select(sample, all_of(genes_to_plot)) |> 
     tibble()
   
-  # 1) build df ----------------------------------------
+  # 1) build df
   df_bulk <- col_data |> 
     left_join(bulk_counts) |> 
     pivot_longer(
@@ -84,8 +86,7 @@ for (subclass in names(dds_subsets)) {
     relocate(gene, activity_condition, ZT, sample) |>
     mutate(sample = factor(sample, levels = unique(sample)))
   
-  
-  # 2) calculate log2FC ----------------------------------------
+  # 2) calculate log2FC
   df_means <- df_bulk |>
     group_by(gene, activity_condition, ZT) |>
     summarize(mean_count = mean(count, na.rm = TRUE) + 1, .groups = "drop") |> 
@@ -95,18 +96,16 @@ for (subclass in names(dds_subsets)) {
         mean_count[activity_condition == 'SE']
     ))
   
-  
-  # 3) prepare matrix for ComplexHeatmap ----------------------------------------
+  # 3) prepare matrix for ComplexHeatmap
   mat <- df_means |> 
     pivot_wider(names_from = ZT, values_from = log2FC) |> 
     column_to_rownames('gene') |> 
     as.matrix()
-  mat <- mat[LoadGeneList('IEG'), , drop = FALSE]  # order genes
+  mat <- mat[genes_to_plot, , drop = FALSE]  # order genes
   
-  
-  # 4) ZT annotation ----------------------------------------
+  # 4) ZT annotation
   gene_means_by_zt <- df_bulk |> 
-    filter(activity_condition == 'EE30m') |> 
+    filter(activity_condition == 'SE') |> 
     group_by(gene, ZT) |> 
     summarize(mean_count = mean(count, na.rm = TRUE), .groups = "drop") |> 
     pivot_wider(names_from = ZT, values_from = mean_count) |> 
@@ -132,12 +131,12 @@ for (subclass in names(dds_subsets)) {
     )
   )
   
-  
-  # 4) plot ----------------------------------------
+  # 5) plot
   p <- Heatmap(
     mat,
     name = 'log2FC',
-    col = colorRamp2(c(-3, 0, 3), c('blue', 'white', 'red')),
+    # col = colorRamp2(c(-3, 0, 3), c('blue', 'white', 'red')),
+    circlize::colorRamp2(c(-3, 0, 3), hcl_palette = 'RdBu', reverse = T),
     row_names_gp = gpar(fontsize = 16, fontface = 'italic'),
     row_names_side = 'left',
     column_names_gp = gpar(fontsize = 18),
@@ -153,11 +152,259 @@ for (subclass in names(dds_subsets)) {
     show_heatmap_legend = F,
     ) + bar_anno
   print(p)
+  
+  if (SAVE_PLOTS) {
+    save_dir <- "05-results/ORCA/raw_R_plots"
+    
+    # add 15% to height and width for saving
+    save_h <- unit(nrow(mat) * cell_dim * 1.15, "cm")
+    save_w <- unit(ncol(mat) * cell_dim * 1.75, "cm")
+    
+    # png
+    plot_path <- glue("{save_dir}/IEG__{subclass}.png")
+    png(plot_path, width = save_w, height = save_h, units = "cm", res = 900)
+    draw(p, heatmap_legend_side = 'bottom')
+    dev.off()
+    
+    # svg
+    svgsave(plot = p,
+            filename = glue("IEG_{subclass}.svg"), 
+            path = save_dir, 
+            width = as.numeric(save_w), height = as.numeric(save_h))
+  }
 }
 
 
 # Clock hm ----------------------------------------
-genes_to_plot <- rev(c('Per1', 'Per2', 'Cry2', 'Clock', 'Bmal1'))
+genes_to_plot <- c('Per1', 'Per2', 'Cry2', 'Clock', 'Bmal1')
 for (subclass in names(dds_subsets)) {
-  foo
+  # get hm count data
+  dds <- dds_subsets[[subclass]]
+  
+  # Get counts
+  bulk_counts <- counts(dds, normalized = TRUE) |> 
+    t() |> 
+    as.data.frame() |>
+    rownames_to_column('sample') |> 
+    select(sample, all_of(genes_to_plot)) |> 
+    tibble()
+  
+  # 1) build df
+  df_bulk <- col_data |> 
+    left_join(bulk_counts) |> 
+    pivot_longer(
+      cols = -c(sample, activity_condition, ZT), 
+      names_to = 'gene', 
+      values_to = 'count'
+    ) |>
+    arrange(gene, ZT, activity_condition, sample) |>
+    relocate(gene, activity_condition, ZT, sample) |>
+    mutate(sample = factor(sample, levels = unique(sample)))
+  
+  # 2) calculate log2FC
+  df_means <- df_bulk |>
+    group_by(gene, activity_condition, ZT) |>
+    summarize(mean_count = mean(count, na.rm = TRUE) + 1, .groups = "drop") |> 
+    group_by(gene, ZT) |> 
+    summarize(log2FC = log2(
+      mean_count[activity_condition == 'EE30m'] / 
+        mean_count[activity_condition == 'SE']
+    ))
+  
+  # 3) prepare matrix for ComplexHeatmap
+  mat <- df_means |> 
+    pivot_wider(names_from = ZT, values_from = log2FC) |> 
+    column_to_rownames('gene') |> 
+    as.matrix()
+  mat <- mat[genes_to_plot, , drop = FALSE]  # order genes
+  
+  # 4) ZT annotation
+  gene_means_by_zt <- df_bulk |> 
+    filter(activity_condition == 'SE') |> 
+    group_by(gene, ZT) |> 
+    summarize(mean_count = mean(count, na.rm = TRUE), .groups = "drop") |> 
+    pivot_wider(names_from = ZT, values_from = mean_count) |> 
+    column_to_rownames('gene') |> 
+    as.matrix()
+  
+  # ensure row order matches heatmap
+  gene_means_by_zt <- gene_means_by_zt[rownames(mat), , drop = FALSE]
+  
+  # get dim for hm dimensions
+  cell_dim <- 1.5
+  hm_h <- unit(nrow(mat) * cell_dim, "cm")
+  hm_w <- unit(ncol(mat) * cell_dim, "cm")
+  
+  # assemble annotation
+  bar_anno <- rowAnnotation(
+    Expression = anno_barplot(
+      gene_means_by_zt,
+      gp = gpar(fill = LoadZTColors()),
+      width = unit(cell_dim, "cm"),
+      axis_param = list(side = "bottom"),
+      beside = T,
+    )
+  )
+  
+  # 5) plot
+  p <- Heatmap(
+    mat,
+    name = 'log2FC',
+    # col = colorRamp2(c(-3, 0, 3), c('blue', 'white', 'red')),
+    circlize::colorRamp2(c(-3, 0, 3), hcl_palette = 'RdBu', reverse = T),
+    row_names_gp = gpar(fontsize = 16, fontface = 'italic'),
+    row_names_side = 'left',
+    column_names_gp = gpar(fontsize = 18),
+    heatmap_legend_param = list(title = 'log2FC'),
+    cluster_rows = FALSE,
+    cluster_columns = FALSE,
+    column_title = subclass,
+    column_title_gp = gpar(fontsize = 18, fontface = 'bold'),
+    column_names_rot = 45,
+    rect_gp = gpar(col = 'black', lwd = 0.5),
+    width = hm_w,
+    height = hm_h,
+    show_heatmap_legend = F,
+  ) + bar_anno
+  print(p)
+  
+  if (SAVE_PLOTS) {
+    save_dir <- "05-results/ORCA/raw_R_plots"
+    
+    # add 15% to height and width for saving
+    save_h <- unit(nrow(mat) * cell_dim * 1.15, "cm")
+    save_w <- unit(ncol(mat) * cell_dim * 1.75, "cm")
+    
+    # png
+    plot_path <- glue("{save_dir}/Clock__{subclass}.png")
+    png(plot_path, width = save_w, height = save_h, units = "cm", res = 900)
+    draw(p, heatmap_legend_side = 'bottom')
+    dev.off()
+    
+    # svg
+    svgsave(plot = p,
+            filename = glue("Clock_{subclass}.svg"), 
+            path = save_dir, 
+            width = as.numeric(save_w), height = as.numeric(save_h))
+  }
+}
+
+
+# Interaction hm ----------------------------------------
+gene_lists <- list(
+  CA1 = c('Cecr2' ,'Daglb', 'Enoph1', 'Poc1b', 'Zfp420', 'Fcho2', 'Gm5820', 'Itpkb', 'Trmt61a', 'Zfp523'),
+  DG = c('Kcnn2', 'Napepld')
+)
+
+for (subclass in names(gene_lists)) {
+  # get hm count data
+  dds <- dds_subsets[[subclass]]
+  genes_to_plot <- gene_lists[[subclass]]
+  
+  # Get counts
+  bulk_counts <- counts(dds, normalized = TRUE) |> 
+    t() |> 
+    as.data.frame() |>
+    rownames_to_column('sample') |> 
+    select(sample, all_of(genes_to_plot)) |> 
+    tibble()
+  
+  # 1) build df
+  df_bulk <- col_data |> 
+    left_join(bulk_counts) |> 
+    pivot_longer(
+      cols = -c(sample, activity_condition, ZT), 
+      names_to = 'gene', 
+      values_to = 'count'
+    ) |>
+    arrange(gene, ZT, activity_condition, sample) |>
+    relocate(gene, activity_condition, ZT, sample) |>
+    mutate(sample = factor(sample, levels = unique(sample)))
+  
+  # 2) calculate log2FC
+  df_means <- df_bulk |>
+    group_by(gene, activity_condition, ZT) |>
+    summarize(mean_count = mean(count, na.rm = TRUE) + 1, .groups = "drop") |> 
+    group_by(gene, ZT) |> 
+    summarize(log2FC = log2(
+      mean_count[activity_condition == 'EE30m'] / 
+        mean_count[activity_condition == 'SE']
+    ))
+  
+  # 3) prepare matrix for ComplexHeatmap
+  mat <- df_means |> 
+    pivot_wider(names_from = ZT, values_from = log2FC) |> 
+    column_to_rownames('gene') |> 
+    as.matrix()
+  mat <- mat[genes_to_plot, , drop = FALSE]  # order genes
+  
+  # 4) ZT annotation
+  gene_means_by_zt <- df_bulk |> 
+    filter(activity_condition == 'SE') |> 
+    group_by(gene, ZT) |> 
+    summarize(mean_count = mean(count, na.rm = TRUE), .groups = "drop") |> 
+    pivot_wider(names_from = ZT, values_from = mean_count) |> 
+    column_to_rownames('gene') |> 
+    as.matrix()
+  
+  # ensure row order matches heatmap
+  gene_means_by_zt <- gene_means_by_zt[rownames(mat), , drop = FALSE]
+  
+  # get dim for hm dimensions
+  cell_dim <- 1.5
+  hm_h <- unit(nrow(mat) * cell_dim, "cm")
+  hm_w <- unit(ncol(mat) * cell_dim, "cm")
+  
+  # assemble annotation
+  bar_anno <- rowAnnotation(
+    Expression = anno_barplot(
+      gene_means_by_zt,
+      gp = gpar(fill = LoadZTColors()),
+      width = unit(cell_dim, "cm"),
+      axis_param = list(side = "bottom"),
+      beside = T,
+    )
+  )
+  
+  # 5) plot
+  p <- Heatmap(
+    mat,
+    name = 'log2FC',
+    # col = colorRamp2(c(-3, 0, 3), c('blue', 'white', 'red')),
+    circlize::colorRamp2(c(-3, 0, 3), hcl_palette = 'RdBu', reverse = T),
+    row_names_gp = gpar(fontsize = 16, fontface = 'italic'),
+    row_names_side = 'left',
+    column_names_gp = gpar(fontsize = 18),
+    heatmap_legend_param = list(title = 'log2FC'),
+    cluster_rows = FALSE,
+    cluster_columns = FALSE,
+    column_title = subclass,
+    column_title_gp = gpar(fontsize = 18, fontface = 'bold'),
+    column_names_rot = 45,
+    rect_gp = gpar(col = 'black', lwd = 0.5),
+    width = hm_w,
+    height = hm_h,
+    show_heatmap_legend = F,
+  ) + bar_anno
+  print(p)
+  
+  if (SAVE_PLOTS) {
+    save_dir <- "05-results/ORCA/raw_R_plots"
+    
+    # add 15% to height and width for saving
+    save_h <- unit(nrow(mat) * cell_dim * 1.2, "cm")
+    save_w <- unit(ncol(mat) * cell_dim * 1.8, "cm")
+    
+    # png
+    plot_path <- glue("{save_dir}/Significant__{subclass}.png")
+    png(plot_path, width = save_w, height = save_h, units = "cm", res = 900)
+    draw(p, heatmap_legend_side = 'bottom')
+    dev.off()
+    
+    # svg
+    svgsave(plot = p,
+            filename = glue("Significant_{subclass}.svg"), 
+            path = save_dir, 
+            width = as.numeric(save_w), height = as.numeric(save_h))
+  }
 }
