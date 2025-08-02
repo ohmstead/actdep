@@ -4,19 +4,12 @@
 
 # load libs and data ----
 print("Loading libraries and data...")
-library(ggplot2)
-library(patchwork)
-library(plotly)
-library(dplyr)
-library(readr)
-library(readxl)
-library(glue)
-library(tidyr)
-
-library(DESeq2)
-library(Seurat)
-
 source('03-scripts/R/seq_functions.R')
+
+library(plotly)
+library(purrr)
+library(DESeq2)
+
 activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors("subclass")
 
@@ -64,7 +57,7 @@ for (i in seq_along(subclass_sets)) {
     
     # add gene list to df
     deg <- read_csv(file) |> 
-      arrange(desc(log2FoldChange)) |> 
+      arrange(desc(log2FoldChange.raw)) |> 
       filter(classification != 'no_change') |> 
       filter(abs(log2FoldChange.shrink) > 0.585)
     # filter(padj < 0.05)
@@ -79,7 +72,7 @@ for (i in seq_along(subclass_sets)) {
   # df_distinct_DEGs ----
   df_distinct_DEGs <- df_all_DEGs |> 
     filter(subclass %in% subclass_list) |> 
-    filter(abs(log2FoldChange) >= 0.585) |> 
+    filter(abs(log2FoldChange.raw) >= 0.585) |> 
     mutate(activity_condition = case_when(
       contrast == "EE30m_vs_SE" ~ "EE30m",
       contrast == "EE6h_vs_SE" ~ "EE6h",
@@ -89,9 +82,9 @@ for (i in seq_along(subclass_sets)) {
     )) |>
     filter(!str_detect(contrast, "KA")) |>
     group_by(gene, subclass, contrast) |> 
-    summarize(log2FoldChange, activity_condition, .groups = 'drop') |> 
+    summarize(log2FoldChange.raw, activity_condition, .groups = 'drop') |> 
     distinct(gene, .keep_all = TRUE) |> 
-    mutate(direction = ifelse(log2FoldChange > 0, 'up', 'down')) |> 
+    mutate(direction = ifelse(log2FoldChange.raw > 0, 'up', 'down')) |> 
     select(-subclass) |>  # remove for future joins
     print()
   
