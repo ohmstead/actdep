@@ -13,10 +13,82 @@ nuclei_with <- LoadDataset("Dec2024")
 # 1. Run Dec2024 with ARGs through MapMyCells.
       # already done
 
-# 2. Remove Tyssowski ARGs from Seurat object.
-genes_to_remove <- LoadGeneList("tyssowski")
+# 2. Remove ARGs from Seurat object.
+gene_set_to_rm <- c(
+  # cluster markers
+  'Il33',
+  'Thsd7b',
+  'Ecm2',
+  'Nell1',
+  'Ntn5',
+  'Prox1',
+  'Dio3',
+  'Ndst4',
+  'Dcn',
+  'Gcnt1',
+  'Cdh9',
+  'Fbxo32',
+  'Stxbp6',
+  'Dsp',
+  'Egr2',
+  'Egr4',
+  'Ca1ql2',
+  'Adamts17',
+  'Gm20754',
+  'Rflnb',
+  'Rhbdl3',
+  'Scn9a',
+  'Glis3',
+  'Ndst4',
+  'Adamts19',
+  'Cartpt',
+  'Glis3',
+  'St18',
+  'Smoc2',
+  'Npnt',
+  'Grm3',
+  'Rasgrp1',
+  'Sorcs3',
+  'Smoc2',
+  'St18',
+  'Prkd1',
+  'Mkx',
+  'Chst9',
+  'Npy2r',
+  'Syndig1',
+  'Ror1',
+  'St3gal1',
+  'Drd5',
+  'Nptx2',
+  'Grp',
+  'Pde1a',
+  'Tshz2',
+  'Ndst4',
+  'Gcnt1',
+  'Serinc2',
+  'Plk5',
+  'Dsp',
+  'Rflnb',
+  'Rhbdl3',
+  'Clec1a',
+  
+  # supertype markers
+  'Lrfn5',
+  'Cntn6',
+  'Kcnh3',
+  'Syndig1',
+  'Atf3',
+  'Vwa3b',
+  'Ntn5',
+  'Trp73',
+  'Bhlhe22',
+  'Spata13',
+  'Gprc5b',
+  'Arl4d'
+)
+gene_list_to_rm <- c(LoadGeneList("tyssowski"), gene_set_to_rm)
 features_with <- Features(nuclei_with)
-features_without <- features_with[!features_with %in% genes_to_remove]
+features_without <- features_with[!features_with %in% gene_list_to_rm]
 
 # use DietSeurat to get just the RNA assay, which we will then subset
 DefaultAssay(nuclei_with) <- 'RNA'
@@ -27,11 +99,15 @@ nuclei_without <- DietSeurat(nuclei_with,
 
 # Run Dec2024 without ARGs through MapMyCells ---- 
 working_save_dir <- "04-analysis/cluster_reassignment"
-as.anndata(x = nuclei_without, file_path = working_save_dir, file_name = "Dec2024_withoutARGs", main_layer = "counts", other_layers = NULL)
+# as.anndata(x = nuclei_without, file_path = working_save_dir, file_name = "Dec2024_withoutARGs", main_layer = "counts", other_layers = NULL)
+# as.anndata(x = nuclei_without, file_path = working_save_dir, file_name = "Dec2024_withoutARGs_DGgenes", main_layer = "counts", other_layers = NULL)
+as.anndata(x = nuclei_without, file_path = working_save_dir, file_name = "Dec2024_withoutARGs_DGgenesSupertypeAndCluster", main_layer = "counts", other_layers = NULL)
 
 
 # merge with and without metadata ----
-meta_mapmycells <- read_csv("04-analysis/cluster_reassignment/Dec2024_withoutARGs_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738267008578/Dec2024_withoutARGs_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738267008578.csv", skip = 4)
+# meta_mapmycells <- read_csv("04-analysis/cluster_reassignment/Dec2024_withoutARGs_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738267008578/Dec2024_withoutARGs_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738267008578.csv", skip = 4)
+meta_mapmycells <- read_csv("04-analysis/cluster_reassignment/Dec2024_withoutARGs_DGgenesFull_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1746459897867/Dec2024_withoutARGs_DGgenesFull_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1746459897867.csv", skip = 4)
+
 meta_merge <- nuclei_with@meta.data |> 
       left_join(meta_mapmycells,
                 by = c('barcode' = 'cell_id'),
@@ -75,7 +151,7 @@ ggplot() +
 
 # supertype
 meta |> 
-      filter(subclass_name.with == '016 CA1-ProS Glut') |> 
+      filter(subclass_name.with == '037 DG Glut') |> 
 ggplot() +
       aes(x = supertype_name.with, y = supertype_bootstrapping_probability_diff, fill = supertype_name.with) +
       geom_jitter(alpha = 0.3, shape = 21) +
@@ -84,7 +160,7 @@ ggplot() +
 
 # cluster
 meta |> 
-      filter(subclass_name.with == '016 CA1-ProS Glut') |> 
+      filter(subclass_name.with == '037 DG Glut') |> 
 ggplot() +
       aes(x = cluster_name.with, y = cluster_bootstrapping_probability_diff, fill = cluster_name.with) +
       # geom_jitter(shape = 21) +
