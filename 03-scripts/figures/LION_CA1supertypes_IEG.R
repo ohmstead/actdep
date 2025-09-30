@@ -2,12 +2,8 @@
 # It also plots the distribution of active cells along anatomical axes.
 source("03-scripts/R/seq_functions.R")
 
-library(dplyr)
-library(readr)
-library(readxl)
 library(ggridges)
 library(patchwork)
-library(ggplot2)
 library(ggh4x)
 library(gt)
 
@@ -82,26 +78,50 @@ print(p_supertypes_IEG)
 
 
 # table ------------------------------------------
+# remap supertype names for the table
+supertype_map <- c(
+  "0069 CA1-ProS Glut_1" = "CA1 69-1",
+  "0070 CA1-ProS Glut_2" = "CA1 70-2",
+  "0071 CA1-ProS Glut_3" = "CA1 71-3",
+  "0072 CA1-ProS Glut_4" = "CA1 72-4",
+  "0073 CA1-ProS Glut_5" = "CA1 73-5",
+  "0074 CA1-ProS Glut_6" = "CA1 74-6"
+)
 ca1_supertype_colors <- supertype_colors[sort(unique(df_activity_plotting_IEGs$supertype_name))]
+names(ca1_supertype_colors) <- recode(names(ca1_supertype_colors), !!!supertype_map)
+
 gt_summary <- df_activity_plotting_IEGs |> 
-  group_by(supertype_name, activity_condition) |> 
+  mutate(supertype_name = recode(supertype_name, !!!supertype_map)) |>
+  add_count(supertype_name, name = "Total n") |> 
+  group_by(supertype_name, activity_condition, `Total n`) |> 
   summarize(pct_active = sum(num_upregd_genes > 2.5) / n(), .groups = "drop") |> 
   pivot_wider(names_from = activity_condition, values_from = pct_active) |> 
   ungroup() |> 
 gt() |>  # Do NOT set rowname_col here
-  tab_header(title = "Percent of active CA1 cells by supertype") |> 
-  fmt_percent(decimals = 0) |> 
-  opt_table_font(font = "Aptos") |> 
+  tab_header(title = "Percent of active CA1 cells by Supertype") |> 
+  fmt_percent(columns = -`Total n`, decimals = 0) |> 
+  fmt_number(columns = `Total n`, use_seps = TRUE, decimals = 0) |>
+  opt_table_font(font = "Helvetica") |> 
   cols_label(supertype_name = '') |> 
   cols_align(align = "left", columns = everything()) |>
-  cols_width(2:6 ~ px(70)) |>
+  # cols_width(2 ~ px(60)) |>
+  # cols_width(3 ~ px(70)) |>
+  # cols_width(4 ~ px(65)) |>
+  # cols_width(5 ~ px(70)) |>
+  # cols_width(6 ~ px(70)) |>
   data_color(
     columns = "supertype_name",
     fn = scales::col_factor(
       palette = ca1_supertype_colors,
-      domain = names(ca1_supertype_colors)
-    )
+      domain  = names(ca1_supertype_colors)
+    ),
+    apply_to = "text"
+  ) |> 
+  tab_style(
+    style    = cell_text(size = px(16)),
+    locations = cells_body()
   )
+
 print(gt_summary)
 gtsave(gt_summary, "05-results/LION/raw_R_plots/CA1_supertypes_activation_table.png")
 gtsave(gt_summary, "05-results/LION/raw_R_plots/CA1_supertypes_activation_table.pdf")
