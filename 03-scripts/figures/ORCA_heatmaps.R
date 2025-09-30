@@ -1,5 +1,6 @@
 # Makes hm plots for Clock & IEG expression in SE subclasses
 # Makes hm plots for significant interaction genes in CA1 and DG
+# Uses DESeq2 to normalize expression values
 
 library(DESeq2)
 library(ComplexHeatmap)
@@ -14,13 +15,19 @@ activity_colors <- LoadActivityColors()
 # define genes to test ----------------------------------------
 a_priori_genes <- c(LoadGeneList('circadian'), LoadGeneList('IEG'))
 
-subclass_list <- LoadSubclassesToUse(nuclei)
+subclass_list <- subclass_list <- c(
+  '016 CA1-ProS Glut',
+  '037 DG Glut',
+  '319 Astro-TE NN',
+  '327 Oligo NN'
+)
 
+nuclei <- LoadDataset('Dec2024')
 seurat_subsets <- list(
   CA1   = nuclei |> subset(subclass_name == subclass_list[1]  & activity_condition %in% c('SE', 'EE30m')),
-  DG    = nuclei |> subset(subclass_name == subclass_list[7]  & activity_condition %in% c('SE', 'EE30m')),
-  Astro = nuclei |> subset(subclass_name == subclass_list[17] & activity_condition %in% c('SE', 'EE30m')),
-  Oligo = nuclei |> subset(subclass_name == subclass_list[18] & activity_condition %in% c('SE', 'EE30m'))
+  DG    = nuclei |> subset(subclass_name == subclass_list[2]  & activity_condition %in% c('SE', 'EE30m')),
+  Astro = nuclei |> subset(subclass_name == subclass_list[3] & activity_condition %in% c('SE', 'EE30m')),
+  Oligo = nuclei |> subset(subclass_name == subclass_list[4] & activity_condition %in% c('SE', 'EE30m'))
 )
 
 dds_subsets <- list()
@@ -250,8 +257,7 @@ for (subclass in names(dds_subsets)) {
   p <- Heatmap(
     mat,
     name = 'log2FC',
-    # col = colorRamp2(c(-3, 0, 3), c('blue', 'white', 'red')),
-    circlize::colorRamp2(c(-3, 0, 3), hcl_palette = 'RdBu', reverse = T),
+    circlize::colorRamp2(c(-2, 0, 2), hcl_palette = 'RdBu', reverse = T),
     row_names_gp = gpar(fontsize = 16, fontface = 'italic'),
     row_names_side = 'left',
     column_names_gp = gpar(fontsize = 18),
@@ -370,8 +376,7 @@ for (subclass in names(gene_lists)) {
   p <- Heatmap(
     mat,
     name = 'log2FC',
-    # col = colorRamp2(c(-3, 0, 3), c('blue', 'white', 'red')),
-    circlize::colorRamp2(c(-3, 0, 3), hcl_palette = 'RdBu', reverse = T),
+    circlize::colorRamp2(c(-1.5, 0, 1.5), hcl_palette = 'RdBu', reverse = T),
     row_names_gp = gpar(fontsize = 16, fontface = 'italic'),
     row_names_side = 'left',
     column_names_gp = gpar(fontsize = 18),

@@ -1,203 +1,178 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg id="Layer_1" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 756 621">
-  <!-- Generator: Adobe Illustrator 29.6.0, SVG Export Plug-In . SVG Version: 2.1.1 Build 207)  -->
+  <!-- Generator: Adobe Illustrator 29.6.1, SVG Export Plug-In . SVG Version: 2.1.1 Build 9)  -->
   <defs>
     <style>
       .st0 {
-        font-family: Arial-BoldMT, Arial;
-        font-weight: 700;
+        fill: #f1d3cf;
       }
 
-      .st0, .st1, .st2, .st3, .st4 {
-        isolation: isolate;
-      }
-
-      .st0, .st3 {
-        font-size: 18px;
-      }
-
-      .st5 {
-        fill: #efc8c3;
-      }
-
-      .st5, .st6, .st7, .st8, .st9, .st10, .st11, .st12, .st13, .st14, .st15, .st16, .st17, .st18, .st19, .st20, .st21, .st22, .st23, .st24, .st25, .st26, .st27 {
+      .st0, .st1, .st2, .st3, .st4, .st5, .st6, .st7, .st8, .st9, .st10, .st11, .st12, .st13, .st14, .st15, .st16, .st17, .st18, .st19, .st20, .st21, .st22, .st23, .st24 {
         stroke: #000;
         stroke-linecap: round;
         stroke-linejoin: round;
       }
 
-      .st5, .st6, .st7, .st8, .st12, .st13, .st14, .st15, .st17, .st18, .st19, .st20, .st21, .st22, .st24, .st25, .st26, .st27 {
+      .st0, .st3, .st4, .st5, .st6, .st8, .st9, .st10, .st11, .st12, .st13, .st14, .st15, .st16, .st17, .st19, .st21, .st22, .st23, .st24 {
         stroke-width: .4px;
       }
 
-      .st6 {
-        fill: #edf1f5;
-      }
-
-      .st7 {
-        fill: #f6f7f8;
-      }
-
       .st1 {
-        font-size: 8px;
-      }
-
-      .st1, .st2, .st3 {
-        font-family: ArialMT, Arial;
-      }
-
-      .st8 {
-        fill: #f4e6e4;
-      }
-
-      .st9 {
-        fill: #ffefd3;
-      }
-
-      .st9, .st10, .st11, .st16, .st23 {
-        stroke-width: .3px;
-      }
-
-      .st10 {
         fill: #ffc49b;
       }
 
-      .st11 {
-        fill: #c4d6e5;
-      }
-
-      .st12 {
-        fill: #ecb4ac;
-      }
-
-      .st13 {
-        fill: #f5eceb;
-      }
-
-      .st14 {
-        fill: #f7f8f9;
-      }
-
-      .st15 {
-        fill: #f6eded;
-      }
-
-      .st16 {
-        fill: none;
+      .st1, .st2, .st7, .st18, .st20 {
+        stroke-width: .8px;
       }
 
       .st2 {
-        font-size: 12px;
+        fill: #ffefd3;
       }
 
-      .st17 {
-        fill: #f4e2e0;
-      }
-
-      .st18 {
-        fill: #e8a196;
-      }
-
-      .st19 {
-        fill: #f8f7f7;
-      }
-
-      .st20 {
-        fill: #e9a69c;
-      }
-
-      .st21 {
-        fill: #f8f6f6;
-      }
-
-      .st22 {
-        fill: #f4e4e3;
-      }
-
-      .st23 {
-        fill: #adb6c4;
-      }
-
-      .st24 {
-        fill: #e9a89e;
-      }
-
-      .st25 {
-        fill: #f3dedb;
-      }
-
-      .st26 {
-        fill: #d6664d;
-      }
-
-      .st27 {
-        fill: #f9f8f8;
+      .st3 {
+        fill: #f4e6e4;
       }
 
       .st4 {
+        fill: #f4e6e5;
+      }
+
+      .st5 {
+        fill: #da715c;
+      }
+
+      .st6 {
+        fill: #f0cbc7;
+      }
+
+      .st7 {
+        fill: #c4d6e5;
+      }
+
+      .st8 {
+        fill: #f7f3f3;
+      }
+
+      .st9 {
+        fill: #e18777;
+      }
+
+      .st10 {
+        fill: #e2ebf2;
+      }
+
+      .st11 {
+        fill: #f4e2e0;
+      }
+
+      .st12 {
+        fill: #f3f5f7;
+      }
+
+      .st13 {
+        fill: #f2d9d6;
+      }
+
+      .st14 {
+        fill: #f8f7f7;
+      }
+
+      .st15 {
+        fill: #f2d6d3;
+      }
+
+      .st16 {
+        fill: #f8f6f6;
+      }
+
+      .st17 {
+        fill: #f8f5f5;
+      }
+
+      .st18 {
+        fill: none;
+      }
+
+      .st19 {
+        fill: #da735f;
+      }
+
+      .st20 {
+        fill: #adb6c4;
+      }
+
+      .st21 {
+        fill: #d66850;
+      }
+
+      .st22 {
+        fill: #8b2100;
+      }
+
+      .st23 {
+        fill: #e9a89f;
+      }
+
+      .st24 {
+        fill: #f5f7f8;
+      }
+
+      .st25 {
         font-family: Arial-ItalicMT, Arial;
         font-size: 16px;
         font-style: italic;
+        isolation: isolate;
       }
     </style>
   </defs>
-  <rect class="st26" x="294.4" y="193.1" width="42.5" height="42.5"/>
-  <rect class="st12" x="294.4" y="235.6" width="42.5" height="42.5"/>
-  <rect class="st22" x="294.4" y="278.1" width="42.5" height="42.5"/>
-  <rect class="st14" x="294.4" y="320.6" width="42.5" height="42.5"/>
-  <rect class="st13" x="294.4" y="363.2" width="42.5" height="42.5"/>
-  <rect class="st18" x="336.9" y="193.1" width="42.5" height="42.5"/>
-  <rect class="st8" x="336.9" y="235.6" width="42.5" height="42.5"/>
-  <rect class="st21" x="336.9" y="278.1" width="42.5" height="42.5"/>
-  <rect class="st19" x="336.9" y="320.6" width="42.5" height="42.5"/>
-  <rect class="st7" x="336.9" y="363.2" width="42.5" height="42.5"/>
-  <rect class="st24" x="379.4" y="193.1" width="42.5" height="42.5"/>
-  <rect class="st5" x="379.4" y="235.6" width="42.5" height="42.5"/>
-  <rect class="st15" x="379.4" y="278.1" width="42.5" height="42.5"/>
-  <rect class="st19" x="379.4" y="320.6" width="42.5" height="42.5"/>
-  <rect class="st6" x="379.4" y="363.2" width="42.5" height="42.5"/>
-  <rect class="st20" x="421.9" y="193.1" width="42.5" height="42.5"/>
-  <rect class="st25" x="421.9" y="235.6" width="42.5" height="42.5"/>
-  <rect class="st17" x="421.9" y="278.1" width="42.5" height="42.5"/>
-  <rect class="st27" x="421.9" y="320.6" width="42.5" height="42.5"/>
-  <rect class="st15" x="421.9" y="363.2" width="42.5" height="42.5"/>
-  <text class="st0" transform="translate(361.4 183.8)"><tspan x="0" y="0">CA1</tspan></text>
-  <text class="st4" transform="translate(257.7 220.1)"><tspan x="0" y="0">Per1</tspan></text>
-  <text class="st4" transform="translate(257.7 262.6)"><tspan x="0" y="0">Per2</tspan></text>
-  <text class="st4" transform="translate(257.8 305.1)"><tspan x="0" y="0">Cry2</tspan></text>
-  <text class="st4" transform="translate(251.5 347.6)"><tspan x="0" y="0">Clock</tspan></text>
-  <text class="st4" transform="translate(246.2 390.2)"><tspan x="0" y="0">Bmal1</tspan></text>
-  <text class="st3" transform="translate(297.6 440.3) rotate(-45)"><tspan x="0" y="0">ZT0</tspan></text>
-  <text class="st3" transform="translate(340.1 440.3) rotate(-45)"><tspan x="0" y="0">ZT4</tspan></text>
-  <text class="st3" transform="translate(375.5 447.4) rotate(-45)"><tspan x="0" y="0">ZT12</tspan></text>
-  <text class="st3" transform="translate(418.1 447.4) rotate(-45)"><tspan x="0" y="0">ZT16</tspan></text>
-  <rect class="st10" x="470.1" y="195.2" width="3.6" height="6.4"/>
-  <rect class="st9" x="470.1" y="205.9" width="4.6" height="6.4"/>
-  <rect class="st11" x="470.1" y="216.5" width="6.3" height="6.4"/>
-  <rect class="st23" x="470.1" y="227.1" width="5.4" height="6.4"/>
-  <rect class="st10" x="470.1" y="237.7" width="10.8" height="6.4"/>
-  <rect class="st9" x="470.1" y="248.4" width="12" height="6.4"/>
-  <rect class="st11" x="470.1" y="259" width="14.2" height="6.4"/>
-  <rect class="st23" x="470.1" y="269.6" width="17.1" height="6.4"/>
-  <rect class="st10" x="470.1" y="280.3" width="18" height="6.4"/>
-  <rect class="st9" x="470.1" y="290.9" width="23.8" height="6.4"/>
-  <rect class="st11" x="470.1" y="301.5" width="24.5" height="6.4"/>
-  <rect class="st23" x="470.1" y="312.1" width="19.8" height="6.4"/>
-  <rect class="st10" x="470.1" y="322.8" width="35.5" height="6.4"/>
-  <rect class="st9" x="470.1" y="333.4" width="34.8" height="6.4"/>
-  <rect class="st11" x="470.1" y="344" width="35.6" height="6.4"/>
-  <rect class="st23" x="470.1" y="354.7" width="31.3" height="6.4"/>
-  <rect class="st10" x="470.1" y="365.3" width="32.5" height="6.4"/>
-  <rect class="st9" x="470.1" y="375.9" width="40.4" height="6.4"/>
-  <rect class="st11" x="470.1" y="386.6" width="40.5" height="6.4"/>
-  <rect class="st23" x="470.1" y="397.2" width="26.4" height="6.4"/>
-  <line class="st16" x1="470.1" y1="405.7" x2="512.6" y2="405.7"/>
-  <line class="st16" x1="470.1" y1="408.5" x2="470.1" y2="405.7"/>
-  <line class="st16" x1="488.4" y1="408.5" x2="488.4" y2="405.7"/>
-  <line class="st16" x1="506.7" y1="408.5" x2="506.7" y2="405.7"/>
-  <text class="st1" transform="translate(473 415.8) rotate(-90)"><tspan x="0" y="0">0</tspan></text>
-  <text class="st1" transform="translate(491.3 429.2) rotate(-90)"><tspan x="0" y="0">1000</tspan></text>
-  <text class="st1" transform="translate(509.6 429.2) rotate(-90)"><tspan x="0" y="0">2000</tspan></text>
-  <rect class="st16" x="470.1" y="193.1" width="42.5" height="212.6"/>
-  <text class="st2" transform="translate(461.7 440.6)"><tspan x="0" y="0">Expression</tspan></text>
+  <rect class="st22" x="294.4" y="193.1" width="42.5" height="42.5"/>
+  <rect class="st9" x="294.4" y="235.6" width="42.5" height="42.5"/>
+  <rect class="st15" x="294.4" y="278.1" width="42.5" height="42.5"/>
+  <rect class="st24" x="294.4" y="320.6" width="42.5" height="42.5"/>
+  <rect class="st11" x="294.4" y="363.2" width="42.5" height="42.5"/>
+  <rect class="st21" x="336.9" y="193.1" width="42.5" height="42.5"/>
+  <rect class="st13" x="336.9" y="235.6" width="42.5" height="42.5"/>
+  <rect class="st8" x="336.9" y="278.1" width="42.5" height="42.5"/>
+  <rect class="st17" x="336.9" y="320.6" width="42.5" height="42.5"/>
+  <rect class="st12" x="336.9" y="363.2" width="42.5" height="42.5"/>
+  <rect class="st19" x="379.4" y="193.1" width="42.5" height="42.5"/>
+  <rect class="st23" x="379.4" y="235.6" width="42.5" height="42.5"/>
+  <rect class="st3" x="379.4" y="278.1" width="42.5" height="42.5"/>
+  <rect class="st16" x="379.4" y="320.6" width="42.5" height="42.5"/>
+  <rect class="st10" x="379.4" y="363.2" width="42.5" height="42.5"/>
+  <rect class="st5" x="421.9" y="193.1" width="42.5" height="42.5"/>
+  <rect class="st6" x="421.9" y="235.6" width="42.5" height="42.5"/>
+  <rect class="st0" x="421.9" y="278.1" width="42.5" height="42.5"/>
+  <rect class="st14" x="421.9" y="320.6" width="42.5" height="42.5"/>
+  <rect class="st4" x="421.9" y="363.2" width="42.5" height="42.5"/>
+  <text class="st25" transform="translate(257.7 220.1)"><tspan x="0" y="0">Per1</tspan></text>
+  <text class="st25" transform="translate(257.7 262.6)"><tspan x="0" y="0">Per2</tspan></text>
+  <text class="st25" transform="translate(257.8 305.1)"><tspan x="0" y="0">Cry2</tspan></text>
+  <text class="st25" transform="translate(251.5 347.6)"><tspan x="0" y="0">Clock</tspan></text>
+  <text class="st25" transform="translate(246.2 390.2)"><tspan x="0" y="0">Bmal1</tspan></text>
+  <rect class="st1" x="470.1" y="195.2" width="3.6" height="6.4"/>
+  <rect class="st2" x="470.1" y="205.9" width="4.6" height="6.4"/>
+  <rect class="st7" x="470.1" y="216.5" width="6.3" height="6.4"/>
+  <rect class="st20" x="470.1" y="227.1" width="5.4" height="6.4"/>
+  <rect class="st1" x="470.1" y="237.7" width="10.8" height="6.4"/>
+  <rect class="st2" x="470.1" y="248.4" width="12" height="6.4"/>
+  <rect class="st7" x="470.1" y="259" width="14.2" height="6.4"/>
+  <rect class="st20" x="470.1" y="269.6" width="17.1" height="6.4"/>
+  <rect class="st1" x="470.1" y="280.3" width="18" height="6.4"/>
+  <rect class="st2" x="470.1" y="290.9" width="23.8" height="6.4"/>
+  <rect class="st7" x="470.1" y="301.5" width="24.5" height="6.4"/>
+  <rect class="st20" x="470.1" y="312.1" width="19.8" height="6.4"/>
+  <rect class="st1" x="470.1" y="322.8" width="35.5" height="6.4"/>
+  <rect class="st2" x="470.1" y="333.4" width="34.8" height="6.4"/>
+  <rect class="st7" x="470.1" y="344" width="35.6" height="6.4"/>
+  <rect class="st20" x="470.1" y="354.7" width="31.3" height="6.4"/>
+  <rect class="st1" x="470.1" y="365.3" width="32.5" height="6.4"/>
+  <rect class="st2" x="470.1" y="375.9" width="40.4" height="6.4"/>
+  <rect class="st7" x="470.1" y="386.6" width="40.5" height="6.4"/>
+  <rect class="st20" x="470.1" y="397.2" width="26.4" height="6.4"/>
+  <line class="st18" x1="470.1" y1="405.7" x2="512.6" y2="405.7"/>
+  <line class="st18" x1="470.1" y1="408.5" x2="470.1" y2="405.7"/>
+  <line class="st18" x1="488.4" y1="408.5" x2="488.4" y2="405.7"/>
+  <line class="st18" x1="506.7" y1="408.5" x2="506.7" y2="405.7"/>
+  <rect class="st18" x="470.1" y="193.1" width="42.5" height="212.6"/>
 </svg>
