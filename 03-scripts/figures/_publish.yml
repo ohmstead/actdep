@@ -1,0 +1,4 @@
+- source: DOVE_UMAPs_omnibus.qmd
+  quarto-pub:
+    - id: 0a0c683b-ec55-44cb-abe8-dda2f216daa9
+      url: 'https://jackolmstead.quarto.pub/circadian-umaps'
