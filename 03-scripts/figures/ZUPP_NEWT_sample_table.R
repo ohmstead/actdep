@@ -83,6 +83,20 @@ gt(groupname_col = 'activity_condition', rowname_col = 'ZT', row_group_as_column
     fmt = ~fmt_number(., use_seps = T, decimals = 0),
     missing_text = ''
   ) |> 
+  cols_align(
+    align = "center",
+    columns = c(age, Replicates, male, female, R, L, nuclei_total, nuclei_mean)
+  ) |> 
+  cols_align(
+    align = "right",
+    columns = c(nuclei_total, nuclei_mean)
+  ) |> 
+  tab_style(
+    style = cell_text(align = "center"),
+    locations = cells_column_spanners(
+      spanners = c("Sex", "Hemisphere", "Nuclei")
+    )
+  )|> 
   opt_table_font(font = 'Helvetica')
   
 print(table_conditions)
