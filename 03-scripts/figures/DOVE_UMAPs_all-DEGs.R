@@ -1,3 +1,6 @@
+# This script plots UMAP embeddings computed using the UNION of circadian DEGs
+# across all subclasses. Each subclass is embedded in the same DEG feature space.
+
 source('03-scripts/R/seq_functions.R')
 
 # ---- load data ----
@@ -37,6 +40,10 @@ deg_genes_by_subclass <- lapply(names(deg_files), function(s) {
 })
 names(deg_genes_by_subclass) <- names(deg_files)
 
+# Build the union of circadian DEGs across all subclasses
+union_degs <- sort(unique(unlist(deg_genes_by_subclass)))
+union_degs_in_data <- intersect(union_degs, rownames(nuclei))
+
 # ---- per-subclass UMAPs (only that subclass' cells), colored by activity_condition ----
 target_subclasses <- c(
   '016 CA1-ProS Glut',
@@ -46,20 +53,22 @@ target_subclasses <- c(
 )
 
 plots <- list()
+
+# Use a fixed number of PCs across subclasses for comparability
+n_pcs_global <- min(30, length(union_degs_in_data))
+
 for (sub in target_subclasses) {
   # Create a fresh Seurat object containing only this subclass' cells
-  nuclei_sub <- subset(nuclei, subclass_name == sub) |> 
+  nuclei_sub <- subset(nuclei, subclass_name == sub) |>
     subset(activity_condition == 'SE')
   nuclei_sub <- NormalizeData(nuclei_sub, verbose = FALSE)
 
-  # Recompute scaling and reductions using only DEGs for THIS subclass
-  subclass_degs <- deg_genes_by_subclass[[sub]]
-  common_genes <- intersect(subclass_degs, rownames(nuclei_sub))
+  # Recompute scaling and reductions using the UNION of circadian DEGs across subclasses
+  common_genes <- intersect(union_degs_in_data, rownames(nuclei_sub))
 
   nuclei_sub <- ScaleData(nuclei_sub, features = common_genes, verbose = FALSE)
-  n_pcs_sub <- min(30, length(common_genes))
-  nuclei_sub <- RunPCA(nuclei_sub, features = common_genes, npcs = n_pcs_sub, reduction.name = 'pca.deg', verbose = FALSE)
-  nuclei_sub <- RunUMAP(nuclei_sub, reduction = 'pca.deg', dims = 1:n_pcs_sub, reduction.name = 'umap.deg', verbose = FALSE, seed.use = 17)
+  nuclei_sub <- RunPCA(nuclei_sub, features = common_genes, npcs = n_pcs_global, reduction.name = 'pca.deg', verbose = FALSE)
+  nuclei_sub <- RunUMAP(nuclei_sub, reduction = 'pca.deg', dims = 1:n_pcs_global, reduction.name = 'umap.deg', verbose = FALSE, seed.use = 17)
 
   p <- DimPlot(
     nuclei_sub,
@@ -72,7 +81,7 @@ for (sub in target_subclasses) {
   ) +
     scale_color_manual(values = zt_colors) +
     theme_minimal() +
-    labs(title = sub, x = '', y = '') +
+    labs(title = glue('{sub} (union circadian DEGs)'), x = '', y = '') +
     theme(
       panel.grid = element_blank(),
       axis.text = element_blank(),
@@ -85,7 +94,7 @@ for (sub in target_subclasses) {
 
 # ---- save ----
 if (exists('SAVE_PLOTS') && isTRUE(SAVE_PLOTS)) {
-  save_path <- '05-results/MOTH/raw_R_plots'  # reuse existing folder
+  save_path <- '05-results/NEWT/raw_R_plots'  # reuse existing folder
   for (nm in names(plots)) {
     fname_base <- glue('UMAP_DEG-embedding_condition__{str_replace_all(nm, " ", "_")}')
     ggsave(path = save_path, filename = paste0(fname_base, '.png'), plot = plots[[nm]], width = 9, height = 9, dpi = 900)
