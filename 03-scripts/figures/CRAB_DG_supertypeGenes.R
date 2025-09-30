@@ -100,7 +100,7 @@ p1 <- df |>
   filter(str_detect(activity_condition, '^KA')) |>
 ggplot() +
   aes(x = activity_condition, y = expression, fill = activity_condition) +
-  geom_jitter(size = 3, width = 0.4, height = 0.1, shape = 21, alpha = 1, set.seed(17)) +
+  geom_jitter(size = 3, width = 0.2, height = 0.1, shape = 21, alpha = 1, set.seed(17)) +
   # geom_jitter(width = 0.4, height = 0.1, shape = 21, size = 5, set.seed(17)) +
   geom_boxplot(width = 0.3, alpha = 0.8, outlier.shape = NA, fill = 'gray80') +
   facet_wrap(~gene, scales = 'free_y') +
