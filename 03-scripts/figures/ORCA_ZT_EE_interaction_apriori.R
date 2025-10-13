@@ -1,27 +1,34 @@
-# This script will use DESeq2 to run an interaction analysis on whether genes
-# are signficiantly changing in expression at different times of day.
-
-library(Seurat)
-library(DESeq2)
-library(ComplexHeatmap)
+# This script will use DESeq2 to run an interaction analysis on whether 
+# a priori gene sets are signficiantly changing in expression at 
+# different times of day.
+# 
+# NOTE: FDR is calculated outside of DESeq2 to increase power among just
+# the a priori sets tested, rather than genome-wide.
 
 source('03-scripts/R/seq_functions.R')
 
-nuclei <- LoadDataset("Dec2024")
+library(DESeq2)
+library(ComplexHeatmap)
+
 zt_colors <- LoadZTColors()
 activity_colors <- LoadActivityColors()
 
-# define a priori genes to test ----------------------------------------
-a_priori_genes <- c(LoadGeneList('circadian'), LoadGeneList('IEG'))
 
 # establish subclasses to use ------------------------------------
-subclass_list <- LoadSubclassesToUse(nuclei)
+a_priori_genes <- c(LoadGeneList('circadian'), LoadGeneList('IEG'))
+subclass_list <- subclass_list <- c(
+  '016 CA1-ProS Glut',
+  '037 DG Glut',
+  '319 Astro-TE NN',
+  '327 Oligo NN'
+)
 
+nuclei <- LoadDataset('Dec2024')
 seurat_subsets <- list(
   CA1   = nuclei |> subset(subclass_name == subclass_list[1]  & activity_condition %in% c('SE', 'EE30m')),
-  DG    = nuclei |> subset(subclass_name == subclass_list[7]  & activity_condition %in% c('SE', 'EE30m')),
-  Astro = nuclei |> subset(subclass_name == subclass_list[17] & activity_condition %in% c('SE', 'EE30m')),
-  Oligo = nuclei |> subset(subclass_name == subclass_list[18] & activity_condition %in% c('SE', 'EE30m'))
+  DG    = nuclei |> subset(subclass_name == subclass_list[2]  & activity_condition %in% c('SE', 'EE30m')),
+  Astro = nuclei |> subset(subclass_name == subclass_list[3] & activity_condition %in% c('SE', 'EE30m')),
+  Oligo = nuclei |> subset(subclass_name == subclass_list[4] & activity_condition %in% c('SE', 'EE30m'))
 )
 
 for (subclass in names(seurat_subsets)) {
@@ -29,12 +36,11 @@ for (subclass in names(seurat_subsets)) {
   nuclei_subclass <- seurat_subsets[[subclass]]
   Idents(nuclei_subclass) <- nuclei_subclass$activity_condition
   
-  # only test a priori genes
   # only test genes expressed in 5% of cells
   mat <- nuclei_subclass[["SCT"]]@data
   mat <- mat[rowMeans(mat > 0) > 0.01, ]
   expressed_genes <- rownames(mat)
-  # ensure all a priori genes are in there too
+  # ensure a priori genes are in there too
   expressed_genes <- c(expressed_genes, a_priori_genes) |> unique()
   
   pseudobulk_counts <- AggregateExpression(nuclei_subclass, 
@@ -56,63 +62,98 @@ for (subclass in names(seurat_subsets)) {
                                 design = ~ activity_condition + ZT + activity_condition:ZT)
   
   
-  # run DESeq --------------------------------------------
+  # interaction test for IEGs --------------------------------------------
   dds <- DESeq(dds)
   FC_thresh <- 0.585
   
+  # get DEG
+  # print(resultsNames(dds))
+  
+  res1 <- results(dds, name = "activity_conditionEE30m.ZTZT4") %>%
+    lfcShrink(dds = dds, coef = 'activity_conditionEE30m.ZTZT4', res = ., type = 'apeglm') |> 
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    filter(gene %in% LoadGeneList('IEG')) |> 
+    mutate(padj_apriori = p.adjust(pvalue, method = 'fdr')) |> # recalculate fdr for a priori set
+    dplyr::rename(padj_genomewide = padj) |>  # rename DESeq2 fdr to avoid confusion
+    mutate(contrast = 'ZT4_vs_ZT0') |> print()
+  
+  res2 <- results(dds, name = "activity_conditionEE30m.ZTZT12") %>%
+    lfcShrink(dds = dds, coef = 'activity_conditionEE30m.ZTZT12', res = ., type = 'apeglm') |> 
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    filter(gene %in% LoadGeneList('IEG')) |> 
+    mutate(padj_apriori = p.adjust(pvalue, method = 'fdr')) |> # recalculate fdr for a priori set
+    dplyr::rename(padj_genomewide = padj) |>  # rename DESeq2 fdr to avoid confusion
+    mutate(contrast = 'ZT12_vs_ZT0') |> print()
+  
+  res3 <- results(dds, name = "activity_conditionEE30m.ZTZT16") %>%
+    lfcShrink(dds = dds, coef = 'activity_conditionEE30m.ZTZT16', res = ., type = 'apeglm') |>
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    filter(gene %in% LoadGeneList('IEG')) |> 
+    mutate(padj_apriori = p.adjust(pvalue, method = 'fdr')) |> # recalculate fdr for a priori set
+    dplyr::rename(padj_genomewide = padj) |>  # rename DESeq2 fdr to avoid confusion
+    mutate(contrast = 'ZT16_vs_ZT0') |> print()
+  
+  # assemble results
+  res <- rbind(res1, res2, res3) |> 
+    filter(gene %in% a_priori_genes) |>
+    group_by(contrast) |> 
+    arrange(padj_apriori) |> 
+    print()
+  
+  # save csv
+  csv_dir <- "04-analysis/DEGs/Dec2024_ZT-EE_interaction"
+  write_csv(res, glue("{csv_dir}/genomewide_{subclass}.csv"))
+  
+  
+  # interaction test for clock genes --------------------------------------------
+  dds <- DESeq(dds)
+  FC_thresh <- 0.585
+  clock_genes <- c('Per1', 'Per2', 'Cry2', 'Clock', 'Bmal1')
+    
   # get DEG
   print(resultsNames(dds))
   
   res1 <- results(dds, name = "activity_conditionEE30m.ZTZT4") %>%
     lfcShrink(dds = dds, coef = 'activity_conditionEE30m.ZTZT4', res = ., type = 'apeglm') |> 
-    as.data.frame() |>
+    as.data.frame() |> 
     as_tibble(rownames = 'gene') |> 
-    arrange(padj) |> 
+    filter(gene %in% clock_genes) |> 
+    mutate(padj_apriori = p.adjust(pvalue, method = 'fdr')) |> # recalculate fdr for a priori set
+    dplyr::rename(padj_genomewide = padj) |>  # rename DESeq2 fdr to avoid confusion
     mutate(contrast = 'ZT4_vs_ZT0') |> print()
+  
   res2 <- results(dds, name = "activity_conditionEE30m.ZTZT12") %>%
     lfcShrink(dds = dds, coef = 'activity_conditionEE30m.ZTZT12', res = ., type = 'apeglm') |> 
-    as.data.frame() |>
+    as.data.frame() |> 
     as_tibble(rownames = 'gene') |> 
-    arrange(padj) |> 
+    filter(gene %in% clock_genes) |> 
+    mutate(padj_apriori = p.adjust(pvalue, method = 'fdr')) |> # recalculate fdr for a priori set
+    dplyr::rename(padj_genomewide = padj) |>  # rename DESeq2 fdr to avoid confusion
     mutate(contrast = 'ZT12_vs_ZT0') |> print()
+  
   res3 <- results(dds, name = "activity_conditionEE30m.ZTZT16") %>%
     lfcShrink(dds = dds, coef = 'activity_conditionEE30m.ZTZT16', res = ., type = 'apeglm') |>
-    as.data.frame() |>
-    as_tibble(rownames = 'gene') |>
-    arrange(padj) |>
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    filter(gene %in% clock_genes) |> 
+    mutate(padj_apriori = p.adjust(pvalue, method = 'fdr')) |> # recalculate fdr for a priori set
+    dplyr::rename(padj_genomewide = padj) |>  # rename DESeq2 fdr to avoid confusion
     mutate(contrast = 'ZT16_vs_ZT0') |> print()
-  # res4 <- results(dds, contrast = list(c('activity_conditionEE30m.ZTZT12', 'activity_conditionEE30m.ZTZT4'))) %>%
-  #   as.data.frame() |>
-  #   as_tibble(rownames = 'gene') |> 
-  #   arrange(padj) |> 
-  #   mutate(contrast = 'ZT12_vs_ZT4') |> print()
-  # con <- list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT4'))
-  # res5 <- results(dds, contrast = con) %>%
-  #   lfcShrink(dds, res = ., contrast = con, type = 'ashr') |> summary()
-  #   filter(padj < 0.05) |> 
-  #   mutate(contrast = 'ZT16_vs_ZT4') |> print()
-  # res6 <- results(dds, 
-  #                 contrast = list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT12')), 
-  #                 tidy = T) |>
-  #   filter(padj < 0.05) |> 
-  #   mutate(contrast = 'ZT16_vs_ZT12') |> print()
   
   # assemble results
   res <- rbind(res1, res2, res3) |> 
-    filter(gene %in% a_priori_genes) |>
-    select(-padj) |> # remove genome-wide fdr to avoid confusion
     group_by(contrast) |> 
-    mutate(padj_apriori = p.adjust(pvalue, method = 'fdr')) |> 
     arrange(padj_apriori) |> 
     print()
   
-  # save as csv
+  # save csv
   csv_dir <- "04-analysis/DEGs/Dec2024_ZT-EE_interaction"
-  write_csv(res, glue("{csv_dir}/a_priori_DEGs_{subclass}.csv"))
+  write_csv(res, glue("{csv_dir}/a_priori_clock_{subclass}.csv"))
   
-  # # plot Bmal
-  # plotCounts(dds, 'Bmal1', intgroup = c("activity_condition", "ZT"), normalized = T)
-  
+  # PLOTS  ----------------------------------------
   # make plots for circadian and IEG lists
   gene_sets_to_plot <- list(
     clock = LoadGeneList('circadian'),

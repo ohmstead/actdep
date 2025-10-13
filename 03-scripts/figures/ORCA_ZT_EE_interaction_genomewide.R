@@ -3,22 +3,26 @@
 
 source('03-scripts/R/seq_functions.R')
 
-library(Seurat)
 library(DESeq2)
 library(ComplexHeatmap)
 
-nuclei <- LoadDataset("Dec2024")
 zt_colors <- LoadZTColors()
 activity_colors <- LoadActivityColors()
 
 # establish subclasses to use ------------------------------------
-subclass_list <- LoadSubclassesToUse(nuclei)
+subclass_list <- subclass_list <- c(
+  '016 CA1-ProS Glut',
+  '037 DG Glut',
+  '319 Astro-TE NN',
+  '327 Oligo NN'
+)
 
+nuclei <- LoadDataset('Dec2024')
 seurat_subsets <- list(
   CA1   = nuclei |> subset(subclass_name == subclass_list[1]  & activity_condition %in% c('SE', 'EE30m')),
-  DG    = nuclei |> subset(subclass_name == subclass_list[7]  & activity_condition %in% c('SE', 'EE30m')),
-  Astro = nuclei |> subset(subclass_name == subclass_list[17] & activity_condition %in% c('SE', 'EE30m')),
-  Oligo = nuclei |> subset(subclass_name == subclass_list[18] & activity_condition %in% c('SE', 'EE30m'))
+  DG    = nuclei |> subset(subclass_name == subclass_list[2]  & activity_condition %in% c('SE', 'EE30m')),
+  Astro = nuclei |> subset(subclass_name == subclass_list[3] & activity_condition %in% c('SE', 'EE30m')),
+  Oligo = nuclei |> subset(subclass_name == subclass_list[4] & activity_condition %in% c('SE', 'EE30m'))
 )
 
 for (subclass in names(seurat_subsets)) {
@@ -58,37 +62,51 @@ for (subclass in names(seurat_subsets)) {
   # get DEG
   print(resultsNames(dds))
   
-  res1 <- results(dds, name = "activity_conditionEE30m.ZTZT4", tidy = T) |> 
-    filter(padj < 0.05) |> 
-    mutate(contrast = 'ZT4_vs_ZT0') |> print()
-  res2 <- results(dds, name = "activity_conditionEE30m.ZTZT12", tidy = T) |> 
-    filter(padj < 0.05) |> 
-    mutate(contrast = 'ZT12_vs_ZT0') |> print()
-  res3 <- results(dds, name = "activity_conditionEE30m.ZTZT16", tidy = T) |> 
-    filter(padj < 0.05) |> 
-    mutate(contrast = 'ZT16_vs_ZT0') |> print()
-  res4 <- results(dds, 
-                  contrast = list(c('activity_conditionEE30m.ZTZT12', 'activity_conditionEE30m.ZTZT4')), 
-                  tidy = T) |> 
-    filter(padj < 0.05) |> 
-    mutate(contrast = 'ZT12_vs_ZT4') |> print()
-  res5 <- results(dds, 
-                  contrast = list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT4')), 
-                  tidy = T) |> 
-    filter(padj < 0.05) |> 
-    mutate(contrast = 'ZT16_vs_ZT4') |> print()
-  res6 <- results(dds, 
-                  contrast = list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT12')), 
-                  tidy = T) |>
-    filter(padj < 0.05) |> 
-    mutate(contrast = 'ZT16_vs_ZT12') |> print()
+  res1 <- results(dds, name = "activity_conditionEE30m.ZTZT4") %>%
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    mutate(contrast = 'ZT4_vs_ZT0')
+  res2 <- results(dds, name = "activity_conditionEE30m.ZTZT12") %>%
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    mutate(contrast = 'ZT12_vs_ZT0')
+  res3 <- results(dds, name = "activity_conditionEE30m.ZTZT16") %>%
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    mutate(contrast = 'ZT16_vs_ZT0')
+  res4 <- results(
+    dds,
+    contrast = list(c('activity_conditionEE30m.ZTZT12', 'activity_conditionEE30m.ZTZT4'))
+    ) |> 
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    mutate(contrast = 'ZT12_vs_ZT4')
+  res5 <- results(
+    dds,
+    contrast = list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT4'))
+    ) |>
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    mutate(contrast = 'ZT16_vs_ZT4')
+  res6 <- results(
+    dds,
+    contrast = list(c('activity_conditionEE30m.ZTZT16', 'activity_conditionEE30m.ZTZT12'))
+    ) |>
+    as.data.frame() |> 
+    as_tibble(rownames = 'gene') |> 
+    mutate(contrast = 'ZT16_vs_ZT12')
   
   # assemble results
   res <- rbind(res1, res2, res3, res4, res5, res6) |> 
-    dplyr::rename(gene = row) |> print()
+    arrange(padj) |> 
+    print()
   
-  # continue if empty; nothing to plot
-  if (nrow(res) == 0) {
+  # save as csv
+  csv_dir <- "04-analysis/DEGs/Dec2024_ZT-EE_interaction"
+  write_csv(res, glue("{csv_dir}/a_priori_IEG_{subclass}.csv"))
+  
+  # continue if nothing significant; nothing to plot
+  if (nrow(res |> filter(padj<0.05)) == 0) {
     next
   }
   
