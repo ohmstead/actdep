@@ -4,16 +4,27 @@ library(Seurat)
 
 source("03-scripts/R/seq_functions.R")
 
-# load colors  ----------------------------------------------------------------------
-nuclei <- LoadDataset("Dec2024")
+# only load if not already in environment
+if (!exists("nuclei")) {nuclei <- LoadDataset("Dec2024")}
 
+# load colors  ----------------------------------------------------------------------
 class_colors <- LoadAllenColors('class')
 subclass_colors <- LoadAllenColors('subclass')
 activity_colors <- LoadActivityColors()
 ZT_colors <- LoadZTColors()
 sex_colors <- LoadSexColors()
 
-save_path <- "05-results/ZUPP_NEWT_QC/raw_R_plots"
+save_path <- "05-results/Figure1/raw_R_plots"
+
+save_plots_if_requested <- function(plot_args_list) {
+  if (!exists("SAVE_PLOTS") || !isTRUE(SAVE_PLOTS)) {
+    return(invisible())
+  }
+
+  for (plot_args in plot_args_list) {
+    do.call(ggsave, plot_args)
+  }
+}
 
 
 # relevel, filter subclasses ----------------------------------------------------------------------
@@ -136,22 +147,38 @@ p <- pNum + pActivity + pZT + pSex + pSublib + plot_layout(widths = c(30, 3, 3, 
 print(p)
 
 # subclass QC for figure
-ggsave(plot = p,  # PNG
-       filename = 'quality_by_subclass_short.png', 
-       path = save_path, 
-       width = 15, height = 10, dpi = 300)
-ggsave(plot = p *LoadBarebonesTheme(ticks = 'x'),  # SVG
-       filename = 'quality_by_subclass_short.svg', 
-       path = save_path, 
-       width = 15, height = 10, dpi = 300)
+save_plots_if_requested(list(
+  list(
+    plot = p,
+    filename = 'quality_by_subclass_short.png',
+    path = save_path,
+    width = 15,
+    height = 10,
+    dpi = 300
+  ),
+  list(
+    plot = p * LoadBarebonesTheme(ticks = 'x'),
+    filename = 'quality_by_subclass_short.svg',
+    path = save_path,
+    width = 15,
+    height = 10,
+    dpi = 300
+  )
+))
 
 p <- pNum + pUMI + pGenes + pMt + pActivity + pSex + pSublib + pZT + 
   plot_layout(widths = c(10, 10, 10, 10, 3, 3, 3, 3, 3))
 print(p)
-ggsave(plot = p,  # PNG
-       filename = 'quality_by_subclass.png',
-       path = save_path,
-       width = 27, height = 9, dpi = 600)
+save_plots_if_requested(list(
+  list(
+    plot = p,
+    filename = 'quality_by_subclass.png',
+    path = save_path,
+    width = 27,
+    height = 9,
+    dpi = 600
+  )
+))
 
 
 ## ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -265,10 +292,15 @@ pMt <- ggplot(meta) +
 p <- pNum + pSex + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 25, 25, 10), nrow = 1)
 print(p)
 
-ggsave(plot = p,
-       filename = 'quality_by_sample.png', 
-       path = save_path, 
-       width = 27, height = 14)
+save_plots_if_requested(list(
+  list(
+    plot = p,
+    filename = 'quality_by_sample.png',
+    path = save_path,
+    width = 27,
+    height = 14
+  )
+))
 
 
 # plot sample N ----------------------------------------------------------------------
@@ -335,10 +367,6 @@ pUMI <- ggplot(meta) +
 
 pUMI <- pUMI / pN + plot_layout(heights = c(10, 1))
 print(pUMI)
-ggsave(plot = pUMI,
-       'class_UMI.png', 
-       path = save_path, 
-       width = 9, height = 18, dpi = 600)
 
 
 # distro for genes ----------------------------------------------------------------------
@@ -360,8 +388,22 @@ pGenes <- ggplot(meta) +
 
 pGenes <- pGenes / pN + plot_layout(heights = c(10, 1))
 print(pGenes)
-ggsave(plot = pGenes,
-       'class_genes.png', 
-       path = save_path,
-       width = 9, height = 18, dpi = 600)
+save_plots_if_requested(list(
+  list(
+    plot = pUMI,
+    filename = 'class_UMI.png',
+    path = save_path,
+    width = 9,
+    height = 18,
+    dpi = 600
+  ),
+  list(
+    plot = pGenes,
+    filename = 'class_genes.png',
+    path = save_path,
+    width = 9,
+    height = 18,
+    dpi = 600
+  )
+))
 ## ----

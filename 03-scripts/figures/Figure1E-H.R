@@ -6,7 +6,7 @@ library(scCustomize)
 library(reticulate)
 
 reticulate::use_condaenv("sc")
-plot_save_dir <- "05-results/ZUPP_NEWT_assignment_stability/raw_R_plots"
+plot_save_dir <- "05-results/Figure1/raw_R_plots"
 
 # load in seurat
 nuclei_with <- LoadDataset("Dec2024")
@@ -101,13 +101,10 @@ nuclei_without <- DietSeurat(nuclei_with,
 # Run Dec2024 without ARGs through MapMyCells ---- 
 working_save_dir <- "04-analysis/cluster_reassignment"
 # as.anndata(x = nuclei_without, file_path = working_save_dir, file_name = "Dec2024_withoutARGs", main_layer = "counts", other_layers = NULL)
-# as.anndata(x = nuclei_without, file_path = working_save_dir, file_name = "Dec2024_withoutARGs_DGgenes", main_layer = "counts", other_layers = NULL)
-as.anndata(x = nuclei_without, file_path = working_save_dir, file_name = "Dec2024_withoutARGs_DGgenesSupertypeAndCluster", main_layer = "counts", other_layers = NULL)
 
 
 # merge with and without metadata ----
-# meta_mapmycells <- read_csv("04-analysis/cluster_reassignment/Dec2024_withoutARGs_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738267008578/Dec2024_withoutARGs_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738267008578.csv", skip = 4)
-meta_mapmycells <- read_csv("04-analysis/cluster_reassignment/Dec2024_withoutARGs_DGgenesFull_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1746459897867/Dec2024_withoutARGs_DGgenesFull_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1746459897867.csv", skip = 4)
+meta_mapmycells <- read_csv("04-analysis/cluster_reassignment/Dec2024_withoutARGs_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738267008578/Dec2024_withoutARGs_10xWholeMouseBrain(CCN20230722)_HierarchicalMapping_UTC_1738267008578.csv", skip = 4)
 
 meta_merge <- nuclei_with@meta.data |> 
       left_join(meta_mapmycells,
@@ -215,80 +212,159 @@ for (celltype in names(subclass_list)) {
   # class
   p <- meta |> 
     make_long(class_name.with, class_name.without) |> 
+    mutate(x = fct_recode(
+      x,
+      "+ARG" = "class_name.with",
+      "-ARG" = "class_name.without",
+    )) |>
+    mutate(next_x = fct_recode(
+      next_x,
+      "-ARG" = "class_name.without"
+    )) |> 
   ggplot() +
     aes(x = x, next_x = next_x, node = node, next_node = next_node,
         fill = node) +
     geom_sankey() +
     scale_fill_manual(values = class_colors) +
-    theme(legend.position = 'none')
+    theme(
+      legend.position = 'none',
+      axis.text.y = element_blank()
+      ) +
+    labs(
+      title = 'ABC Class reassignment',
+      x = '',
+      y = ''
+    )
   print(p)
   
-  ggsave(plot = p,
-         filename = 'reassignment_sankey_class.png', 
-         path = plot_save_dir, 
-         width = 4, height = 8, dpi = 900)
-  svgsave(plot = p + LoadBarebonesTheme(),
-          filename = 'reassignment__sankey_class.svg', 
-          path = plot_save_dir, 
-          width = 4, height = 8)
+  if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE){
+      ggsave(plot = p,
+            filename = 'reassignment_sankey_class.png', 
+            path = plot_save_dir, 
+            width = 4, height = 8, dpi = 900)
+      svgsave(plot = p + LoadBarebonesTheme(),
+            filename = 'reassignment__sankey_class.svg', 
+            path = plot_save_dir, 
+            width = 4, height = 8)
+  }
   
   # subclass
   p <- meta |> 
     make_long(subclass_name.with, subclass_name.without) |> 
+    mutate(x = fct_recode(
+      x,
+      "+ARG" = "subclass_name.with",
+      "-ARG" = "subclass_name.without",
+    )) |>
+    mutate(next_x = fct_recode(
+      next_x,
+      "-ARG" = "subclass_name.without"
+    )) |> 
   ggplot() +
     aes(x = x, next_x = next_x, node = node, next_node = next_node,
         fill = node) +
     geom_sankey() +
     scale_fill_manual(values = subclass_colors) +
-    theme(legend.position = 'none')
+    theme(
+      legend.position = 'none',
+      axis.text.y = element_blank()
+      ) +
+    labs(
+      title = 'ABC Subclass reassignment',
+      x = '',
+      y = ''
+    )
   print(p)
-  ggsave(plot = p,
-         filename = 'reassignment_sankey_subclass.png', 
-         path = plot_save_dir, 
-         width = 4, height = 8, dpi = 900)
-  svgsave(plot = p + LoadBarebonesTheme(),
-          filename = 'reassignment__sankey_subclass.svg', 
-          path = plot_save_dir, 
-          width = 4, height = 8)
+
+  if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE){
+      ggsave(plot = p,
+            filename = 'reassignment_sankey_subclass.png', 
+            path = plot_save_dir, 
+            width = 4, height = 8, dpi = 900)
+      svgsave(plot = p + LoadBarebonesTheme(),
+            filename = 'reassignment__sankey_subclass.svg', 
+            path = plot_save_dir, 
+            width = 4, height = 8)
+  }
   
   # supertype sankey
   p <- meta |> 
     filter(subclass_name.with == subclass_list[[celltype]]) |>
     make_long(supertype_name.with, supertype_name.without) |> 
+    mutate(x = fct_recode(
+      x,
+      "+ARG" = "supertype_name.with",
+      "-ARG" = "supertype_name.without",
+    )) |>
+    mutate(next_x = fct_recode(
+      next_x,
+      "-ARG" = "supertype_name.without"
+    )) |> 
   ggplot() +
     aes(x = x, next_x = next_x, node = node, next_node = next_node,
         fill = node) +
     geom_sankey() +
     scale_fill_manual(values = supertype_colors) +
-    theme(legend.position = 'none')
+    theme(
+      legend.position = 'none',
+      axis.text.y = element_blank()
+      ) +
+    labs(
+      title = 'ABC CA1 Supertype reassignment',
+      x = '',
+      y = ''
+    )
   print(p)
-  ggsave(plot = p,
-         filename = glue('reassignment_sankey_supertype_{celltype}.png'), 
-         path = plot_save_dir, 
-         width = 4, height = 8, dpi = 900)
-  svgsave(plot = p + LoadBarebonesTheme(),
-          filename = glue('reassignment__sankey_supertype_{celltype}.svg'), 
-          path = plot_save_dir, 
+
+  if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE){
+      ggsave(plot = p,
+            filename = glue('reassignment_sankey_supertype_{celltype}.png'), 
+            path = plot_save_dir, 
+            width = 4, height = 8, dpi = 900)
+      svgsave(plot = p + LoadBarebonesTheme(),
+            filename = glue('reassignment__sankey_supertype_{celltype}.svg'), 
+            path = plot_save_dir, 
           width = 4, height = 8)
+  }
   
   # cluster
   p <- meta |> 
     filter(subclass_name.with == subclass_list[[celltype]]) |>
     make_long(cluster_name.with, cluster_name.without) |> 
+    mutate(x = fct_recode(
+      x,
+      "+ARG" = "cluster_name.with",
+      "-ARG" = "cluster_name.without",
+    )) |>
+    mutate(next_x = fct_recode(
+      next_x,
+      "-ARG" = "cluster_name.without"
+    )) |> 
   ggplot() +
     aes(x = x, next_x = next_x, node = node, next_node = next_node,
         fill = node) +
     geom_sankey() +
     scale_fill_manual(values = cluster_colors) +
-    theme(legend.position = 'none')
+    theme(
+      legend.position = 'none',
+      axis.text.y = element_blank()
+      ) +
+    labs(
+      title = 'ABC CA1 Cluster reassignment',
+      x = '',
+      y = ''
+    )
   print(p)
-  ggsave(plot = p,
-         filename = glue('reassignment_sankey_cluster_{celltype}.png'),
-         path = plot_save_dir, 
-         width = 4, height = 8, dpi = 900)
-  svgsave(plot = p + LoadBarebonesTheme(),
-          filename = glue('reassignment__sankey_cluster_{celltype}.svg'), 
-          path = plot_save_dir, 
-          width = 4, height = 8)
+
+  if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE){
+      ggsave(plot = p,
+            filename = glue('reassignment_sankey_cluster_{celltype}.png'),
+            path = plot_save_dir, 
+            width = 4, height = 8, dpi = 900)
+      svgsave(plot = p + LoadBarebonesTheme(),
+            filename = glue('reassignment__sankey_cluster_{celltype}.svg'), 
+            path = plot_save_dir, 
+            width = 4, height = 8)
+  }
 }
 ## ----
