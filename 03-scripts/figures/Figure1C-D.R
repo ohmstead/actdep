@@ -1,3 +1,4 @@
+## ---- Fig1C-D
 # ---- load libs & data ----
 source('03-scripts/R/seq_functions.R')
 
@@ -63,5 +64,4 @@ if (SAVE_PLOTS) {
 } else {
   print("Plotting without saving...")
 }
-
-print(glue("Script {basename(sys.frame(1)$ofile)} complete!"))
+## ----

@@ -1,3 +1,4 @@
+## ---- Fig1E-H
 source("03-scripts/R/seq_functions.R")
 
 library(ggsankey)
@@ -290,3 +291,4 @@ for (celltype in names(subclass_list)) {
           path = plot_save_dir, 
           width = 4, height = 8)
 }
+## ----

@@ -1,3 +1,4 @@
+## ---- Fig1B
 library(paletteer)
 library(Seurat)
 
@@ -363,3 +364,4 @@ ggsave(plot = pGenes,
        'class_genes.png', 
        path = save_path,
        width = 9, height = 18, dpi = 600)
+## ----
