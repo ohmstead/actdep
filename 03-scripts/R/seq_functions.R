@@ -1,20 +1,30 @@
 # A script housing a collection of commonly called functions in the actdep project.
 
+# helper to attach packages only when needed ------------------------------
+attach_package_once <- function(pkg) {
+  if (!paste0("package:", pkg) %in% search()) {
+    library(pkg, character.only = TRUE)
+  }
+}
+
 # load common libs ----------------------------------------
-library(ggplot2)
-library(plotly)
-library(patchwork)
-library(glue)
-library(forcats)
-library(readr)
-library(readxl)
-library(stringr)
-library(tibble)
-library(tidyr)
-library(Seurat)
+packages_to_attach <- c(
+  "ggplot2",
+  "plotly",
+  "patchwork",
+  "glue",
+  "forcats",
+  "readr",
+  "readxl",
+  "stringr",
+  "tibble",
+  "tidyr",
+  "Seurat"
+)
+invisible(lapply(packages_to_attach, attach_package_once))
 
 # always load at end of tidyverse to mask plyr; plyr fucking sucks
-library(dplyr)
+attach_package_once("dplyr")
 
 # This function will get called every time the script is sourced!
 set_ggplot_font <- function(font = 'Aptos') {
@@ -65,7 +75,7 @@ tau <- function(subclass_expression_vector, direction = 'up') {
 
 
 LoadDataset <- function(dataset, as_gigaclasses = FALSE, sublibrary = "combined") {
-  library(Seurat)
+  attach_package_once("Seurat")
   
   # try gigaclasses first
   if (as_gigaclasses) {
@@ -119,8 +129,8 @@ LoadGeneList <- function(list_type = "IEG") {
   #   - tyssowski: tyssowski rapid/delayed PRGs
   #   - DEGs: all DEGs from the expression heatmap in figure 1
   #   - circadian: Clock genes
-  library(readxl)
-  library(dplyr)
+  attach_package_once("readxl")
+  attach_package_once("dplyr")
   
   if (list_type == "IEG" | list_type == 'ieg') {
     gene_list <- c(
@@ -262,7 +272,7 @@ LoadSexColors <- function() {
 LoadSubclassesToUse <- function(seurat_obj=NULL, ascertainment = 'custom', as_gigaclasses = F, cell_cutoff = 150) {
 # returns a list of subclass_names to use. 
 # subclasses with fewer than cell_cutoff are excluded.
-  library(Seurat)
+  attach_package_once("Seurat")
 
   if (ascertainment == 'custom') {
     subclass_list <- c(
@@ -315,7 +325,7 @@ LoadSubclassesToUse <- function(seurat_obj=NULL, ascertainment = 'custom', as_gi
 LoadBarebonesTheme <- function(legend_position = 'none', ticks = 'none') {
   # Returns a minimal ggplot2 theme with as few elements as possible. Helpful for
   # Importing vector images into Illustrator.
-  library(ggplot2)
+  attach_package_once("ggplot2")
   
   # set tick parameters
   if (ticks == 'none') {
@@ -354,7 +364,7 @@ LoadBarebonesTheme <- function(legend_position = 'none', ticks = 'none') {
 GetSubclassContrasts <- function(seurat_obj, subclass, cell_cutoff = 30) {
 # returns a list of activity_condition contrasts to use
 # given they meet the cell_cutoff criterion
-  library(Seurat)
+  attach_package_once("Seurat")
 
   acceptable_contrasts  <- c(
     'EE30m_SE',
@@ -385,7 +395,7 @@ GetSubclassContrasts <- function(seurat_obj, subclass, cell_cutoff = 30) {
 GetCorrData <- function(seurat_obj, specific_condition, gene_list, output_fmt = 'complex_heatmap') {
 # returns the pairwise correlation between expression values of all gene pairs
 # in gene_list. Only cells in the specified condition will be included.
-  library(Seurat)
+  attach_package_once("Seurat")
 
   expression_data <- seurat_obj |> 
     subset(activity_condition == specific_condition) |> 
@@ -428,9 +438,9 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, show_plot = TRUE, save_p
 # Depends on output from GetCorrData, which must be called with argument
 # output_fmt = 'complex_heatmap'.
 
-  library(Seurat)
-  library(ComplexHeatmap)
-  library(circlize)
+  attach_package_once("Seurat")
+  attach_package_once("ComplexHeatmap")
+  attach_package_once("circlize")
 
   if (!is.null(save_path)) {
     # if (str_sub(save_path, -1) != '/') {
@@ -556,8 +566,8 @@ FindActiveCells <- function(seurat_obj, subclass = '016 CA1-ProS Glut', gene_lis
 
 FindDEGs <- function(seurat_obj, subclass, ident_var, group1, group2, logFC_threshold=0.25) {
 # uses MAST to find DEGs between conditions within a subclass and removes sex-specific DEGs
-  library(Seurat)
-  library(glue)
+  attach_package_once("Seurat")
+  attach_package_once("glue")
   
   # print report statement
   print(glue("Finding DEGs between {subclass} {group1} and {group2}."))
@@ -591,9 +601,9 @@ RunGOEnrichment <- function(target_gene_symbols, background_gene_list) {
   # target_gene_symbols should be, as implied, gene symbols. They are converted to 
   # Ensembl IDs enrichGO is run. Likewise, background_gene_list should also be in
   # symbol annotation.
-  library(clusterProfiler)
-  library(org.Mm.eg.db)
-  library(dplyr)
+  attach_package_once("clusterProfiler")
+  attach_package_once("org.Mm.eg.db")
+  attach_package_once("dplyr")
 
   # verify input is a gene list
   if (!is.character(target_gene_symbols)) {
@@ -624,7 +634,7 @@ RunGOEnrichment <- function(target_gene_symbols, background_gene_list) {
 
 
 RunYaoDGE <- function(input_subclass, save_to_file = FALSE) {
-  library(Seurat)
+  attach_package_once("Seurat")
   
   # if yao not in namespace, load object
   if (!exists('yao')) {
@@ -719,7 +729,7 @@ QuickPercentExpression <- function(seurat.object, genes, ident_var, ident.1, ide
 
 
 PrintScriptDone <- function() {
-  library(glue)
+  attach_package_once("glue")
 
   done_string <- "print(glue('Script {basename(sys.frame(1)$ofile)} complete!'))"
   return(done_string)  # run with eval(parse(done_string))
@@ -738,10 +748,10 @@ ShrinkSubclassName <- function(subclass_name) {
 
 
 MakeVolcanoPlot <- function(df, plot_title='log2(FC) vs -log10(p_val_adj)') {
-  library(dplyr)
-  library(plotly)
-  library(ggplot2)
-  library(ggrepel)
+  attach_package_once("dplyr")
+  attach_package_once("plotly")
+  attach_package_once("ggplot2")
+  attach_package_once("ggrepel")
   
   # make static volcano plot first with ggplot
   threshold_line <- -log10(0.05)
@@ -820,8 +830,8 @@ SaveH5SeuratObject <- function(
     verbose = TRUE,
     overwrite = TRUE
 ) {
-  library(Seurat)
-  library(SeuratDisk)
+  attach_package_once("Seurat")
+  attach_package_once("SeuratDisk")
 
   # add copy of "RNA" 
   object[["RNA.tmp"]] <- CreateAssayObject(counts = object[["RNA"]]$counts)
@@ -848,8 +858,8 @@ SaveH5SeuratObject <- function(
 #' @return NULL
 #' 
 LoadH5SeuratObject <- function(filename, verbose = TRUE) {
-  library(Seurat)
-  library(SeuratDisk)
+  attach_package_once("Seurat")
+  attach_package_once("SeuratDisk")
 
   # load h5 data
   object <- LoadH5Seurat(filename)
@@ -876,7 +886,7 @@ svgsave <- function(
     bg_color = 'transparent'
 ) {
   # Saves the current plot as an SVG file with the specified dimensions.
-  library(svglite)
+  attach_package_once("svglite")
   
   # clean filename by checking for .svg extension with regexp
   if (str_detect(filename, '.svg$') == F) {
