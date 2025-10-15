@@ -1,3 +1,4 @@
+## ----Fig3AEI.R
 # load libs and data ----
 source('03-scripts/R/seq_functions.R')
 
@@ -193,3 +194,4 @@ if (SAVE_PLOTS) {
 }
 
 print(glue("Script {basename(sys.frame(1)$ofile)} complete!"))
+## ----

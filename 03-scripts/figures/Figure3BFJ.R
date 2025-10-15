@@ -1,3 +1,4 @@
+## ----Fig3BFJ
 source('03-scripts/R/seq_functions.R')
 
 library(ggrepel)
@@ -80,3 +81,4 @@ for (celltype in names(plots)) {
     width = 9, height = 3
   )
 }
+## ----

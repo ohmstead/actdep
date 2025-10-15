@@ -1,6 +1,5 @@
+## ----Fig3DHL
 source('03-scripts/R/seq_functions.R')
-
-library(Seurat)
 
 activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors("subclass")
@@ -54,24 +53,26 @@ for (gene_to_plot in genes_to_plot) {
   print(p2)
   
   # png
-  ggsave(plot = p1,
-         filename = glue("line_excitatory_{gene_to_plot}.png"),
-         path = save_path,
-         width = 4, height = 2)
-  ggsave(plot = p2,
-         filename = glue("VlnPlot_excitatory_{gene_to_plot}.png"),
-         path = save_path,
-         width = 4, height = 2)
-  
-  # svg
-  ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
-         filename = glue("line__excitatory_{gene_to_plot}.svg"),
-         path = save_path,
-         width = 4, height = 2)
-  ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'y'),
-         filename = glue("VlnPlot__excitatory_{gene_to_plot}.svg"),
-         path = save_path,
-         width = 4, height = 2)
+  if (exists('SAVE_PLOTS') & SAVE_PLOTS == T) {
+    ggsave(plot = p1,
+           filename = glue("line_excitatory_{gene_to_plot}.png"),
+           path = save_path,
+           width = 4, height = 2)
+    ggsave(plot = p2,
+           filename = glue("VlnPlot_excitatory_{gene_to_plot}.png"),
+           path = save_path,
+           width = 4, height = 2)
+    
+    # svg
+    ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
+           filename = glue("line__excitatory_{gene_to_plot}.svg"),
+           path = save_path,
+           width = 4, height = 2)
+    ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'y'),
+           filename = glue("VlnPlot__excitatory_{gene_to_plot}.svg"),
+           path = save_path,
+           width = 4, height = 2)
+  }
 }
 
 
@@ -105,24 +106,26 @@ for (gene_to_plot in genes_to_plot) {
   print(p2)
   
   # png
-  ggsave(plot = p1,
-         filename = glue("line_inhibitory_{gene_to_plot}.png"),
-         path = save_path,
-         width = 4, height = 2)
-  ggsave(plot = p2,
-         filename = glue("VlnPlot_inhibitory_{gene_to_plot}.png"),
-         path = save_path,
-         width = 4, height = 2)
-  
-  # svg
-  ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
-         filename = glue("line__inhibitory_{gene_to_plot}.svg"),
-         path = save_path,
-         width = 4, height = 2)
-  ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'y'),
-         filename = glue("VlnPlot__inhibitory_{gene_to_plot}.svg"),
-         path = save_path,
-         width = 4, height = 2)
+  if (exists('SAVE_PLOTS') & SAVE_PLOTS == T) {
+    ggsave(plot = p1,
+           filename = glue("line_inhibitory_{gene_to_plot}.png"),
+           path = save_path,
+           width = 4, height = 2)
+    ggsave(plot = p2,
+           filename = glue("VlnPlot_inhibitory_{gene_to_plot}.png"),
+           path = save_path,
+           width = 4, height = 2)
+    
+    # svg
+    ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
+           filename = glue("line__inhibitory_{gene_to_plot}.svg"),
+           path = save_path,
+           width = 4, height = 2)
+    ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'y'),
+           filename = glue("VlnPlot__inhibitory_{gene_to_plot}.svg"),
+           path = save_path,
+           width = 4, height = 2)
+    }
 }
 
 
@@ -155,22 +158,25 @@ for (gene_to_plot in genes_to_plot) {
   print(p2)
   
   # png
-  ggsave(plot = p1,
-         filename = glue("line_glia_{gene_to_plot}.png"),
-         path = save_path,
-         width = 4, height = 2)
-  ggsave(plot = p2,
-         filename = glue("VlnPlot_glia_{gene_to_plot}.png"),
-         path = save_path,
-         width = 4, height = 2)
-  
-  # svg
-  ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
-         filename = glue("line__glia_{gene_to_plot}.svg"),
-         path = save_path,
-         width = 4, height = 2)
-  ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'y'),
-         filename = glue("VlnPlot__glia_{gene_to_plot}.svg"),
-         path = save_path,
-         width = 4, height = 2)
+  if (exists('SAVE_PLOTS') & SAVE_PLOTS == T) {
+    ggsave(plot = p1,
+           filename = glue("line_glia_{gene_to_plot}.png"),
+           path = save_path,
+           width = 4, height = 2)
+    ggsave(plot = p2,
+           filename = glue("VlnPlot_glia_{gene_to_plot}.png"),
+           path = save_path,
+           width = 4, height = 2)
+    
+    # svg
+    ggsave(plot = p1 + LoadBarebonesTheme(ticks = 'y'),
+           filename = glue("line__glia_{gene_to_plot}.svg"),
+           path = save_path,
+           width = 4, height = 2)
+    ggsave(plot = p2 + LoadBarebonesTheme(ticks = 'y'),
+           filename = glue("VlnPlot__glia_{gene_to_plot}.svg"),
+           path = save_path,
+           width = 4, height = 2)
+  }
 }
+## ----

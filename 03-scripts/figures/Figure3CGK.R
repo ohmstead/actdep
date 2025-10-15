@@ -1,3 +1,4 @@
+## ----Fig3CGK
 # Script to plot heatmaps from figure 1, with gene columns organized by tau.
 library(ComplexHeatmap)
 
@@ -116,3 +117,4 @@ if (SAVE_PLOTS){
             width = 8, height = 5)
   }
 }
+## ----
