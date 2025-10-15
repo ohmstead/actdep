@@ -1,3 +1,4 @@
+## ----Fig6
 # Makes hm plots for Clock & IEG expression in SE subclasses
 # Makes hm plots for significant interaction genes in CA1 and DG
 # Uses DESeq2 to normalize expression values
@@ -413,3 +414,4 @@ for (subclass in names(gene_lists)) {
             width = as.numeric(save_w), height = as.numeric(save_h))
   }
 }
+## ----
