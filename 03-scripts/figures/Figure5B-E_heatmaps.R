@@ -1,7 +1,7 @@
 ## ----Fig5B-E_hm
 # This script does 2 main things:
-#   1. DESeq-based ZT DEG analysis in SE condition
-#   2. Plots DEG heatmaps across ZT
+#   1. ZT DGE analysis in SE
+#   2. Plots DEG heatmaps for ascertained DEGs
 # 
 # These steps are performed for the 4 largest subclasses:
 # CA1, DG, astrocytes, and oligodendrocytes
@@ -14,12 +14,10 @@ library(ComplexHeatmap)
 library(circlize)
 library(seriation)
 
-USE_SHRUNKEN_FC <- F
 PLOT_VOLCANOS <- F
 
+if (!exists('nuclei')) {nuclei <- LoadDataset('Dec2024')}
 
-# load data ----------------------------------------
-nuclei <- LoadDataset('Dec2024')
 seurat_subsets <- list(
   CA1   = subset(nuclei, subclass_name == '016 CA1-ProS Glut' & activity_condition %in% c('SE')),
   DG    = subset(nuclei, subclass_name == '037 DG Glut'       & activity_condition %in% c('SE')),
@@ -29,7 +27,7 @@ seurat_subsets <- list(
 
 
 # define fxns ----------------------------------------
-getUnshrunkenConstrastResults <- function(dds, contrast, threshold) {
+getConstrastResults <- function(dds, contrast, threshold) {
   res <- results(dds, contrast = contrast, tidy = T) |> 
     dplyr::rename(gene = row) |> 
     mutate(
@@ -46,39 +44,6 @@ getUnshrunkenConstrastResults <- function(dds, contrast, threshold) {
   rownames(res) <- res$gene
   
   return(tibble(res))
-}
-
-
-getShrunkenConstrastResults <- function(dds, contrast_name, threshold) {
-  # get results from Wald test
-  res_raw <- results(dds, contrast = contrast_name)
-
-  # filter by shrunken lfc
-  res_shrink <- lfcShrink(dds = dds,
-                          res = res_raw,
-                          contrast = contrast_name,
-                          type = 'ashr')|>
-    as_tibble(rownames = 'gene') |>
-    left_join(select(as_tibble(res_raw, rownames = 'gene'), gene, log2FoldChange, lfcSE),
-              by = 'gene',
-              suffix = c('.shrink', '.raw'),
-              relationship = 'one-to-one') |>
-    arrange(padj) |>
-    relocate(log2FoldChange.raw, log2FoldChange.shrink, lfcSE.raw, lfcSE.shrink, .after = baseMean) |>
-    mutate(
-      classification =
-        ifelse(  # if upregulated
-          log2FoldChange.shrink > threshold & padj < 0.05,
-          "upregulated",
-          ifelse(  # if downregulated
-            log2FoldChange.shrink < -threshold & padj < 0.05,
-            "downregulated",
-            "no_change" # then no change
-          )
-        )
-    )
-  print(res_shrink)
-  return(res_shrink)
 }
 
 
@@ -117,11 +82,6 @@ for (subclass in names(seurat_subsets)) {
   
   
   # prep data ----------------------------------------
-  # scramble cell identities for control analysis!!
-  # scrambled_indices <- sample(seq_len(nrow(nuclei_subclass@meta.data)))
-  # nuclei_subclass@meta.data$sample <- nuclei_subclass@meta.data$sample[scrambled_indices]
-  # nuclei_subclass@meta.data$ZT <- nuclei_subclass@meta.data$ZT[scrambled_indices]
-  
   # only test genes expressed in 1% of cells
   mat <- nuclei_subclass[["SCT"]]@data
   mat <- mat[rowMeans(mat > 0) > 0.01, ]
@@ -164,21 +124,12 @@ for (subclass in names(seurat_subsets)) {
   dds <- DESeq(dds)
   thresh = 0.585
   
-  if (USE_SHRUNKEN_FC) {
-    res_ZT4_vs_ZT0   <- getShrunkenConstrastResults(dds, c("ZT", "ZT4", "ZT0"), thresh)
-    res_ZT12_vs_ZT0  <- getShrunkenConstrastResults(dds, c("ZT", "ZT12", "ZT0"), thresh)
-    res_ZT16_vs_ZT0  <- getShrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT0"), thresh)
-    res_ZT12_vs_ZT4  <- getShrunkenConstrastResults(dds, c("ZT", "ZT12", "ZT4"), thresh)
-    res_ZT16_vs_ZT4  <- getShrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT4"), thresh)
-    res_ZT16_vs_ZT12 <- getShrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT12"), thresh)
-  } else {
-    res_ZT4_vs_ZT0   <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT4", "ZT0"), thresh)
-    res_ZT12_vs_ZT0  <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT12", "ZT0"), thresh)
-    res_ZT16_vs_ZT0  <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT0"), thresh)
-    res_ZT12_vs_ZT4  <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT12", "ZT4"), thresh)
-    res_ZT16_vs_ZT4  <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT4"), thresh)
-    res_ZT16_vs_ZT12 <- getUnshrunkenConstrastResults(dds, c("ZT", "ZT16", "ZT12"), thresh)
-  }
+  res_ZT4_vs_ZT0   <- getConstrastResults(dds, c("ZT", "ZT4", "ZT0"), thresh)
+  res_ZT12_vs_ZT0  <- getConstrastResults(dds, c("ZT", "ZT12", "ZT0"), thresh)
+  res_ZT16_vs_ZT0  <- getConstrastResults(dds, c("ZT", "ZT16", "ZT0"), thresh)
+  res_ZT12_vs_ZT4  <- getConstrastResults(dds, c("ZT", "ZT12", "ZT4"), thresh)
+  res_ZT16_vs_ZT4  <- getConstrastResults(dds, c("ZT", "ZT16", "ZT4"), thresh)
+  res_ZT16_vs_ZT12 <- getConstrastResults(dds, c("ZT", "ZT16", "ZT12"), thresh)
   
   # save results to file
   deg_save_path <- '04-analysis/DEGs/Dec2024_ZT_SE_pseudobulk/'
@@ -195,27 +146,15 @@ for (subclass in names(seurat_subsets)) {
   
   # heatmap ----------------------------------------
   # assemble all genes and their contrast of origin
-  if (USE_SHRUNKEN_FC) {
-    all_genes <- bind_rows(
-      res_ZT4_vs_ZT0   |> mutate(contrast = "ZT4 vs ZT0")   |> filter(classification != 'no_change'),
-      res_ZT12_vs_ZT0  |> mutate(contrast = "ZT12 vs ZT0")  |> filter(classification != 'no_change'),
-      res_ZT16_vs_ZT0  |> mutate(contrast = "ZT16 vs ZT0")  |> filter(classification != 'no_change'),
-      res_ZT12_vs_ZT4  |> mutate(contrast = "ZT12 vs ZT4")  |> filter(classification != 'no_change'),
-      res_ZT16_vs_ZT4  |> mutate(contrast = "ZT16 vs ZT4")  |> filter(classification != 'no_change'),
-      res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
-    )
-    # write_csv(all_genes, glue("{deg_save_path}{subclass}_all_DEGs.csv"))
-  } else {
-    all_genes <- bind_rows(
-      res_ZT4_vs_ZT0   |> mutate(contrast = "ZT4 vs ZT0")   |> filter(classification != 'no_change'),
-      res_ZT12_vs_ZT0  |> mutate(contrast = "ZT12 vs ZT0")  |> filter(classification != 'no_change'),
-      res_ZT16_vs_ZT0  |> mutate(contrast = "ZT16 vs ZT0")  |> filter(classification != 'no_change'),
-      res_ZT12_vs_ZT4  |> mutate(contrast = "ZT12 vs ZT4")  |> filter(classification != 'no_change'),
-      res_ZT16_vs_ZT4  |> mutate(contrast = "ZT16 vs ZT4")  |> filter(classification != 'no_change'),
-      res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
-    )
-    # write_csv(all_genes, glue("{deg_save_path}{subclass}_all_DEGs.csv"))
-  }
+  all_genes <- bind_rows(
+    res_ZT4_vs_ZT0   |> mutate(contrast = "ZT4 vs ZT0")   |> filter(classification != 'no_change'),
+    res_ZT12_vs_ZT0  |> mutate(contrast = "ZT12 vs ZT0")  |> filter(classification != 'no_change'),
+    res_ZT16_vs_ZT0  |> mutate(contrast = "ZT16 vs ZT0")  |> filter(classification != 'no_change'),
+    res_ZT12_vs_ZT4  |> mutate(contrast = "ZT12 vs ZT4")  |> filter(classification != 'no_change'),
+    res_ZT16_vs_ZT4  |> mutate(contrast = "ZT16 vs ZT4")  |> filter(classification != 'no_change'),
+    res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
+  )
+  # write_csv(all_genes, glue("{deg_save_path}{subclass}_all_DEGs.csv"))
   
   # remove duplicates
   gene_list <- all_genes |> 
@@ -396,7 +335,7 @@ for (subclass in names(seurat_subsets)) {
 if (SAVE_PLOTS) {
   for (subclass in names(plots)) {
     subclass_fname <- ShrinkSubclassName(subclass)
-    save_path <- "05-results/MOTH/raw_R_plots"
+    save_path <- "05-results/Figure5/raw_R_plots"
     # png
     png(glue("{save_path}/SE__ZT_heatmap_{subclass_fname}.png"),
         width = 6, height = 10, units = "in", res = 900)

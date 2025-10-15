@@ -5,9 +5,8 @@
 source('03-scripts/R/seq_functions.R')
 
 library(rstatix)
-library(Seurat)
 
-nuclei <- LoadDataset('Dec2024')
+if (!exists('nuclei')) {nuclei <- LoadDataset('Dec2024')}
 
 activity_colors <- LoadActivityColors('Dec2024')
 subclass_colors <- LoadAllenColors('subclass')
@@ -93,13 +92,15 @@ df_circadian <- as.matrix(mat_circadian) |>
   arrange(gene, subclass_name, ZT) |> 
   relocate(gene, subclass_name) |> 
   as_tibble()
-df_circadian
 
 
 # plot clock genes ----------------------------------------
-for (gene_to_plot in known_circadian_genes) {
+genes_to_plot <- c('Per1', 'Per2', 'Cry2', 'Clock', 'Bmal1')
+plots <- list()
+
+for (current_gene in genes_to_plot) {
   p <- df_circadian |> 
-    filter(gene == gene_to_plot) |>
+    filter(gene == current_gene) |>
   ggplot() +
     aes(x = ZT, y = mean_norm, group = subclass_name, color = subclass_name) +
     geom_line(linewidth = 2) +
@@ -107,87 +108,30 @@ for (gene_to_plot in known_circadian_genes) {
                   linewidth = 2, width = 0.1) +
     geom_point(size = 5) +
     scale_color_manual(values = subclass_colors) +
-    labs(title = glue('{gene_to_plot} in SE'),
+    labs(title = glue('{current_gene}'),
          y = 'Normalized expression') +
     theme(
       legend.position = 'none',
       axis.text.x = element_text(size = 12, angle = 30),
       axis.title.y = element_text(size = 12),
       axis.title.x = element_blank(),
-      plot.title = element_text(size = 12, hjust = 0.5)
+      plot.title = element_text(size = 12, hjust = 0.5, face = 'italic')
     )
-  print(p)
+  plots <- append(plots, list(p))
   
   if (SAVE_PLOTS) {
-    save_path <- "05-results/MOTH/raw_R_plots/4_subclass_plots"
+    save_path <- "05-results/Figure5/raw_R_plots/4_subclass_plots"
     ggsave(plot = p,  # png
-           filename = glue('inset__{gene_to_plot}.png'),
+           filename = glue('inset__{current_gene}.png'),
            path = save_path,
            width = 4, height = 4, units = 'in', dpi = 900, bg = 'white')
     ggsave(plot = p + LoadBarebonesTheme(ticks = 'y'),  # svg
-           filename = glue('inset_{gene_to_plot}.svg'),
+           filename = glue('inset_{current_gene}.svg'),
            path = save_path,
            width = 5, height = 5, units = 'in')
   }
 }
 
-
-# facet plots (subclass) ----------------------------------------
-known_circadian_genes <- c(
-  'Per1', 'Per2', 'Per3', 'Clock', 'Bmal1', 'Cry1', 'Cry2',
-  'Nr1d1', 'Nr1d2', 'Hif3a', 'Thbs3', 'Hspa5', 'Fkbp5'
-)
-
-subclasses <- c(
-  '016 CA1-ProS Glut',
-  # '017 CA3 Glut',
-  '037 DG Glut',
-  '319 Astro-TE NN',
-  # '326 OPC NN',
-  '327 Oligo NN'
-  # '334 Microglia NN'
-)
-
-for (subclass in subclasses) {
-  nuclei_tmp <- nuclei |>
-    subset(subclass_name == subclass & activity_condition %in% c('SE'))
-
-  mat_circadian <- GetAssayData(nuclei_tmp)
-  mat_circadian <- mat_circadian[LoadGeneList("IEG"),] |> t()
-  nuclei_tmp@meta.data <- nuclei_tmp@meta.data |>
-    mutate(ZT.collection = case_when(
-      (ZT == 'ZT0' & activity_condition == 'EE6h') ~ 'ZT6',
-      (ZT == 'ZT4' & activity_condition == 'EE6h') ~ 'ZT10',
-      (ZT == 'ZT12' & activity_condition == 'EE6h') ~ 'ZT18',
-      (ZT == 'ZT16' & activity_condition == 'EE6h') ~ 'ZT22',
-      TRUE ~ ZT
-    )) |>
-    mutate(ZT.collection = factor(ZT.collection,
-                                  levels = c('ZT0', 'ZT4', 'ZT6', 'ZT10', 'ZT12', 'ZT16', 'ZT18', 'ZT22')))
-
-  # merge circadian gene expression with cell metadata
-  df_circadian <- as.matrix(mat_circadian) |>
-    as.data.frame() |>
-    rownames_to_column(var = 'barcode') |>
-    as_tibble() |>
-    right_join(nuclei_tmp@meta.data) |>
-    tidyr::pivot_longer(cols = all_of(LoadGeneList("IEG")), names_to = 'gene', values_to = 'expression')
-
-  p <- df_circadian |>
-    calc_sem('expression', c('ZT', 'gene')) |>
-  ggplot() +
-    aes(x = ZT, y = expression, group = gene) +
-    geom_line(linewidth = 2) +
-    geom_errorbar(aes(ymin = expression-sem, ymax = expression+sem), linewidth = 2, width = 0.1) +
-    geom_point() +
-    facet_wrap(~gene, scales = 'free_y') +
-    labs(title = subclass) +
-    theme(
-      strip.text = element_text(size = 30),
-      axis.title = element_blank(),
-      axis.text = element_text(size = 20),
-      plot.title = element_text(size = 30)
-    )
-  print(p)
-}
+p <- Reduce(`+`, plots) + plot_layout(nrow = 1, )
+p
 ## ----

@@ -7,7 +7,7 @@
 source('03-scripts/R/seq_functions.R')
 
 # ---- load data ----
-nuclei <- LoadDataset('Dec2024')
+if (!exists('nuclei')) {nuclei <- LoadDataset('Dec2024')}
 
 activity_colors <- LoadActivityColors('Dec2024')
 subclass_colors <- LoadAllenColors('subclass')
@@ -82,7 +82,7 @@ subclass_colors_present <- subclass_colors[present_subclasses]
 zt_colors_present <- zt_colors[present_zt]
 
 # Build plots
-plots <- list()
+plots_omnibus <- list()
 
 p_by_subclass <- DimPlot(
   nuclei_combined,
@@ -95,11 +95,11 @@ p_by_subclass <- DimPlot(
 ) +
   scale_color_manual(values = subclass_colors_present, drop = FALSE) +
   theme_minimal() +
-  labs(title = 'Union circadian DEGs (all subclasses together) — colored by subclass', x = '', y = '') +
+  labs(title = 'Subclasses', x = '', y = '') +
   theme(
     panel.grid = element_blank(),
     axis.text = element_blank(),
-    legend.position = 'none'
+    # legend.position = 'none'
   )
 
 p_by_zt <- DimPlot(
@@ -113,23 +113,24 @@ p_by_zt <- DimPlot(
 ) +
   scale_color_manual(values = zt_colors_present, drop = FALSE) +
   theme_minimal() +
-  labs(title = 'Union circadian DEGs (all subclasses together) — colored by ZT', x = '', y = '') +
+  labs(title = 'ZT', x = '', y = '') +
   theme(
     panel.grid = element_blank(),
     axis.text = element_blank(),
-    legend.position = 'none'
+    # legend.position = 'none'
   )
 
-print(p_by_subclass)
-print(p_by_zt)
+# print(p_by_subclass)
+# print(p_by_zt)
+plots_omnibus[['by_subclass']] <- p_by_subclass
+plots_omnibus[['by_ZT']] <- p_by_zt
 
-plots[['by_subclass']] <- p_by_subclass
-plots[['by_ZT']] <- p_by_zt
 
-# ---- subclass-highlighted UMAPs (color by ZT for one subclass; others grey) ----
-# Approach: create a masked metadata column where non-target cells are labeled 'Other'.
+# ---- plot UMAPs
+plots <- list()
 for (sub in target_subclasses) {
-  # Mask ZT for non-target subclasses
+  # create a masked metadata column where non-target cells are labeled 'Other'.
+  # this is to non-target subclass grey in the plot
   nuclei_combined$ZT_masked <- ifelse(
     nuclei_combined$subclass_name == sub,
     as.character(nuclei_combined$ZT),
@@ -156,24 +157,26 @@ for (sub in target_subclasses) {
   ) +
     scale_color_manual(values = color_map, drop = FALSE) +
     theme_minimal() +
-    labs(title = glue('{sub} highlighted (ZT); others grey'), x = '', y = '') +
+    labs(title = group_stem[[sub]], x = '', y = '') +
     theme(
       panel.grid = element_blank(),
       axis.text = element_blank(),
-      legend.position = 'none'
+      plot.title = element_text(hjust = 0.5)
     )
 
-  print(p_masked)
   plots[[glue('highlight__{sub}')]] <- p_masked
 }
 
+p <- Reduce(`+`, plots) + plot_layout(ncol = 2, guides = 'collect')
+p
+
 # ---- save ----
-if (exists('SAVE_PLOTS') && isTRUE(SAVE_PLOTS)) {
-  save_path <- '05-results/NEWT/raw_R_plots'  # reuse existing folder
-  ggsave(path = save_path, filename = 'UMAP_DEG-embedding_omnibus__by-subclass.png', plot = plots[['by_subclass']], width = 9, height = 9, dpi = 900)
-  ggsave(path = save_path, filename = 'UMAP_DEG-embedding_omnibus__by-subclass.svg', plot = plots[['by_subclass']], width = 9, height = 9)
-  ggsave(path = save_path, filename = 'UMAP_DEG-embedding_omnibus__by-ZT.png', plot = plots[['by_ZT']], width = 9, height = 9, dpi = 900)
-  ggsave(path = save_path, filename = 'UMAP_DEG-embedding_omnibus__by-ZT.svg', plot = plots[['by_ZT']], width = 9, height = 9)
+if (exists('SAVE_PLOTS') & SAVE_PLOTS==T) {
+  save_path <- '05-results/Figure5/raw_R_plots'  # reuse existing folder
+  ggsave(path = save_path, filename = 'UMAP_DEG-embedding_omnibus__by-subclass.png', plot = plots_omnibus[['by_subclass']], width = 9, height = 9, dpi = 900)
+  ggsave(path = save_path, filename = 'UMAP_DEG-embedding_omnibus__by-subclass.svg', plot = plots_omnibus[['by_subclass']], width = 9, height = 9)
+  ggsave(path = save_path, filename = 'UMAP_DEG-embedding_omnibus__by-ZT.png', plot = plots_omnibus[['by_ZT']], width = 9, height = 9, dpi = 900)
+  ggsave(path = save_path, filename = 'UMAP_DEG-embedding_omnibus__by-ZT.svg', plot = plots_omnibus[['by_ZT']], width = 9, height = 9)
 
   # Save subclass-highlighted versions
   for (sub in target_subclasses) {
@@ -183,6 +186,4 @@ if (exists('SAVE_PLOTS') && isTRUE(SAVE_PLOTS)) {
     ggsave(path = save_path, filename = paste0(fname_base, '.svg'), plot = plots[[key]], width = 9, height = 9)
   }
 }
-
-print(glue('Script {basename(sys.frame(1)$ofile)} complete!'))
 ## ----
