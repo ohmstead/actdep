@@ -57,6 +57,22 @@ knitr::read_chunk("03-scripts/figures/Figure1E-H.R")
 knitr::read_chunk("03-scripts/figures/Figure2A-B.R")
 knitr::read_chunk("03-scripts/figures/Figure2C-E.R")
 knitr::read_chunk("03-scripts/figures/Figure2F-G.R")
+
+knitr::read_chunk("03-scripts/figures/Figure3AEI.R")
+knitr::read_chunk("03-scripts/figures/Figure3BFJ.R")
+knitr::read_chunk("03-scripts/figures/Figure3CGK.R")
+knitr::read_chunk("03-scripts/figures/Figure3DHL.R")
+
+knitr::read_chunk("03-scripts/figures/Figure4A-B.R")
+knitr::read_chunk("03-scripts/figures/Figure4C.R")
+knitr::read_chunk("03-scripts/figures/Figure4D-E.R")
+knitr::read_chunk("03-scripts/figures/Figure4F.R")
+
+knitr::read_chunk("03-scripts/figures/Figure5A.R")
+knitr::read_chunk("03-scripts/figures/Figure5B-E_heatmaps.R")
+knitr::read_chunk("03-scripts/figures/Figure5B-E_umaps.R")
+
+knitr::read_chunk("03-scripts/figures/Figure6A-J.R")
 ```
 ```{r Fig1B}
 #| fig-cap: "Figure 1B"
@@ -75,4 +91,40 @@ knitr::read_chunk("03-scripts/figures/Figure2F-G.R")
 ```
 ```{r Fig2F-G}
 #| fig-cap: "Figure 2F-G"
+```
+```{r Fig3AEI}
+#| fig-cap: "Figure 3A, E, I"
+```
+```{r Fig3BFJ}
+#| fig-cap: "Figure 3B, F, J"
+```
+```{r Fig3CGK}
+#| fig-cap: "Figure 3C, G, K"
+```
+```{r Fig3DHL}
+#| fig-cap: "Figure 3D, H, L"
+```
+```{r Fig4A-B}
+#| fig-cap: "Figure 4A-B"
+```
+```{r Fig4C}
+#| fig-cap: "Figure 4C"
+```
+```{r Fig4D-E}
+#| fig-cap: "Figure 4D-E"
+```
+```{r Fig4F}
+#| fig-cap: "Figure 4F"
+```
+```{r Fig5A}
+#| fig-cap: "Figure 5A"
+```
+```{r Fig5B-E_hm}
+#| fig-cap: "Figure 5B-E Heatmaps"
+```
+```{r Fig5B-E_umap}
+#| fig-cap: "Figure 5B-E UMAPs"
+```
+```{r Fig6A-J}
+#| fig-cap: "Figure 6A-J"
 ```
