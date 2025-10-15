@@ -51,34 +51,39 @@ for (celltype in names(csv_results)) {
     scale_y_continuous(breaks = seq(0, ceiling(max(-log10(df$padj), na.rm = TRUE)), by = 5)) +
     theme(
       legend.position = 'none',
-      plot.title = element_text(hjust = 0.5, size = 20, face = 'bold'),
+      plot.title = element_text(hjust = 0.5, size = 15),
       axis.title = element_text(size = 15),
       # remove minor gridlines
       panel.grid.minor = element_blank(),
     )
-  print(p)
+  # print(p)
   
   plots[[celltype]] <- p
 }
 
+p <- Reduce(`+`, plots) + plot_layout(nrow = 1)
+print(p)
+
 
 # save ----------------------------------------
-save_path = "05-results/CROW/raw_R_plots"
-for (celltype in names(plots)) {
-  # png
-  ggsave(
-    filename = glue("Volcano__{celltype}_EE30m_vs_SE.png"),
-    plot = plots[[celltype]],
-    path = save_path,
-    width = 6, height = 4, dpi = 300
-  )
-  
-  # svg
-  svgsave(
-    filename = glue("Volcano_{celltype}_EE30m_vs_SE.svg"),
-    plot = plots[[celltype]] + LoadBarebonesTheme(ticks = 'both'),
-    path = save_path,
-    width = 9, height = 3
-  )
+if (exists('SAVE_PLOTS') & SAVE_PLOTS) {
+  save_path = "05-results/Figure3/raw_R_plots"
+  for (celltype in names(plots)) {
+    # png
+    ggsave(
+      filename = glue("Volcano__{celltype}_EE30m_vs_SE.png"),
+      plot = plots[[celltype]],
+      path = save_path,
+      width = 6, height = 4, dpi = 300
+    )
+    
+    # svg
+    svgsave(
+      filename = glue("Volcano_{celltype}_EE30m_vs_SE.svg"),
+      plot = plots[[celltype]] + LoadBarebonesTheme(ticks = 'both'),
+      path = save_path,
+      width = 9, height = 3
+    )
+  }
 }
 ## ----

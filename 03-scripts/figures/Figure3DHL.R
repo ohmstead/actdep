@@ -3,13 +3,13 @@ source('03-scripts/R/seq_functions.R')
 
 activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors("subclass")
-save_path <- "05-results/CROW/raw_R_plots"
+save_path <- "05-results/Figure3/raw_R_plots"
 
 
 # establish subclasses to use ----------------------------------------
 print('Subsetting Seurat object...')
 gigaclasses <- LoadSubclassesToUse(nuclei, as_gigaclasses = T)
-seurat_gigaclass <- LoadDataset("Dec2024", as_gigaclasses = T)
+if(!exists('seurat_gigaclass')) {seurat_gigaclass <- LoadDataset("Dec2024", as_gigaclasses = T)}
 
 ieg_symbols <- c(LoadGeneList('IEG'), 'Rn7sk', 'Midn', 
                  'Etv1', 'Rcan2', 'Hs3st2',
@@ -23,9 +23,10 @@ my_theme <- theme_bw() +
     axis.title = element_blank(),
     axis.text.x = element_blank(),
   )
+plots <- list()
 
 # excitatory plots ----------------------------------------
-genes_to_plot <- c('Rcan2', 'Hs3st2', 'Rn7sk', 'Etv1')
+genes_to_plot <- c('Hs3st2', 'Rcan2')
 df_expression <- read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/0_df_expression_excitatory.csv")
 for (gene_to_plot in genes_to_plot) {
   # make ggplots
@@ -39,7 +40,7 @@ for (gene_to_plot in genes_to_plot) {
     labs(title = gene_to_plot) +
     theme_classic() +
     theme(axis.text.x = element_text(angle=30, hjust=1))
-  print(p1)
+  # print(p1)
   
   # make VlnPlot
   seurat_gigaclass$excitatory$subclass_name <- factor(seurat_gigaclass$excitatory$subclass_name, 
@@ -49,8 +50,12 @@ for (gene_to_plot in genes_to_plot) {
     VlnPlot(gene_to_plot, group.by = 'subclass_name', split.by = 'activity_condition') +
     scale_fill_manual(values = activity_colors) +
     theme_classic() +
-    theme(axis.text.x = element_text(angle=30, hjust=1))
-  print(p2)
+    theme(
+      axis.text.x = element_text(angle=30, hjust=1),
+      axis.title = element_blank()
+    )
+  # print(p2)
+  plots <- c(plots, list(p2))
   
   # png
   if (exists('SAVE_PLOTS') & SAVE_PLOTS == T) {
@@ -77,7 +82,7 @@ for (gene_to_plot in genes_to_plot) {
 
 
 # inhibitory plots ----------------------------------------
-genes_to_plot <- c('Tac1', 'Socs2', 'Daam2', 'Akap5', 'Frmd6', 'Crhbp', 'Gm49673', 'Rn7sk')
+genes_to_plot <- c('Tac1', 'Crhbp')
 df_expression <- read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/0_df_expression_inhibitory.csv")
 for (gene_to_plot in genes_to_plot) {
   # make ggplots
@@ -91,7 +96,7 @@ for (gene_to_plot in genes_to_plot) {
     labs(title = gene_to_plot) +
     theme_classic() +
     theme(axis.text.x = element_text(angle=30, hjust=1))
-  print(p1)
+  # print(p1)
   
   # make VlnPlot
   seurat_gigaclass$inhibitory$subclass_name <- factor(seurat_gigaclass$inhibitory$subclass_name, 
@@ -101,9 +106,12 @@ for (gene_to_plot in genes_to_plot) {
     VlnPlot(gene_to_plot, group.by = 'subclass_name', split.by = 'activity_condition') +
     scale_fill_manual(values = activity_colors) +
     theme_classic() +
-    theme(axis.text.x = element_text(angle=30, hjust=1),
-          legend.position = 'none')
-  print(p2)
+    theme(
+      axis.text.x = element_text(angle=30, hjust=1),
+      axis.title = element_blank()
+    )
+  # print(p2)
+  plots <- c(plots, list(p2))
   
   # png
   if (exists('SAVE_PLOTS') & SAVE_PLOTS == T) {
@@ -130,7 +138,7 @@ for (gene_to_plot in genes_to_plot) {
 
 
 # glia plots ----------------------------------------
-genes_to_plot <- c('Map3k19', 'Slco1c1', 'Kcnn2', 'Rn7sk')
+genes_to_plot <- c('Map3k19', 'Slco1c1')
 df_expression <- read_csv("04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/0_df_expression_glia.csv")
 for (gene_to_plot in genes_to_plot) {
   # make ggplots
@@ -144,7 +152,7 @@ for (gene_to_plot in genes_to_plot) {
     labs(title = gene_to_plot) +
     theme_classic() +
     theme(axis.text.x = element_text(angle=30, hjust=1))
-  print(p1)
+  # print(p1)
   
   # make VlnPlot
   seurat_gigaclass$glia$subclass_name <- factor(seurat_gigaclass$glia$subclass_name, 
@@ -154,8 +162,12 @@ for (gene_to_plot in genes_to_plot) {
     VlnPlot(gene_to_plot, group.by = 'subclass_name', split.by = 'activity_condition') +
     scale_fill_manual(values = activity_colors) +
     theme_classic() +
-    theme(axis.text.x = element_text(angle=30, hjust=1))
-  print(p2)
+    theme(
+      axis.text.x = element_text(angle=30, hjust=1),
+      axis.title = element_blank()
+    )
+  # print(p2)
+  plots <- c(plots, list(p2))
   
   # png
   if (exists('SAVE_PLOTS') & SAVE_PLOTS == T) {
@@ -179,4 +191,7 @@ for (gene_to_plot in genes_to_plot) {
            width = 4, height = 2)
   }
 }
+
+p <- Reduce('+', plots) + plot_layout(ncol = 2)
+print(p)
 ## ----

@@ -95,12 +95,12 @@ for (gigaclass_str in names(gigaclasses)) {
   plots_tau[[paste(gigaclass_str, 'ERG', sep = "_")]] <- p
 }
 
-InteractiveComplexHeatmap::htShiny(plots_tau[[2]])
+# InteractiveComplexHeatmap::htShiny(plots_tau[[2]])
 
 
 # save ----------------------------------------
-if (SAVE_PLOTS){
-  save_dir <- "05-results/CROW/raw_R_plots"
+if (exists('SAVE_PLOTS') & SAVE_PLOTS) {
+  save_dir <- "05-results/Figure3/raw_R_plots"
   for (current_plot in names(plots_tau)) {
     p <- plots_tau[[current_plot]]
     plot_path <- glue("{save_dir}/PNG_{current_plot}.png")

@@ -4,7 +4,6 @@ source('03-scripts/R/seq_functions.R')
 
 library(InteractiveComplexHeatmap)
 library(ComplexHeatmap)
-library(readxl)
 
 activity_colors <- LoadActivityColors("Dec2024")
 subclass_colors <- LoadAllenColors("subclass")
@@ -13,7 +12,6 @@ subclass_colors <- LoadAllenColors("subclass")
 # establish subclasses to use ----------------------------------------------------
 print('Subsetting Seurat object...')
 gigaclasses <- LoadSubclassesToUse(nuclei, as_gigaclasses = T)
-# seurat_gigaclasses <- LoadDataset('Dec2024', as_gigaclass = T)
 
 # loop thru sets of subclasses
 plots <- list()
@@ -76,7 +74,7 @@ for (gigaclass_str in names(gigaclasses)) {
     condition           = c('EE30m', 'EE6h')
     # seriation           = I(list(erg_seriation, lrg_seriation))
     )
-  for (k in 1:2) { # ERG/LRG
+  for (k in 1:1) { # set to 1:2 for ERG and LRG
     looping <- df_looping[k,]
     plotting_matrix <- mat[[k]]
     
@@ -156,12 +154,12 @@ for (gigaclass_str in names(gigaclasses)) {
       top_annotation = top_annotation,
       bottom_annotation = bottom_annotation,
       height = unit(7.5*length(subclass_list), 'mm'),
-      show_row_names = F,
+      show_row_names = T,
       show_column_names = F,
       show_heatmap_legend = F,
       use_raster = F,
     )
-    draw(p, heatmap_legend_side = 'bottom')
+    # draw(p, heatmap_legend_side = 'bottom')
     plots <- c(plots, list(p)) # add to list of plots
   } # ERG/LRG loop
 } # gigaclass loop
@@ -173,24 +171,18 @@ for (gigaclass_str in names(gigaclasses)) {
 if (SAVE_PLOTS) {
   print('Saving plots...')
   
-  save_dir <- "05-results/NEWT/raw_R_plots/"
+  save_dir <- "05-results/Figure3/raw_R_plots/"
   file_str <- "DGE-heatmap_all_subclasses_pseudobulk_"
   file_path <- paste0(save_dir, file_str)  
   # as PNG
   png(paste0(file_path, 'ERG_Ex.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[1]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_path, 'ERG_In.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[3]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_path, 'ERG_Gl.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[5]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_path, 'LRG_Ex.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[2]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_path, 'LRG_In.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[4]], heatmap_legend_side = 'bottom'); dev.off()
-  png(paste0(file_path, 'LRG_Gl.png'), width = 5, height = 5, units = "in", res = 900); draw(plots[[6]], heatmap_legend_side = 'bottom'); dev.off()
+  png(paste0(file_path, 'ERG_In.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[2]], heatmap_legend_side = 'bottom'); dev.off()
+  png(paste0(file_path, 'ERG_Gl.png'), width = 8, height = 5, units = "in", res = 900); draw(plots[[3]], heatmap_legend_side = 'bottom'); dev.off()
   
   # as SVG
   svgsave(plot = plots[[1]], filename = glue('{file_str}_ERG_Ex.svg'), path = save_dir, width = 8, height = 5)
-  svgsave(plot = plots[[3]], filename = glue('{file_str}_ERG_In.svg'), path = save_dir, width = 8, height = 5)
-  svgsave(plot = plots[[5]], filename = glue('{file_str}_ERG_Gl.svg'), path = save_dir, width = 8, height = 5)
-  svgsave(plot = plots[[2]], filename = glue('{file_str}_LRG_Ex.svg'), path = save_dir, width = 5, height = 5)
-  svgsave(plot = plots[[4]], filename = glue('{file_str}_LRG_In.svg'), path = save_dir, width = 5, height = 5)
-  svgsave(plot = plots[[6]], filename = glue('{file_str}_LRG_Gl.svg'), path = save_dir, width = 5, height = 5)
+  svgsave(plot = plots[[2]], filename = glue('{file_str}_ERG_In.svg'), path = save_dir, width = 8, height = 5)
+  svgsave(plot = plots[[3]], filename = glue('{file_str}_ERG_Gl.svg'), path = save_dir, width = 8, height = 5)
 }
 
 print(glue("Script {basename(sys.frame(1)$ofile)} complete!"))
