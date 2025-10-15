@@ -1,3 +1,4 @@
+## ----Fig5B-E_umap
 # This script embeds ALL selected nuclei together in a single Seurat object
 # using the UNION of circadian DEGs across subclasses (ZT in SE pseudobulk).
 # Outputs six UMAPs: one colored by subclass, one by ZT.
@@ -184,3 +185,4 @@ if (exists('SAVE_PLOTS') && isTRUE(SAVE_PLOTS)) {
 }
 
 print(glue('Script {basename(sys.frame(1)$ofile)} complete!'))
+## ----

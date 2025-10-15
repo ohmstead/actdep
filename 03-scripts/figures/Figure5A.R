@@ -1,3 +1,4 @@
+## ----Fig5A
 # This script produces simple plots of Clock genes at different ZTs
 # as part of figure MOTH.
 
@@ -189,3 +190,4 @@ for (subclass in subclasses) {
     )
   print(p)
 }
+## ----
