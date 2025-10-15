@@ -9,7 +9,7 @@ library(circlize)
 
 source('03-scripts/R/seq_functions.R')
 
-nuclei <- LoadDataset("Dec2024")
+if (!exists('nuclei')) {nuclei <- LoadDataset("Dec2024")}
 zt_colors <- LoadZTColors()
 activity_colors <- LoadActivityColors()
 
@@ -67,6 +67,8 @@ for (subclass in names(seurat_subsets)) {
   dds_subsets[[subclass]] <- dds
 }
 
+
+plots <- list()
 
 # IEG hm ----------------------------------------
 genes_to_plot <- LoadGeneList('IEG')
@@ -152,17 +154,17 @@ for (subclass in names(dds_subsets)) {
     cluster_rows = FALSE,
     cluster_columns = FALSE,
     column_title = subclass,
-    column_title_gp = gpar(fontsize = 18, fontface = 'bold'),
+    column_title_gp = gpar(fontsize = 18),
     column_names_rot = 45,
     rect_gp = gpar(col = 'black', lwd = 0.5),
     width = hm_w,
     height = hm_h,
-    show_heatmap_legend = F,
+    show_heatmap_legend = T,
     ) + bar_anno
-  print(p)
+  plots <- c(plots, list(p))
   
   if (SAVE_PLOTS) {
-    save_dir <- "05-results/ORCA/raw_R_plots"
+    save_dir <- "05-results/Figure6/raw_R_plots"
     
     # add 15% to height and width for saving
     save_h <- unit(nrow(mat) * cell_dim * 1.15, "cm")
@@ -266,17 +268,17 @@ for (subclass in names(dds_subsets)) {
     cluster_rows = FALSE,
     cluster_columns = FALSE,
     column_title = subclass,
-    column_title_gp = gpar(fontsize = 18, fontface = 'bold'),
+    column_title_gp = gpar(fontsize = 18),
     column_names_rot = 45,
     rect_gp = gpar(col = 'black', lwd = 0.5),
     width = hm_w,
     height = hm_h,
-    show_heatmap_legend = F,
+    show_heatmap_legend = T,
   ) + bar_anno
-  print(p)
+  plots <- c(plots, list(p))
   
   if (SAVE_PLOTS) {
-    save_dir <- "05-results/ORCA/raw_R_plots"
+    save_dir <- "05-results/Figure6/raw_R_plots"
     
     # add 15% to height and width for saving
     save_h <- unit(nrow(mat) * cell_dim * 1.15, "cm")
@@ -385,17 +387,17 @@ for (subclass in names(gene_lists)) {
     cluster_rows = FALSE,
     cluster_columns = FALSE,
     column_title = subclass,
-    column_title_gp = gpar(fontsize = 18, fontface = 'bold'),
+    column_title_gp = gpar(fontsize = 18),
     column_names_rot = 45,
     rect_gp = gpar(col = 'black', lwd = 0.5),
     width = hm_w,
     height = hm_h,
-    show_heatmap_legend = F,
+    show_heatmap_legend = T,
   ) + bar_anno
-  print(p)
+  plots <- c(plots, list(p))
   
   if (SAVE_PLOTS) {
-    save_dir <- "05-results/ORCA/raw_R_plots"
+    save_dir <- "05-results/Figure6/raw_R_plots"
     
     # add 15% to height and width for saving
     save_h <- unit(nrow(mat) * cell_dim * 1.2, "cm")
@@ -414,4 +416,9 @@ for (subclass in names(gene_lists)) {
             width = as.numeric(save_w), height = as.numeric(save_h))
   }
 }
+
+plots[[1]] + plots[[2]] + plots[[3]] + plots[[4]]  # IEG hm
+plots[[5]] + plots[[6]] + plots[[7]] + plots[[8]]  # Clock hm
+plots[[9]]   # genomewide hm CA1
+plots[[10]]  # genomewide hm DG
 ## ----
