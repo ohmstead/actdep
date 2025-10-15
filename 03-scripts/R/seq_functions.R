@@ -157,7 +157,7 @@ LoadGeneList <- function(list_type = "IEG") {
         left_join(gene_biotypes, by = c('gene' = 'name')) |> 
         filter(biotype == 'lncRNA') |> 
         filter(chrom != 'mm39_X' & chrom != 'mm39_Y') |> 
-        filter(abs(log2FoldChange) > 0.585) |> 
+        filter(abs(log2FoldChange.shrink) > 0.585) |> 
         filter(padj < 0.05)
     )
   } else if (list_type == "tyssowski") {
