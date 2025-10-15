@@ -58,9 +58,10 @@ meta <- meta_merge |>
 
 
 # sankeys ----------------------------------------
+plots <- list()
 
 # class
-p <- meta |> 
+p1 <- meta |> 
   make_long(class_name.with, class_name.without) |> 
   mutate(x = fct_recode(
     x,
@@ -81,11 +82,12 @@ ggplot() +
     axis.text.y = element_blank()
     ) +
   labs(
-    title = 'ABC Class reassignment',
+    title = 'Class',
     x = '',
     y = ''
   )
-print(p)
+# print(p1)
+plots <- c(plots, list(p1))
 
 if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE){
     ggsave(plot = p,
@@ -99,7 +101,7 @@ if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE){
 }
 
 # subclass
-p <- meta |> 
+p2 <- meta |> 
   make_long(subclass_name.with, subclass_name.without) |> 
   mutate(x = fct_recode(
     x,
@@ -120,11 +122,12 @@ ggplot() +
     axis.text.y = element_blank()
     ) +
   labs(
-    title = 'ABC Subclass reassignment',
+    title = 'Subclass',
     x = '',
     y = ''
   )
-print(p)
+# print(p2)
+plots <- c(plots, list(p2))
 
 if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE){
     ggsave(plot = p,
@@ -166,12 +169,12 @@ for (celltype in names(subclass_list)) {
       axis.text.y = element_blank()
       ) +
     labs(
-      title = glue('ABC {celltype} Supertype reassignment'),
+      title = glue('{celltype} Supertype'),
       x = '',
       y = ''
     )
-  print(p)
-
+  plots <- c(plots, list(p))
+  
   if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE){
       ggsave(plot = p,
             filename = glue('reassignment_sankey_supertype_{celltype}.png'), 
@@ -206,11 +209,12 @@ for (celltype in names(subclass_list)) {
       axis.text.y = element_blank()
       ) +
     labs(
-      title = glue('ABC {celltype} Cluster reassignment'),
+      title = glue('{celltype} Cluster'),
       x = '',
       y = ''
     )
-  print(p)
+  # print(p)
+  plots <- c(plots, list(p))
 
   if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE){
       ggsave(plot = p,
@@ -223,4 +227,8 @@ for (celltype in names(subclass_list)) {
             width = 4, height = 8)
   }
 }
+
+# put all plots in list using plot_layout
+combined <- Reduce(`+`, plots)
+combined + plot_layout(nrow=1)
 ## ----

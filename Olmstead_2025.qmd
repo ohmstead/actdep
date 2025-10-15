@@ -10,6 +10,8 @@ format:
     number-sections: false
     colorlinks: true
     mainfont: 'Helvetica'
+    embed-resources: true
+    theme: lumen
 execute:
   warning: false
   message: false
@@ -42,6 +44,7 @@ funding: "The authors received no specific funding for this work."
 Test text for intro.
 
 ```{r setup}
+#| include: false
 source('03-scripts/R/seq_functions.R')
 SAVE_PLOTS <- F
 ```
@@ -50,6 +53,10 @@ SAVE_PLOTS <- F
 knitr::read_chunk("03-scripts/figures/Figure1B.R")
 knitr::read_chunk("03-scripts/figures/Figure1C-D.R")
 knitr::read_chunk("03-scripts/figures/Figure1E-H.R")
+
+knitr::read_chunk("03-scripts/figures/Figure2A-B.R")
+knitr::read_chunk("03-scripts/figures/Figure2C-E.R")
+knitr::read_chunk("03-scripts/figures/Figure2F-G.R")
 ```
 ```{r Fig1B}
 #| fig-cap: "Figure 1B"
@@ -59,4 +66,13 @@ knitr::read_chunk("03-scripts/figures/Figure1E-H.R")
 ```
 ```{r Fig1E-H}
 #| fig-cap: "Figure 1E-H"
+```
+```{r Fig2A-B}
+#| fig-cap: "Figure 2A-B"
+```
+```{r Fig2C-E}
+#| fig-cap: "Figure 2C-E"
+```
+```{r Fig2F-G}
+#| fig-cap: "Figure 2F-G"
 ```

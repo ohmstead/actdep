@@ -168,7 +168,6 @@ save_plots_if_requested(list(
 
 p <- pNum + pUMI + pGenes + pMt + pActivity + pSex + pSublib + pZT + 
   plot_layout(widths = c(10, 10, 10, 10, 3, 3, 3, 3, 3))
-print(p)
 save_plots_if_requested(list(
   list(
     plot = p,
@@ -290,7 +289,6 @@ pMt <- ggplot(meta) +
     axis.ticks.y = element_blank(),
   )
 p <- pNum + pSex + pUMI + pGenes + pMt + plot_layout(widths = c(5, 3, 25, 25, 10), nrow = 1)
-print(p)
 
 save_plots_if_requested(list(
   list(
@@ -324,30 +322,6 @@ pN <- meta |>
   )
 
 
-# # distro for reads ----------------------------------------------------------------------
-# # plot reads by class
-# pReads <- ggplot(meta) +
-#   aes(x = sample, y = mread_count, fill = class_name) +
-#   geom_violin() +
-#   geom_boxplot(width = 0.2, outliers = FALSE) +
-#   scale_y_log10(labels = scales::label_comma()) +
-#   scale_x_discrete() +
-#   facet_wrap(~class_name, 
-#              nrow = length(unique(meta$class_name)),
-#              scales = 'free_y') +
-#   my_theme + 
-#   theme(strip.text = element_text(size = 25),
-#         axis.text.x = element_blank(),
-#         axis.title.x = element_blank(),
-#         axis.title.y = element_blank())
-# 
-# pReads <- pReads / pN + plot_layout(heights = c(10, 1))
-# print(pReads)
-# ggsave('class_reads.png', 
-#        path = save_path,
-#        width = 9, height = 18, dpi = 600)
-
-
 # distro for UMIs ----------------------------------------------------------------------
 # plot reads by class
 pUMI <- ggplot(meta) +
@@ -366,7 +340,6 @@ pUMI <- ggplot(meta) +
         axis.title.y = element_blank())
 
 pUMI <- pUMI / pN + plot_layout(heights = c(10, 1))
-print(pUMI)
 
 
 # distro for genes ----------------------------------------------------------------------
@@ -387,7 +360,7 @@ pGenes <- ggplot(meta) +
         axis.title.y = element_blank())
 
 pGenes <- pGenes / pN + plot_layout(heights = c(10, 1))
-print(pGenes)
+
 save_plots_if_requested(list(
   list(
     plot = pUMI,

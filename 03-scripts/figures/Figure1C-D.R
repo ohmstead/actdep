@@ -34,8 +34,9 @@ p2 <- DimPlot(nuclei, reduction = "umap", group.by = "activity_condition", pt.si
     legend.position = 'none'
   )
 
-print(p1)
-print(p2)
+# print(p1)
+# print(p2)
+p1 + p2
 
 # ---- save plot ----
 if (SAVE_PLOTS) {

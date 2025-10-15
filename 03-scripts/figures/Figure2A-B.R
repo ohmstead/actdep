@@ -36,7 +36,6 @@ CA1_30m <- ggvenn(
   show_percentage = FALSE
 ) +
   theme(legend.position = "none")
-CA1_30m
 
 # DG 30m
 DG_30m <- ggvenn(
@@ -48,7 +47,6 @@ DG_30m <- ggvenn(
   show_percentage = FALSE
 ) +
   theme(legend.position = "none")
-DG_30m
 
 # CA1 6h
 CA1_6h <- ggvenn(
@@ -60,7 +58,6 @@ CA1_6h <- ggvenn(
   show_percentage = FALSE
 ) +
   theme(legend.position = "none")
-CA1_6h
 
 # DG 6h
 DG_6h <- ggvenn(
@@ -72,7 +69,9 @@ DG_6h <- ggvenn(
   show_percentage = FALSE
 ) +
   theme(legend.position = "none")
-DG_6h
+
+p1 <- CA1_30m + CA1_6h + DG_30m + DG_6h + plot_layout(nrow=1)
+print(p1)
 
 # save plots
 if (exists("SAVE_PLOTS") & SAVE_PLOTS==TRUE) {

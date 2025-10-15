@@ -1,4 +1,4 @@
-## ----Fig 2C-D
+## ----Fig2C-E
 # This script plots UMAPs for each gigaclass, colored by activity_condition, subclass, and supertype.
 # It also plots, for each subclass, the supertype distribution in each activity_condition.
 source('03-scripts/R/seq_functions.R')
@@ -48,7 +48,7 @@ design <- "
 233
 "
 p_UMAPs <- p1+p2+p3 + plot_layout(design = design, widths = c(1,0.75,0.75))
-print(p_UMAPs)
+# print(p_UMAPs)
 
 if (SAVE_PLOTS) {
   # png
@@ -89,7 +89,8 @@ ggplot() +
     axis.text.x = element_text(angle=30,hjust=1),
     legend.position = 'none'
   )
-print(p1)
+# print(p1)
+p_UMAPs
 
 # cluster by condition ------------------------------------------------
 # excitatory
@@ -101,8 +102,12 @@ ggplot() +
   facet_wrap(~subclass_name, nrow = 1) +
   scale_fill_manual(values = cluster_colors) +
   labs(x = '', y = 'Cluster proportion') +
-  theme(legend.position = 'none')
-print(p2)
+  theme(
+    legend.position = 'none',
+    axis.text.x = element_text(angle=30,hjust=1),)
+# print(p2)
+
+p1 + p2 + plot_layout(nrow = 1, widths = c(4,1))
 
 
 # save ----------------------------------------

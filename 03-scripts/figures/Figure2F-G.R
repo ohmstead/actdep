@@ -1,4 +1,4 @@
-## ----Fig2F-G.R
+## ----Fig2F-G
 # This script will plot the expression of marker genes for dentate supertypes 
 # in different activity conditions.
 source('03-scripts/R/seq_functions.R')
