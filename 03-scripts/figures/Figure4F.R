@@ -59,6 +59,20 @@ SaveHMobject <- function(hm, save_path, plot_title) {
 
 # get supertypes --------------------------------------------
 IEG_symbols <- LoadGeneList("IEG")
+
+if (!exists('FindActiveCells_CA1_outputs')) {
+  FindActiveCells_CA1_outputs <- FindActiveCells(
+    nuclei, 
+    subclass = '016 CA1-ProS Glut', 
+    gene_list = IEG_symbols, 
+    gene_threshold = 3
+  )
+}
+df_active_cells_IEGs <- FindActiveCells_CA1_outputs$df_active_cells |> 
+  select(-activity_condition)  # redundant col for the merge
+  
+
+# plot supertypes --------------------------------------------
 supertypes <- c(
   "0069 CA1-ProS Glut_1",
   "0070 CA1-ProS Glut_2",
@@ -70,32 +84,25 @@ supertype_seurats <- supertypes |>
   set_names() |> 
   map(~ subset(nuclei, supertype_name == .x), .progress = F)
 
-output_vars <- FindActiveCells(nuclei, subclass = '016 CA1-ProS Glut', gene_list = IEG_symbols, gene_threshold = 3)
-
-# plot supertypes --------------------------------------------
 for (supertype in supertypes) {
   nuclei_supertype <- supertype_seurats[[supertype]]
   
   # let's get the active cells
-  df_active_cells <- output_vars$df_active_cells |> 
-    select(-activity_condition)  # redundant col for the merge
-  
   meta <- nuclei_supertype@meta.data |> 
-    left_join(output_vars$df_active_cells, by = c("barcode" = "cell")) |> 
+    left_join(df_active_cells_IEGs, by = c("barcode" = "cell")) |> 
     relocate(barcode)
   
   nuclei_supertype <- AddMetaData(nuclei_supertype, meta)
   
-  active_barcodes <- output_vars$df_active_cells |> 
+  active_barcodes <- df_active_cells_IEGs |> 
     filter(active_binary == TRUE) |>
     distinct(cell) |> 
     pull(cell)
   
   active_cells <- nuclei_supertype |> subset(barcode %in% active_barcodes)
-  # inactive_cells <- nuclei_supertype |> subset(barcode %in% active_barcodes, invert = TRUE)
   
   # ACTIVE cells
-  subset_cells_EE30m <- active_cells |> subset(activity_condition.x == 'EE30m')
+  subset_cells_EE30m <- active_cells |> subset(activity_condition == 'EE30m')
   mat_coexpression <- GetCorrData(subset_cells_EE30m,
                                   specific_condition = 'EE30m',
                                   gene_list = IEG_symbols)
@@ -106,123 +113,5 @@ for (supertype in supertypes) {
   draw(hm)
 
   SaveHMobject(hm, save_path, plot_title)
-  
-  # # INACTIVE cells
-  # subset_cells <- inactive_cells |> subset(activity_condition == condition)
-  # mat_coexpression <- GetCorrData(subset_cells,
-  #                                 specific_condition = condition,
-  #                                 gene_list = IEG_symbols)
-  
-  # plot_title <- glue("{supertype}__{condition}_inactive_cells") |> 
-  #   str_replace_all(' ', '_')
-  # hm <- MakeHMobject(mat_coexpression, plot_title) |> draw()
-  # SaveHMobject(hm, save_path, plot_title)
-  
-  # # ALL cells
-  # subset_cells <- nuclei_supertype |> subset(activity_condition == condition)
-  # mat_coexpression <- GetCorrData(subset_cells,
-  #                                 specific_condition = condition,
-  #                                 gene_list = IEG_symbols)
-  # plot_title <- glue("{supertype}__{condition}_all_cells") |> 
-  #   str_replace_all(' ', '_')
-  # hm <- MakeHMobject(mat_coexpression, plot_title) |> draw()
-  # SaveHMobject(hm, save_path, plot_title)
 }
-
-
-# # get clusters --------------------------------------------
-# # make list of seurat objects for each CA1 cluster
-# clusters <- nuclei@meta.data |> filter(subclass_name == '016 CA1-ProS Glut') |> 
-#   distinct(cluster_name) |> 
-#   pull(cluster_name)
-# cluster_seurats <- clusters |> 
-#   set_names() |> 
-#   map(~ subset(nuclei, cluster_name == .x), .progress = T)
-
-# # plot clusters --------------------------------------------
-# for (cluster in clusters) {
-#   nuclei_cluster <- cluster_seurats[[cluster]]
-#   save_path <- glue("05-results/LION/raw_R_plots/cluster_coexpression")
-  
-#   # let's find the active cells
-#   output_vars <- FindActiveCells(nuclei_cluster, gene_list = IEG_symbols, gene_threshold = 3)
-#   df_active_cells <- output_vars$df_active_cells |> 
-#     select(-activity_condition)  # redundant col for the merge
-  
-#   meta <- nuclei_cluster@meta.data |> 
-#     left_join(output_vars$df_active_cells, by = c("bc_wells" = "cell")) |> 
-#     relocate(bc_wells)
-  
-#   nuclei_cluster <- AddMetaData(nuclei_cluster, meta)
-  
-#   active_barcodes <- output_vars$df_active_cells |> 
-#     filter(active_binary == TRUE) |>
-#     distinct(cell) |> 
-#     pull(cell)
-  
-#   active_cells <- nuclei_cluster |> subset(bc_wells %in% active_barcodes)
-#   inactive_cells <- nuclei_cluster |> subset(bc_wells %in% active_barcodes, invert = TRUE)
-  
-#   for (condition in conditions) {
-#     tryCatch(
-#       {
-#         # ACTIVE cells
-#         subset_cells <- active_cells |> subset(activity_condition == condition)
-#         mat_coexpression <- GetCorrData(subset_cells,
-#                                         specific_condition = condition,
-#                                         gene_list = IEG_symbols)
-        
-#         plot_title <- glue("{cluster}__{condition}_active_cells") |> str_replace_all(' ', '_')
-#         hm <- MakeHMobject(mat_coexpression, plot_title)
-#         draw(hm)
-#         SaveHMobject(hm, save_path, plot_title)
-        
-#         # INACTIVE cells
-#         subset_cells <- inactive_cells |> subset(activity_condition == condition)
-#         mat_coexpression <- GetCorrData(subset_cells,
-#                                         specific_condition = condition,
-#                                         gene_list = IEG_symbols)
-        
-#         plot_title <- glue("{cluster}__{condition}_inactive_cells") |> str_replace_all(' ', '_')
-#         hm <- MakeHMobject(mat_coexpression, plot_title)
-#         draw(hm)
-#         SaveHMobject(hm, save_path, plot_title)
-        
-#         # ALL cells
-#         subset_cells <- nuclei_cluster |> subset(activity_condition == condition)
-#         mat_coexpression <- GetCorrData(subset_cells,
-#                                         specific_condition = condition,
-#                                         gene_list = IEG_symbols)
-#         plot_title <- glue("{supertype}__{condition}_all_cells") |> 
-#           str_replace_all(' ', '_')
-#         hm <- MakeHMobject(mat_coexpression, plot_title) |> draw()
-#         SaveHMobject(hm, save_path, plot_title)
-#       },
-#       error = function(e) {
-#         print(glue("{supertype}, condition {condition} has too few cells"))
-#       }
-#     )
-#   }
-# }
-
-
-# tmp <- nuclei |>
-#   subset(supertype_name == '0069 CA1-ProS Glut_1')
-
-# res <- FindActiveCells(tmp, gene_list = IEG_symbols, gene_threshold = 3)
-
-# df_active_cells <- res$df_active_cells |>
-#   select(-activity_condition) |>   # redundant col for the merge
-#   filter(num_upregd_genes == 4)  # only keep cells with at least 1 gene upregulated)
-
-# active_barcodes <- df_active_cells |>
-#   filter(active_binary == TRUE) |>
-#   distinct(cell) |>
-#   pull(cell)
-# tmp.subset <- tmp |>
-#   subset(bc_wells %in% active_barcodes)
-# tmp.mat <- GetCorrData(tmp.subset, specific_condition = 'SE', gene_list = IEG_symbols)
-
-# hm <- MakeHMobject(mat_coexpression, plot_title)
-# draw(hm)
 ## ----

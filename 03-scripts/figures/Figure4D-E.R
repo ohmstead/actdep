@@ -36,8 +36,15 @@ gene_list <- LoadGeneList("IEG")
 
 
 # find active cells ------------------------------------------------
-outputs <- FindActiveCells(nuclei, gene_list = gene_list, gene_threshold = 3)
-df_active_cells_IEGs <- outputs$df_active_cells |>
+if (!exists('FindActiveCells_CA1_outputs')) {
+  FindActiveCells_CA1_outputs <- FindActiveCells(
+    nuclei, 
+    subclass = '016 CA1-ProS Glut', 
+    gene_list = IEG_symbols, 
+    gene_threshold = 3
+  )
+}
+df_active_cells_IEGs <- FindActiveCells_CA1_outputs$df_active_cells |>
   pivot_longer(cols = c(num_upregd_genes:last_col(), -num_upregd_genes), names_to = "gene", values_to = "expression") |> 
   left_join(nuclei@meta.data, by = c("cell" = "barcode", "activity_condition" = "activity_condition")) |> 
   filter(subclass_name == '016 CA1-ProS Glut')
@@ -127,73 +134,12 @@ gt() |>  # Do NOT set rowname_col here
   print(p_supertypes_IEG)
 
 if (exists('SAVE_PLOTS') & SAVE_PLOTS == T) {
-  gtsave(gt_summary, "05-results/LION/raw_R_plots/CA1_supertypes_activation_table.png")
-  gtsave(gt_summary, "05-results/LION/raw_R_plots/CA1_supertypes_activation_table.pdf")
+  gtsave(gt_summary, "05-results/Figure4/raw_R_plots/CA1_supertypes_activation_table.png")
+  gtsave(gt_summary, "05-results/Figure4/raw_R_plots/CA1_supertypes_activation_table.pdf")
 }
 
-# p_CA1_supertypes_APaxis_IEG ------------------------------------------------
-p_CA1_supertypes_APaxis_IEG <- ca1_merfish |> 
-  group_by(z, supertype_id_label) |>  
-  summarise(n = n()) |> 
-  mutate(composition = n / sum(n)) |> 
-  arrange(z, supertype_id_label) |> 
-  left_join(df_supertype_active, by = c("supertype_id_label" = "supertype_name")) |> 
-  mutate(height = composition * fraction_active) |> 
-ggplot() +
-  geom_area(aes(x = z, y = height, fill = supertype_id_label), position = 'stack') +
-  geom_vline(xintercept = seq(7.5, 4.2, -0.2), color = 'white', linetype = 2, alpha = 0.3) +
-  scale_fill_manual(values = supertype_colors) +
-  scale_x_reverse() +
-  theme_void() +
-  theme(
-    # strip.text = element_text(size = 20, color = 'white'),
-    strip.text = element_blank(),
-    plot.title = element_blank(),
-    axis.text.x = element_blank(),
-    axis.text.y = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    legend.position = 'none',
-    legend.text = element_text(size = 20)
-  ) +
-  facet_wrap2(~activity_condition, strip = strip, nrow = 1)
-print(p_CA1_supertypes_APaxis_IEG)
-
-
-# p_CA1_supertypes_DVaxis_IEG ------------------------------------------------
-p_CA1_supertypes_DVaxis_IEG <- ca1_merfish |> 
-  mutate(ycut = cut(y, breaks = seq(2.9, 8.1, 0.2))) |> 
-  mutate(yy = as.numeric(substr(as.character(ycut), 2, 4))) |>   # change to number
-  group_by(yy, supertype_id_label) |> 
-  summarise(n = n()) |>
-  mutate(composition = n / sum(n)) |> 
-  arrange(yy, supertype_id_label) |> 
-  left_join(df_supertype_active, by = c("supertype_id_label" = "supertype_name")) |> 
-  mutate(height = composition * fraction_active) |>
-ggplot() +
-  geom_area(aes(x = yy, y = height, fill = supertype_id_label), position = 'stack') +
-  geom_vline(xintercept = seq(3, 8, 0.2), color = 'white', linetype = 2, alpha = 0.3) +
-  scale_fill_manual(values = supertype_colors) +
-  coord_flip() +
-  scale_x_reverse() +
-  theme_void() +
-  theme(
-    # strip.text = element_text(size = 20, color = 'white'),
-    strip.text = element_blank(),
-    plot.title = element_blank(),
-    axis.text.x = element_blank(),
-    axis.text.y = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    legend.position = 'none',
-    legend.text = element_text(size = 20)
-  ) +
-  facet_wrap2(~activity_condition, strip = strip, nrow = 1)
-print(p_CA1_supertypes_DVaxis_IEG)
-
-
 if (exists('SAVE_PLOTS') & SAVE_PLOTS == TRUE) {
-  save_plots <- "05-results/LION/raw_R_plots"
+  save_plots <- "05-results/Figure4/raw_R_plots"
   # png
   ggsave(plot = p_supertypes_IEG, 
          path = save_plots, 
