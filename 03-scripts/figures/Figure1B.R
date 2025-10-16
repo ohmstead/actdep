@@ -305,8 +305,8 @@ save_plots_if_requested(list(
 pN <- meta |> 
   group_by(sample) |> 
   summarize(n = n(),
-            ZT = first(ZT),
-            activity_condition = first(activity_condition)) |> 
+            ZT = dplyr::first(ZT),
+            activity_condition = dplyr::first(activity_condition)) |> 
   ggplot() +
   aes(x = sample, y = n) +
   geom_col() +
