@@ -100,7 +100,7 @@ gt(groupname_col = 'activity_condition', rowname_col = 'ZT', row_group_as_column
   opt_table_font(font = 'Helvetica')
   
 print(table_conditions)
-gtsave(path = '05-results/ZUPP_NEWT_sample_table/raw_R_plots/', 
+gtsave(path = '05-results/SuppTable1/raw_R_plots/', 
        filename = 'condition_table.png',
        table_conditions)
 
@@ -145,6 +145,6 @@ gt(groupname_col = 'activity_condition', row_group_as_column = T, rownames_to_st
   )
 print(tbl_sample)
 
-gtsave(path = '05-results/ZUPP_NEWT_sample_table/raw_R_plots/', 
+gtsave(path = '05-results/SuppTable1/raw_R_plots/', 
        filename = 'all_samples.png',
        tbl_sample)
