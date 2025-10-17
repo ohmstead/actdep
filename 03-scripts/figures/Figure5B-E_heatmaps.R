@@ -154,6 +154,11 @@ for (subclass in names(seurat_subsets)) {
     res_ZT16_vs_ZT4  |> mutate(contrast = "ZT16 vs ZT4")  |> filter(classification != 'no_change'),
     res_ZT16_vs_ZT12 |> mutate(contrast = "ZT16 vs ZT12") |> filter(classification != 'no_change')
   )
+
+  if (nrow(all_genes) == 0) {
+    message(glue("Skipping {subclass}: no DE genes identified for heatmap."))
+    next
+  }
   # write_csv(all_genes, glue("{deg_save_path}{subclass}_all_DEGs.csv"))
   
   # remove duplicates
@@ -163,7 +168,7 @@ for (subclass in names(seurat_subsets)) {
   
   # get DESeq-normalized expression
   counts_mat <- counts(dds, normalized = T)
-  gene_mat <- counts_mat[gene_list,] |> 
+  gene_mat <- counts_mat[gene_list, , drop = FALSE] |> 
     t() |> 
     as.data.frame() |> 
     rownames_to_column('sample') |> 
@@ -184,7 +189,7 @@ for (subclass in names(seurat_subsets)) {
   
   
   # get tau ----------------------------------------
-  df_expression_zt <- counts_mat[gene_list,] |> 
+  df_expression_zt <- counts_mat[gene_list, , drop = FALSE] |> 
     as.data.frame() |> 
     rownames_to_column('gene') |> 
     pivot_longer(cols = -gene, names_to = 'sample', values_to = 'expression') |> 
@@ -193,7 +198,7 @@ for (subclass in names(seurat_subsets)) {
     group_by(gene, ZT) |> 
     dplyr::summarize(expression = mean(expression), .groups = 'drop') |> 
     dplyr::mutate(tau = tau(expression), .by = gene) |> 
-    arrange(desc(tau)) |> 
+    arrange(dplyr::desc(tau)) |> 
     print()
   
   df_expression_zt |> 
@@ -220,8 +225,7 @@ for (subclass in names(seurat_subsets)) {
   
   # df for tau plot
   df_anno <- df_expression_zt |> 
-    group_by(gene, tau) |> 
-    summarize() |> 
+    distinct(gene, tau) |> 
     mutate(gene = factor(gene, levels = rownames(gene_mat_ordered))) |> 
     arrange(gene) |> 
     mutate(color = ifelse(tau > tau_thresh, anno_colors[1], 
