@@ -18,7 +18,7 @@ supertype_colors <- LoadAllenColors("supertype")
 
 
 # load MERFISH and metadata  ----------------------------------------
-allen_taxonomy <- read_excel("02-data/published_data/allen_taxonomy_metadata.xlsx")
+allen_taxonomy <- read_excel("02-data/published_data/Yao2023/allen_taxonomy_metadata.xlsx")
 allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv")
 meta_merfish <- read_csv("02-data/published_data/Zhang2023/cell_metadata.csv")
 
