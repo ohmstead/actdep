@@ -107,9 +107,6 @@ knitr::read_chunk("03-scripts/figures/Figure6A-J.R")
 ```{r Fig4A-B}
 #| fig-cap: "Figure 4A-B"
 ```
-```{r Fig4C}
-#| fig-cap: "Figure 4C"
-```
 ```{r Fig4D-E}
 #| fig-cap: "Figure 4D-E"
 ```
