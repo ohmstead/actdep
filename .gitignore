@@ -2,6 +2,8 @@
 02-data/*
 04-analysis/*
 03-scripts/junk_drawer/
+05-results/ALL
+07-publication/abstracts
 
 
 # include dummy files to track empty folders
@@ -52,8 +54,5 @@
 /.quarto/
 
 tmp.*
-/05-results/ALL
-APSA_abstract.html
 .gitignore
-APSA_abstract.qmd
 .positai
