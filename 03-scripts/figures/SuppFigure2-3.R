@@ -74,6 +74,7 @@ pUMI <- ggplot(meta) +
     axis.text.y = element_blank(),
     axis.text.x = element_text(size = 8, angle = 60, hjust = 1),
     axis.title.y = element_blank(),
+    panel.grid.major.y = element_blank(),
     legend.position = 'none'
   )
 
@@ -99,8 +100,10 @@ pGene <- ggplot(meta) +
     axis.text.y = element_blank(),
     axis.text.x = element_text(size = 8, angle = 60, hjust = 1),
     axis.title.y = element_blank(),
+    panel.grid.major.y = element_blank(),
     legend.position = 'none'
   )
+
 
 pGene_alone <- pZT + plot_spacer() + pN + pGene + plot_layout(widths = c(0.3, -0.28, 1.5, 10), axes='collect')
 
