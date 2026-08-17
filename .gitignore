@@ -53,3 +53,7 @@
 
 tmp.*
 /05-results/ALL
+APSA_abstract.html
+.gitignore
+APSA_abstract.qmd
+.positai
