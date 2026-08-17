@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACT-DEPP — Reviewer Response Roadmap</title>
+<style>
+  :root{
+    --bg:#fafaf8; --card:#ffffff; --ink:#1d1d1f; --muted:#6b6b70;
+    --line:#e3e3df; --accent:#2d5f8a;
+    --done:#1a7f4b; --done-bg:#e6f4ec;
+    --part:#b06a00; --part-bg:#fbf0dd;
+    --todo:#b3261e; --todo-bg:#fae9e8;
+    --rebut:#5a4a8a; --rebut-bg:#efeaf7;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);
+       margin:0;padding:32px 20px 80px;line-height:1.5;}
+  .wrap{max-width:920px;margin:0 auto;}
+  h1{font-size:25px;margin:0 0 4px;}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 20px;}
+  h2{font-size:17px;margin:34px 0 6px;padding-bottom:6px;border-bottom:2px solid var(--line);}
+  .sec-note{color:var(--muted);font-size:13px;margin:0 0 14px;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 8px;font-size:12px;}
+  .legend span{padding:3px 9px;border-radius:20px;font-weight:600;}
+  .summary{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin-bottom:8px;font-size:14px;}
+  .summary b{color:var(--accent);}
+  .item{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);
+        border-radius:8px;padding:13px 16px;margin:10px 0;display:flex;gap:12px;align-items:flex-start;}
+  .item.todo{border-left-color:var(--todo);}
+  .item.part{border-left-color:var(--part);}
+  .item.done{border-left-color:var(--done);}
+  .item.rebut{border-left-color:var(--rebut);}
+  .item input[type=checkbox]{width:18px;height:18px;margin-top:2px;flex:0 0 auto;accent-color:var(--accent);cursor:pointer;}
+  .body{flex:1;}
+  .row1{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:3px;}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.3px;color:#fff;background:var(--accent);padding:2px 7px;border-radius:4px;}
+  .fig{font-size:11px;font-weight:700;color:var(--accent);background:#e8eef5;border:1px solid #cfdcea;padding:2px 8px;border-radius:4px;}
+  .badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;}
+  .b-done{color:var(--done);background:var(--done-bg);}
+  .b-part{color:var(--part);background:var(--part-bg);}
+  .b-todo{color:var(--todo);background:var(--todo-bg);}
+  .b-rebut{color:var(--rebut);background:var(--rebut-bg);}
+  .title{font-weight:600;font-size:15px;}
+  .desc{font-size:13.5px;color:#333;margin:4px 0 0;}
+  .meta{font-size:12px;color:var(--muted);margin-top:6px;}
+  .meta code{background:#f1f1ee;padding:1px 5px;border-radius:4px;font-size:11.5px;}
+  .done .title{text-decoration:line-through;text-decoration-color:#9bbfa8;color:var(--muted);}
+  .notes-wrap{margin-top:9px;}
+  .notes-toggle{font-size:12px;font-weight:600;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;}
+  .notes-toggle:hover{text-decoration:underline;}
+  .notes-ta{display:none;width:100%;margin-top:6px;min-height:54px;resize:vertical;font:13px/1.45 -apple-system,Helvetica,Arial,sans-serif;
+            color:var(--ink);background:#fcfcfa;border:1px solid var(--line);border-radius:6px;padding:8px 10px;}
+  .notes-ta:focus{outline:none;border-color:var(--accent);background:#fff;}
+  .notes-wrap.open .notes-ta{display:block;}
+  .notes-saved{font-size:11px;color:var(--done);margin-left:8px;opacity:0;transition:opacity .2s;}
+  .notes-saved.show{opacity:1;}
+  .has-note .notes-toggle::after{content:" •";color:var(--part);font-weight:700;}
+  footer{margin-top:30px;font-size:12px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ACT-DEPP — Reviewer Response Roadmap</h1>
+  <p class="sub">Olmstead, King &amp; Bloodgood 2025 (eLife). Catalog of reviewer comments cross-checked against the latest manuscript (<code>Olmstead, King, &amp; Bloodgood 2025.docx</code>, May 17), <code>SUPPLEMENT.docx</code>, figure scripts, and results. Line numbers refer to the line-numbered submission PDF (<code>Olmstead, King, &amp; Bloodgood 2025.pdf</code>), matching what the reviewers cited. Generated 2026-06-02.</p>
+
+  <div class="summary">
+    <b>Bottom line:</b> 3 reviewer-response items are confirmed addressed in the manuscript. <b>9 items remain outstanding</b>, falling into three buckets: (1) two manuscript text edits the rebuttal claims are done but are <i>not</i> yet in the current docx; (2) four new analyses/figures, of which two already have draft analysis scripts that just need to be run, finalized, and inserted; (3) supplement assembly and filling the rebuttal letter's <code>(lines XXX)</code> placeholders.
+  </div>
+
+  <div class="legend">
+    <span class="b-todo">NOT STARTED</span>
+    <span class="b-part">DRAFTED / IN PROGRESS</span>
+    <span class="b-done">DONE</span>
+    <span class="b-rebut">REBUTTAL ONLY — no action</span>
+  </div>
+
+  <!-- ============ SECTION 1 ============ -->
+  <h2>1 · Manuscript text edits</h2>
+  <p class="sec-note">Wording changes the rebuttal commits to. Two are claimed "done" in the response letter but are absent from the current docx — verify and apply.</p>
+
+  <div class="item todo">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">R2 · Weakness 1</span><span class="fig">Discussion text · ties to Supp Figs 2–3, 6</span><span class="badge b-todo">NOT STARTED</span></div>
+      <div class="title">Remove "orthogonal regulatory axes" and strengthen the locomotor-confound disclaimer</div>
+      <p class="desc">Reviewer challenges the orthogonality claim. The phrase still appears in the manuscript as "orthogonal regulatory logic" — not yet removed. Also strengthen the Discussion disclaimer that circadian phase and locomotor activity are irreconcilable confounders, and add a forward-looking note on studies that could dissociate them.</p>
+      <p class="meta">Found in: Discussion, <code>line ~362</code> ("...suggesting orthogonal regulatory logic..."). Rebuttal checkbox "Remove phrase" is unchecked.</p>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">R2 · Weakness 2</span><span class="fig">Results text · Fig 2A–B; Fig 3 section heading</span><span class="badge b-todo">NOT STARTED</span></div>
+      <div class="title">Soften "categorically distinct" EE vs KA conclusion + retitle section</div>
+      <p class="desc">Rebuttal commits to replacing the sentence with: "Thus, novel experience for the most part regulates the magnitude of DEG responses in both CA1 and DG—although we note a small number of genes that are EE-specific at both timepoints," and de-emphasizing stimulus-specificity in the section heading. The <i>old</i> sentence ("...categorically distinct transcriptional responses—with respect to both magnitude and specific genes...") is still in the docx. Edit not yet applied.</p>
+      <p class="meta">Found in: Results conclusion sentence at <code>line ~127</code> (hypothesis framing "categorically different" at <code>line ~121</code>; "fully shared" at <code>line ~126</code>). Section heading "Discovery of cell-type-specific ERGs induced by novel experience" (Fig 3 section).</p>
+    </div>
+  </div>
+
+  <div class="item done">
+    <input type="checkbox" checked>
+    <div class="body">
+      <div class="row1"><span class="tag">R2 · Weakness 4</span><span class="fig">Discussion text · Fig 6; Supp Figs 2–3</span><span class="badge b-done">DONE</span></div>
+      <div class="title">Add underpowered / false-positive caveat to Discussion</div>
+      <p class="desc">Added phrase noting the analysis is protected against high false-positive rates but likely underpowered for small ZT×EE interaction effects. Present in current docx.</p>
+      <p class="meta">Verified: Discussion, <code>line ~379</code> ("...protected from unacceptably high false-positive rates. However, our analysis is likely underpowered...").</p>
+    </div>
+  </div>
+
+  <div class="item done">
+    <input type="checkbox" checked>
+    <div class="body">
+      <div class="row1"><span class="tag">R2 · Weakness 6</span><span class="fig">Results text · Fig 5 (high-tau ZT12)</span><span class="badge b-done">DONE</span></div>
+      <div class="title">Add statement on uncharacterized ZT12 lncRNAs in CA1-ProS</div>
+      <p class="desc">Added the non-coding-transcriptome statement noting these loci are predicted/uncharacterized with no functional data. Present in current docx. <i>Verify</i> the exact parenthetical wording and the gene count (text says "12 of 17 high-tau genes"; rebuttal references "12 lncRNAs") are consistent.</p>
+      <p class="meta">Verified: Results, <code>lines ~278–280</code> ("...unique recruitment of the non-coding transcriptome in CA1-ProS neurons..."); matches the reviewer's "Line 276-280" citation.</p>
+    </div>
+  </div>
+
+  <!-- ============ SECTION 2 ============ -->
+  <h2>2 · New analyses &amp; figures</h2>
+  <p class="sec-note">Outstanding deliverables requiring analysis or figure work. Two have draft scripts already written (March) but are not yet run-to-output, finalized, or inserted into the supplement.</p>
+
+  <div class="item part">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">R2 · Rec 2 (r2-comment2)</span><span class="fig">New Supp Fig + table → Figure 4 · SuppFigure_ActiveCellSensitivity.R</span><span class="badge b-part">DRAFTED</span></div>
+      <div class="title">"Active cell" definition — sensitivity analysis + continuous-score concordance</div>
+      <p class="desc">(i) Table of fraction/number of active cells per Supertype across percentile cutoffs (80/85/90/95%) × IEGs-required (2/3/4); (ii) continuous activity score (AUCell/ssGSEA-like) with ROC/PR/AUC concordance to the binary call. <b>Draft script exists and implements all of this</b> — needs to be run, outputs reviewed, assembled into a supp figure+table, and inserted.</p>
+      <p class="meta">Script: <code>03-scripts/figures/SuppFigure_ActiveCellSensitivity.R</code> (Mar 24, untracked in git). Note: output <code>save_dir</code> currently points at <code>05-results/SuppFigure6</code> — likely needs its own results dir. Not referenced in SUPPLEMENT.docx. Associated with Figure 4.</p>
+    </div>
+  </div>
+
+  <div class="item part">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">R1 · Rec 3 (R1-comment3)</span><span class="fig">SuppFigure7 → supp to Figs 2 &amp; 5 · SuppFigure7_revised.R</span><span class="badge b-part">DRAFTED</span></div>
+      <div class="title">Neurogenesis-related transcriptional signatures</div>
+      <p class="desc">Report whether adult-born granule cell / progenitor (IMN) markers are detected and whether neurogenesis genes are modulated by activity (EE/SE) and ZT. Plan: leverage IMN Subclass (<code>038 DG-PIR Ex IMN</code>) relative abundance across conditions; heatmaps of neurogenesis genes for ACTIVITY (supplement to Fig 2) and ZT (supplement to Fig 5); the EE-vs-SE gene figure is the explicit unchecked deliverable. <b>Draft script exists; a revised copy now adds the modulation heatmaps and corrected gene panels</b> but neither is run-to-output or inserted in the supplement yet.</p>
+      <p class="meta">Scripts: <code>03-scripts/figures/SuppFigure7.R</code> (original, Mar 19, untracked) and <code>SuppFigure7_revised.R</code> (revised gene panels + activity/ZT heatmaps). No <code>05-results/SuppFigure7</code> outputs found; neurogenesis content absent from SUPPLEMENT.docx. Rebuttal checkboxes "Make a figure...EE and SE" and "R1-comment3" both unchecked.</p>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">R2 · Rec 3 (r2-comment3)</span><span class="fig">New Supp table + Supp Fig (forest) → Figure 6</span><span class="badge b-todo">NOT STARTED</span></div>
+      <div class="title">Interaction power — replicate table, edgeR re-analysis, forest plot</div>
+      <p class="desc">Three sub-deliverables, each unchecked: (a) table of nuclei × biological replicate × subclass (effective sample sizes); (b) re-analyze ZT×Activity interaction with a complementary framework (edgeR or limma-voom) including animal as a random effect; (c) forest plot of effect sizes with uncertainty. No current scripts implement (b) or (c) for this analysis (only an old <code>junk_drawer/edgeR_DGE_May2024.qmd</code> exploration). <code>SuppFigure2-3.R</code> covers UMIs/genes per replicate but not the nuclei×replicate×subclass count table. Forest-plot gene list defined: the 12 significant ZT×EE interaction genes (10 CA1 + 2 DG) + the 15-gene canonical IEG panel + 9 core clock genes.</p>
+      <p class="meta">Existing inputs: interaction DEGs at <code>04-analysis/DEGs/Dec2024_ZT-EE_interaction/</code>; interaction text at <code>line ~301</code> (Fig 6I–J). Associated with Figure 6.</p>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">R2 · Rec 4</span><span class="fig">Figure 6I–J · Figure6A-J.R</span><span class="badge b-todo">NOT STARTED</span></div>
+      <div class="title">Figure 6 I,J — remove gene color-coding, state circadian-modulation point in text</div>
+      <p class="desc">Reviewer wants clarity on whether the highlighted pathways are merely enriched among DE genes or show bona fide circadian modulation (they do). Rebuttal commits to removing the color-coding of genes in panels 6I-J and making the point in the text instead. Figure edit + minor text edit; not done.</p>
+      <p class="meta">Figure script: <code>03-scripts/figures/Figure6A-J.R</code> (+ Illustrator source under <code>05-results/Figure6</code>). Text already lists the interacting genes at <code>line ~301</code>. Note count discrepancy: text says "13 genes"; the figure script defines 12.</p>
+    </div>
+  </div>
+
+  <!-- ============ SECTION 3 ============ -->
+  <h2>3 · Assembly &amp; submission housekeeping</h2>
+  <p class="sec-note">Cross-cutting tasks that close out once the edits and figures above are final.</p>
+
+  <div class="item todo">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">Rebuttal letter</span><span class="fig">Response-to-reviewers doc</span><span class="badge b-todo">NOT STARTED</span></div>
+      <div class="title">Fill all <code>(lines XXX)</code> placeholders in the response-to-reviewers</div>
+      <p class="desc">Every "we have modified... (lines XXX)" in the response letter still has a placeholder. Replace with real line numbers after the manuscript edits are finalized. Affects responses to R1 public review and R2 weaknesses 1, 2, 4, 6.</p>
+      <p class="meta">Source: <code>Reviewer responses.pdf</code> (working copy of the rebuttal).</p>
+    </div>
+  </div>
+
+  <div class="item todo">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">Supplement</span><span class="fig">SUPPLEMENT.docx · Supp Figs 4–7 + new items</span><span class="badge b-todo">NOT STARTED</span></div>
+      <div class="title">Assemble SUPPLEMENT.docx — captions and new supp items</div>
+      <p class="desc">Supplementary Figures 4, 5, and 6 currently have <b>empty captions</b>, and the figure list contains duplicate "Supplementary Figure 1/2/3" entries that need cleanup/renumbering. New supp items from the work above (active-cell sensitivity, neurogenesis, power/replicate table + forest plot) must be inserted, captioned, and numbered. Reconcile final numbering with in-text callouts.</p>
+      <p class="meta">Source: <code>07-publication/revisions/SUPPLEMENT.docx</code>. Note repo: SuppFigure scripts 4–7 + ActiveCellSensitivity are untracked in git.</p>
+    </div>
+  </div>
+
+  <!-- ============ DONE ============ -->
+  <h2>Already addressed (for reference)</h2>
+  <p class="sec-note">Checked off in the rebuttal and confirmed by existing scripts/results.</p>
+
+  <div class="item done">
+    <input type="checkbox" checked>
+    <div class="body">
+      <div class="row1"><span class="tag">R1 · Rec 1 (r1-comment1)</span><span class="fig">Supp Fig 4 · SuppFigure4.R</span><span class="badge b-done">DONE</span></div>
+      <div class="title">Anatomic distribution of DG supertypes/clusters → Supplementary Figure 4</div>
+      <p class="meta">Script <code>03-scripts/figures/SuppFigure4.R</code>; spatial abundance panels (supertypes 136-139, clusters 502-510).</p>
+    </div>
+  </div>
+
+  <div class="item done">
+    <input type="checkbox" checked>
+    <div class="body">
+      <div class="row1"><span class="tag">R1 · Rec 2 + R2 · Rec 1 (r1-comment2)</span><span class="fig">Supp Fig 6 · SuppFigure6.R</span><span class="badge b-done">DONE</span></div>
+      <div class="title">Normalized IEG-cell counts across ZT (side panels of Fig 6A-D) → Supplementary Figure 6</div>
+      <p class="meta">Script <code>03-scripts/figures/SuppFigure6.R</code>; results in <code>05-results/SuppFigure6/</code>. Also serves R2's request to address ZT/locomotion at baseline.</p>
+    </div>
+  </div>
+
+  <!-- ============ REBUTTAL ONLY ============ -->
+  <h2>Rebuttal-only responses (no deliverable)</h2>
+  <p class="sec-note">Addressed by argument in the response letter; no figure or analysis required — but confirm wording is final.</p>
+
+  <div class="item rebut">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">R2 · Weakness 3</span><span class="fig">Figure 4 (companion: r2-comment2 supp)</span><span class="badge b-rebut">REBUTTAL ONLY</span></div>
+      <div class="title">Active-cell threshold calibrated in CA1 — "moot point"</div>
+      <p class="desc">Response: all Figure 4 analyses are restricted to the CA1 Subclass, so cross-subclass threshold bias does not apply. Note: the sensitivity analysis (Section 2) is the substantive companion to this point.</p>
+    </div>
+  </div>
+
+  <div class="item rebut">
+    <input type="checkbox">
+    <div class="body">
+      <div class="row1"><span class="tag">R2 · Weakness 5</span><span class="fig">Figure 6I–J (tied to Rec 4 edit)</span><span class="badge b-rebut">REBUTTAL ONLY</span></div>
+      <div class="title">Fig 6 I,J pathway–phase relationship not explicit</div>
+      <p class="desc">Response: no obvious ZT relationship among shared-set genes, but their enrichment among the 12-13 genome-wide interacting genes merits remark; functional implications unexplored. Tied to the Rec 4 figure edit above.</p>
+    </div>
+  </div>
+
+  <footer>Status badges reflect cross-checking the rebuttal against the May 17 manuscript docx, supplement, scripts, and results as of 2026-06-02. Checkbox state and notes are saved in this browser (localStorage) and persist across reloads.</footer>
+</div>
+
+<script>
+(function () {
+  var STORE = 'actdep_roadmap_v1';
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(STORE) || '{}'); } catch (e) { state = {}; }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+
+  // Stable per-item key derived from its title text (slugified). Falls back to index.
+  function keyFor(item, idx) {
+    var t = item.querySelector('.title');
+    var base = t ? t.textContent : ('item-' + idx);
+    var slug = base.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
+    return slug || ('item-' + idx);
+  }
+
+  document.querySelectorAll('.item').forEach(function (item, idx) {
+    var key = keyFor(item, idx);
+    var rec = state[key] || (state[key] = {});
+
+    // ---- checkbox persistence ----
+    var cb = item.querySelector('input[type=checkbox]');
+    if (cb) {
+      if (typeof rec.checked === 'boolean') cb.checked = rec.checked;
+      cb.addEventListener('change', function () { rec.checked = cb.checked; save(); });
+    }
+
+    // ---- notes field ----
+    var body = item.querySelector('.body');
+    var wrap = document.createElement('div');
+    wrap.className = 'notes-wrap';
+    var btn = document.createElement('button');
+    btn.className = 'notes-toggle';
+    btn.type = 'button';
+    var ta = document.createElement('textarea');
+    ta.className = 'notes-ta';
+    ta.placeholder = 'Your notes — status, blockers, links, next step…';
+    ta.value = rec.note || '';
+    var saved = document.createElement('span');
+    saved.className = 'notes-saved';
+    saved.textContent = 'saved';
+
+    function refreshLabel() {
+      var has = (ta.value || '').trim().length > 0;
+      btn.textContent = has ? 'Notes' : 'Add notes';
+      wrap.classList.toggle('has-note', has);
+    }
+    refreshLabel();
+
+    btn.addEventListener('click', function () {
+      wrap.classList.toggle('open');
+      if (wrap.classList.contains('open')) ta.focus();
+    });
+    if ((rec.note || '').trim()) wrap.classList.add('open');
+
+    var t;
+    ta.addEventListener('input', function () {
+      rec.note = ta.value; save();
+      refreshLabel();
+      saved.classList.add('show');
+      clearTimeout(t);
+      t = setTimeout(function () { saved.classList.remove('show'); }, 900);
+    });
+
+    btn.appendChild(saved);
+    wrap.appendChild(btn);
+    wrap.appendChild(ta);
+    body.appendChild(wrap);
+  });
+})();
+</script>
+</body>
+</html>
