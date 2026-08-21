@@ -109,6 +109,11 @@ LoadDataset <- function(dataset, as_gigaclasses = FALSE, sublibrary = "combined"
 }
 
 
+LoadMeta <- function() {
+  read_rds("04-analysis/Seurats/Dec2024/seurat_meta.rds")
+}
+
+
 LoadAllenColors <- function(clade = 'subclass') {
   allen_colors <- read_csv("02-data/published_data/allen_taxonomy_colors.csv", show_col_types = FALSE)
   
