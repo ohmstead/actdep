@@ -498,7 +498,7 @@ PlotComplexHeatmap <- function(corr_matrix, plot_title, show_plot = TRUE, save_p
 }
 
 
-FindActiveCells <- function(seurat_obj, subclass = '016 CA1-ProS Glut', gene_list = LoadGneList('IEG'), gene_threshold = 3) {
+FindActiveCells <- function(seurat_obj, subclass = '016 CA1-ProS Glut', gene_list = LoadGneList('IEG'), gene_threshold = 3, pct_threshold = 0.9) {
 # Returns a tibble of cells that are "active" according to the following
 # criterion: >= gene_threshold IEGs in a cell are expressed at counts >= 90th
 # percentile of expression in the standard-environment condition.
@@ -511,7 +511,7 @@ FindActiveCells <- function(seurat_obj, subclass = '016 CA1-ProS Glut', gene_lis
     rownames_to_column(var = 'gene') |> 
     filter(gene %in% gene_list) |> 
     rowwise() |> 
-    mutate(percentile_90th = quantile(c_across(-gene), 0.9)) |> 
+    mutate(percentile_90th = quantile(c_across(-gene), pct_threshold)) |> 
     dplyr::select(gene, percentile_90th)
   
   activation_thresholds <- setNames(activation_thresholds$percentile_90th, activation_thresholds$gene)
