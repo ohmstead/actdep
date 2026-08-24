@@ -569,6 +569,90 @@ FindActiveCells <- function(seurat_obj, subclass = '016 CA1-ProS Glut', gene_lis
 }
 
 
+WeightedActivityScore <- function(seurat_obj, subclass = '016 CA1-ProS Glut',
+                                   gene_list = LoadGeneList('IEG'),
+                                   scale_condition = 'EE30m') {
+# Returns a continuous, per-cell IEG activity index that corrects for the fact
+# that IEGs differ substantially in baseline transcript abundance (e.g. Fos vs
+# Nr4a1): each gene's log-normalised SCT expression is z-scored using the
+# mean/sd observed in `scale_condition` cells, then the composite score is the
+# equal-weight mean of the z-scored genes (weighted_ieg_score), analogous to
+# FindActiveCells() but continuous instead of thresholded/binary.
+
+  # per-gene mean/sd from scale_condition cells (log-normalised SCT data)
+  scale_stats <- seurat_obj |>
+    subset(subclass_name == subclass) |>
+    subset(activity_condition == scale_condition) |>
+    GetAssayData('SCT', layer = 'data') |>
+    as.data.frame() |>
+    rownames_to_column(var = 'gene') |>
+    filter(gene %in% gene_list) |>
+    rowwise() |>
+    mutate(mean_expr = mean(c_across(-gene)), sd_expr = sd(c_across(-gene))) |>
+    dplyr::select(gene, mean_expr, sd_expr) |>
+    ungroup()
+
+  if (any(scale_stats$sd_expr == 0 | is.na(scale_stats$sd_expr))) {
+    zero_var_genes <- scale_stats$gene[scale_stats$sd_expr == 0 | is.na(scale_stats$sd_expr)]
+    stop(glue::glue(
+      "Zero/NA variance for gene(s) {paste(zero_var_genes, collapse = ', ')} ",
+      "in '{scale_condition}' cells; cannot z-score. Choose a different scale_condition ",
+      "or drop these genes from gene_list."
+    ))
+  }
+
+  gene_means <- setNames(scale_stats$mean_expr, scale_stats$gene)
+  gene_sds   <- setNames(scale_stats$sd_expr, scale_stats$gene)
+
+  cell_conditions <- seurat_obj |>
+    FetchData("activity_condition") |>
+    rownames_to_column(var = "cell")
+
+  # wide per-cell expression matrix (mirrors FindActiveCells)
+  df_gene_expression <- seurat_obj |>
+    subset(subclass_name == subclass) |>
+    GetAssayData('SCT', layer = 'data') |>
+    as.data.frame() |>
+    rownames_to_column(var = 'gene') |>
+    filter(gene %in% gene_list) |>
+    pivot_longer(cols = -gene, names_to = 'cell', values_to = 'expression') |>
+    pivot_wider(names_from = gene, values_from = expression)
+
+  df_colnames <- df_gene_expression |>
+    dplyr::select(-cell) |>
+    colnames()
+
+  verification <- all(df_colnames == names(gene_means))
+  if (verification != TRUE) {
+    stop('colnames in df are not the same order as elements in gene_means/gene_sds')
+  }
+
+  # z-score each gene column, then take the equal-weight row mean
+  z_mat <- sweep(
+    sweep(as.matrix(df_gene_expression[, df_colnames]), 2, gene_means, `-`),
+    2, gene_sds, `/`
+  )
+  colnames(z_mat) <- paste0(df_colnames, "_z")
+
+  df_weighted_score <- bind_cols(
+    df_gene_expression |> dplyr::select(cell),
+    as_tibble(z_mat)
+  ) |>
+    rowwise() |>
+    mutate(weighted_ieg_score = mean(c_across(-cell))) |>
+    ungroup() |>
+    left_join(cell_conditions, by = 'cell') |>
+    relocate(activity_condition, weighted_ieg_score, .after = cell)
+
+  results <- list(
+    df_weighted_score = df_weighted_score,
+    scale_stats        = scale_stats
+  )
+
+  return(results)
+}
+
+
 FindDEGs <- function(seurat_obj, subclass, ident_var, group1, group2, logFC_threshold=0.25) {
 # uses MAST to find DEGs between conditions within a subclass and removes sex-specific DEGs
   attach_package_once("Seurat")
