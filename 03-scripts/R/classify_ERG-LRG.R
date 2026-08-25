@@ -15,6 +15,11 @@
 
 source('03-scripts/R/seq_functions.R')
 
+if (!exists("DEG_METHOD"))   DEG_METHOD   <- "DESeq2"
+if (!exists("dir_deg"))      dir_deg      <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
+if (!exists("save_dir"))     save_dir     <- dir_deg
+save_dir <- sub("/+$", "", save_dir)  # normalize any trailing slash(es)
+
 library(Seurat)
 library(DESeq2)
 
@@ -30,8 +35,8 @@ threshold <- 0.585
 # 2. Load DEGs ----------------------------------------
 print("Getting DEGs for all subclasses and contrasts...")
 contrast_list <- c("EE30m_vs_SE", "EE6h_vs_SE")
-dir_deg <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
 deg_files <- list.files(dir_deg, full.names = TRUE)
+deg_files <- deg_files[!str_detect(basename(deg_files), "^\\._")]  # drop AppleDouble sidecar files
 
 for (gigaclass in names(gigaclasses)) {  # GIGACLASS LOOP
   subclass_list <- gigaclasses[[gigaclass]]
@@ -56,8 +61,9 @@ for (gigaclass in names(gigaclasses)) {  # GIGACLASS LOOP
     if (!(contrast %in% contrast_list)) {next}
     
     # add gene list to df
-    deg <- read_csv(file, show_col_types = F) |> 
-      filter(classification != 'no_change')
+    deg <- read_csv(file, show_col_types = F)
+    if (DEG_METHOD == "voom") deg <- dplyr::rename(deg, log2FoldChange.shrink = log2FoldChange)
+    deg <- filter(deg, classification != 'no_change')
     
     deg$DE_ascertainment_subclass <- subclass
     deg$subclass <- subclass
@@ -241,7 +247,6 @@ for (gigaclass in names(gigaclasses)) {  # GIGACLASS LOOP
   
   
   # 7: Save classifications ----------------------------------------
-  save_dir <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk/"
   path_df_classification <- glue("{save_dir}/0_DEG_classifications_{gigaclass}.csv")
   path_df_expression     <- glue("{save_dir}/0_df_expression_{gigaclass}.csv")
   
