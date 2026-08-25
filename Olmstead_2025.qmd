@@ -1,6 +1,127 @@
 ---
-title: "Olmstead et al. 2025"
-author: "Jack Olmstead"
+title: "Intersection of transient cell states with stable cell types in hippocampus"
+format: 
+  html:
+    code-fold: true
+    code-tools: true
+    code-line-numbers: true
+    toc: true
+    toc-depth: 1
+    number-sections: false
+    colorlinks: true
+    mainfont: 'Helvetica'
+    embed-resources: true
+    theme: lumen
+execute:
+  warning: false
+  message: false
+note: In preparation
+author:
+  - name: Jack Olmstead, PhD
+    id: JAO
+    email: jolmstea@health.ucsd.edu
+    affiliation: 
+      - name: Neurosciences Graduate Program
+      - name: Medical Scientist Training Program
+      - name: Department of Neurobiology, School of Biological Sciences, UC San Diego, La Jolla, CA, United States
+  - name: Lauren E King
+    id: LEK
+    affiliation: 
+      - name: Department of Neurobiology, School of Biological Sciences, UC San Diego, La Jolla, CA, United States
+  - name: Brenda L. Bloodgood
+    id: BLB
+    affiliation: 
+      - name: Department of Neurobiology, School of Biological Sciences, UC San Diego, La Jolla, CA, United States
+    email: blbloodgood@ucsd.edu
+    corresponding: true
+abstract: > 
+    The transcriptome of a brain cell encodes both its stable identity and its dynamic responses to environmental stimuli. While significant progress has been made in categorizing cell types within the brain, deciphering to what extent transcriptional identity and transcriptional state are related remains a major technical and conceptual challenge. Here, we present a single-nucleus RNA-sequencing atlas of the mouse hippocampus spanning physiological and pathological stimuli and multiple circadian phases, enabling unified analysis of activity-, circadian-, and cell-type-dependent transcriptional programs. Taxonomically assigned cell types are largely stable despite the induction of different activity states, with a notable exception in the dentate gyrus. Activity and circadian rhythm each drove robust, largely nonoverlapping transcriptional responses, with convergent regulation on genes involved in specific pathways, including endocannabinoid signaling, excitability, and chromatin remodeling. These results underscore the necessity of integrating cell-type taxonomy with transcriptional state to capture how diverse cell types respond to experience.
+keywords:
+  - IEG
+funding: "The authors received no specific funding for this work."
 ---
 
-Use ``knitr::spin`` to call other Quarto documents in this doc. E.g. knitr::spin("06-reports/figure1.qmd")
+Test text for intro.
+
+```{r setup}
+#| include: false
+source('03-scripts/R/seq_functions.R')
+SAVE_PLOTS <- F
+```
+```{r}
+#| include: false
+knitr::read_chunk("03-scripts/figures/Figure1B.R")
+knitr::read_chunk("03-scripts/figures/Figure1C-D.R")
+knitr::read_chunk("03-scripts/figures/Figure1E-H.R")
+
+knitr::read_chunk("03-scripts/figures/Figure2A-B.R")
+knitr::read_chunk("03-scripts/figures/Figure2C-E.R")
+knitr::read_chunk("03-scripts/figures/Figure2F-G.R")
+
+knitr::read_chunk("03-scripts/figures/Figure3AEI.R")
+knitr::read_chunk("03-scripts/figures/Figure3BFJ.R")
+knitr::read_chunk("03-scripts/figures/Figure3CGK.R")
+knitr::read_chunk("03-scripts/figures/Figure3DHL.R")
+
+knitr::read_chunk("03-scripts/figures/Figure4A-B.R")
+knitr::read_chunk("03-scripts/figures/Figure4C.R")
+knitr::read_chunk("03-scripts/figures/Figure4D-E.R")
+knitr::read_chunk("03-scripts/figures/Figure4F.R")
+
+knitr::read_chunk("03-scripts/figures/Figure5A.R")
+knitr::read_chunk("03-scripts/figures/Figure5B-E_heatmaps.R")
+knitr::read_chunk("03-scripts/figures/Figure5B-E_umaps.R")
+
+knitr::read_chunk("03-scripts/figures/Figure6A-J.R")
+```
+```{r Fig1B}
+#| fig-cap: "Figure 1B"
+```
+```{r Fig1C-D}
+#| fig-cap: "Figure 1C-D"
+```
+```{r Fig1E-H}
+#| fig-cap: "Figure 1E-H"
+```
+```{r Fig2A-B}
+#| fig-cap: "Figure 2A-B"
+```
+```{r Fig2C-E}
+#| fig-cap: "Figure 2C-E"
+```
+```{r Fig2F-G}
+#| fig-cap: "Figure 2F-G"
+```
+```{r Fig3AEI}
+#| fig-cap: "Figure 3A, E, I"
+```
+```{r Fig3BFJ}
+#| fig-cap: "Figure 3B, F, J"
+```
+```{r Fig3CGK}
+#| fig-cap: "Figure 3C, G, K"
+```
+```{r Fig3DHL}
+#| fig-cap: "Figure 3D, H, L"
+```
+```{r Fig4A-B}
+#| fig-cap: "Figure 4A-B"
+```
+```{r Fig4D-E}
+#| fig-cap: "Figure 4D-E"
+```
+```{r Fig4F}
+#| fig-cap: "Figure 4F"
+```
+```{r Fig5A}
+#| fig-cap: "Figure 5A"
+```
+```{r Fig5B-E_hm}
+#| fig-cap: "Figure 5B-E Heatmaps"
+```
+```{r Fig5B-E_umap}
+#| fig-cap: "Figure 5B-E UMAPs"
+```
+```{r Fig6A-J}
+#| fig-cap: "Figure 6A-J"
+```

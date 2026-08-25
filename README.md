@@ -16,21 +16,25 @@ The project is structured with the following sub-directories:
 |—reference_genomes
 
 **03-scripts**: all code for both intermediate and final analysis in this project.  
-|—python  
-|—R  
-|—shell
+|—figures - contains all scripts to reproduce figures
+|—R - contains all utils and scripts for preprocessing analysis that may be called in figure scripts
+|—shell - not relevant for reproducing analysis in manuscript
 
 **04-analysis**: the "working directory" of the project for intermediate processing.  
 |—DEGs  
 |—Seurats (however, .Rds objects in .gitignore)
 
 **05-results**: figures and outputs from work done in analysis.  
-|—figure_1  
-|—figure_2  
-|—etc  
-|—figure_supp_qc  
-|—figure_supp_sex  
-|—etc
+|—Figure1  
+|—Figure2 
+|—Figure3  
+|—Figure4  
+|—Figure5  
+|—Figure6  
+|—SupplementaryFigure1
+|—SupplementaryFigure2
+|—SupplementaryFigure3
+|—SupplementaryTable1
 
 **06-reports**: master Quarto notebooks calling all figure-panel scripts or sub-notebooks.
 

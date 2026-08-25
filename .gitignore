@@ -14,6 +14,8 @@
 .Rhistory
 .Rproj.user/
 *_files/
+*_cache/
+*_freeze/
 
 
 # OS-created
@@ -23,6 +25,7 @@
 
 
 # common formats
+*.docx
 *.pptx
 *.pyo
 *.pyc
