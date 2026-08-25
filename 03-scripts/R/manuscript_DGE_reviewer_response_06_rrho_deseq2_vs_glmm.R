@@ -46,7 +46,7 @@ subclass_fname <- ShrinkSubclassName(subclass)
 group1 <- "EE30m"
 group2 <- "SE"
 n_top_genes <- 2000
-n_cores <- max(1, min(8, detectCores() - 1))
+n_cores <- if (.Platform$OS.type == "windows") max(1, min(4, detectCores() - 1)) else max(1, min(8, detectCores() - 1))
 
 
 # ============================================================================ #
@@ -63,19 +63,20 @@ rm(mat, mean_expr)
 
 cell_df <- ca1@meta.data |>
   as_tibble(rownames = "cell") |>
-  select(cell, sample, activity_condition, sex, nCount_RNA) |>
+  select(cell, sample, activity_condition, nCount_RNA) |>
   mutate(activity_condition = droplevels(factor(activity_condition, levels = c(group2, group1))))
 
 counts <- GetAssayData(ca1, assay = "RNA", layer = "counts")
-rm(ca1)
+counts_sub <- as.matrix(counts[top_genes, cell_df$cell, drop = FALSE])
+rm(ca1, counts)
 gc()
 
 fitGeneGLMM <- function(gene) {
   df <- cell_df
-  df$count <- counts[gene, df$cell]
+  df$count <- counts_sub[gene, df$cell]
   fit <- tryCatch(
     suppressWarnings(
-      glmmTMB(count ~ activity_condition + sex + (1 | sample),
+      glmmTMB(count ~ activity_condition + (1 | sample),
               offset = log(nCount_RNA), family = nbinom2, data = df)),
     error = function(e) NULL
   )
@@ -92,77 +93,38 @@ fitGeneGLMM <- function(gene) {
 
 message(glue("Fitting genome-wide (top {n_top_genes}) NB-GLMM on {n_cores} cores: {subclass} {group1} vs {group2}"))
 t0 <- Sys.time()
-glmm_results <- mclapply(top_genes, fitGeneGLMM, mc.cores = n_cores)
+
+batch_size <- 100
+gene_batches <- split(top_genes, ceiling(seq_along(top_genes) / batch_size))
+
+cl <- makeCluster(n_cores)
+clusterEvalQ(cl, { library(glmmTMB); library(tibble) })
+clusterExport(cl, c("cell_df", "counts_sub"))
+
+n_done <- 0
+glmm_results <- list()
+for (batch in gene_batches) {
+  glmm_results <- c(glmm_results, parLapply(cl, batch, fitGeneGLMM))
+  n_done <- n_done + length(batch)
+  elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+  eta_min <- round((elapsed / n_done) * (n_top_genes - n_done) / 60, 1)
+  message(glue("  [{n_done}/{n_top_genes}] genes fit, {round(elapsed / 60, 1)} min elapsed, ~{eta_min} min remaining"))
+}
+stopCluster(cl)
+
 message(glue("GLMM fits complete in {round(difftime(Sys.time(), t0, units = 'mins'), 1)} min"))
 
 df_glmm <- bind_rows(glmm_results) |> drop_na(log2FoldChange, pvalue)
 write_csv(df_glmm, file.path(rrho_dir, glue("{subclass_fname}__{group1}_vs_{group2}__NB-GLMM_top{n_top_genes}genes.csv")))
 
-rm(counts, cell_df, glmm_results)
+rm(counts_sub, cell_df, glmm_results)
 gc()
 
 
 # ============================================================================ #
-# RRHO map computation ----
+# signed rankings, DESeq2 vs. NB-GLMM, shared gene set ----
 # ============================================================================ #
-computeRRHO <- function(df1, df2, n_steps = 60) {
-  # df1, df2: tibbles with columns gene, signed_stat
-  shared <- intersect(df1$gene, df2$gene)
-  stopifnot(length(shared) >= n_steps * 2)
-
-  rank1 <- setNames(rank(df1$signed_stat[match(shared, df1$gene)], ties.method = "first"), shared)
-  rank2 <- setNames(rank(df2$signed_stat[match(shared, df2$gene)], ties.method = "first"), shared)
-  N <- length(shared)
-
-  ord <- order(rank1[shared])
-  rank2_ordered <- rank2[shared][ord]
-
-  breakpoints_i <- unique(round(seq(1, N, length.out = n_steps + 1)))[-1]
-  bin2 <- pmin(pmax(ceiling(rank2_ordered / N * n_steps), 1), n_steps)
-
-  count_matrix <- matrix(NA_integer_, nrow = length(breakpoints_i), ncol = n_steps)
-  running <- integer(n_steps)
-  bp_idx <- 1
-  for (i in seq_len(N)) {
-    running[bin2[i]] <- running[bin2[i]] + 1
-    if (i == breakpoints_i[bp_idx]) {
-      count_matrix[bp_idx, ] <- cumsum(running)
-      bp_idx <- bp_idx + 1
-      if (bp_idx > length(breakpoints_i)) break
-    }
-  }
-
-  breakpoints_j <- round(seq_len(n_steps) / n_steps * N)
-  pmat <- matrix(NA_real_, nrow = length(breakpoints_i), ncol = n_steps)
-  for (a in seq_along(breakpoints_i)) {
-    i_bp <- breakpoints_i[a]
-    for (b in seq_len(n_steps)) {
-      j_bp <- breakpoints_j[b]
-      overlap <- count_matrix[a, b]
-      pmat[a, b] <- phyper(overlap - 1, j_bp, N - j_bp, i_bp, lower.tail = FALSE)
-    }
-  }
-  pmat <- pmax(pmat, 1e-300)  # floor to avoid -log10(0) = Inf at near-perfect corners
-
-  tibble(
-    rank_i = rep(breakpoints_i, times = n_steps),
-    rank_j = rep(breakpoints_j, each = length(breakpoints_i)),
-    neglog10p = -log10(as.vector(pmat))
-  )
-}
-
-plotRRHO <- function(df_rrho, title) {
-  ggplot(df_rrho, aes(x = rank_i, y = rank_j, fill = neglog10p)) +
-    geom_raster() +
-    scale_fill_viridis_c(name = "-log10(p)", option = "inferno") +
-    labs(title = title,
-         x = "DESeq2 rank (down → up)",
-         y = "NB-GLMM rank (down → up)") +
-    coord_fixed() +
-    theme_minimal(base_family = "Helvetica")
-}
-
-# --- signed rankings, DESeq2 vs. NB-GLMM, shared gene set ----
+# computeRRHO()/plotRRHO() are shared helpers, sourced from seq_functions.R above.
 deseq <- read_csv(file.path(deseq_dir, glue("{subclass_fname}__{group1}_vs_{group2}.csv")),
                   show_col_types = FALSE) |>
   filter(gene %in% top_genes) |>

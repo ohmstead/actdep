@@ -2,10 +2,19 @@
 # animal as a random effect.
 # Run manuscript_DGE_reviewer_response_00_cache_subclasses.R first.
 #
-# Cell-level negative-binomial mixed model for the IEG panel:
-#   counts ~ activity_condition + sex + offset(log(nCount_RNA)) + (1|sample)
+# Cell-level negative-binomial mixed model for the IEG + circadian gene panel:
+#   counts ~ activity_condition + offset(log(nCount_RNA)) + (1|sample)
 # Fixed-effect contrasts vs. SE give log2FC estimates whose SEs account for
 # nuclei being nested within animals (each `sample` is one animal).
+#
+# The gene panel is the union of LoadGeneList("IEG") (15 genes) and
+# LoadGeneList("circadian") (9 genes: Per1, Per2, Per3, Clock, Bmal1, Cry1,
+# Cry2, Nr1d1, Nr1d2), for ~24 genes total. BH correction is applied within
+# each subclass x contrast family (group_by(subclass, contrast) |>
+# mutate(padj = p.adjust(pvalue, method = "BH"))), so widening the panel from
+# 15 to ~24 genes widens that family and shifts padj values for the original
+# IEG genes slightly upward relative to the old IEG-only output file, even
+# though point estimates and raw p-values are unchanged.
 #
 # Only conditions with >= 30 nuclei in this subclass are included (same
 # cell_cutoff as GetSubclassContrasts(), used by the DESeq2/MAST/voom
@@ -24,13 +33,13 @@ cache_dir <- file.path(out_dir, "subclass_cache")
 dir.create(file.path(out_dir, "glmm"), showWarnings = FALSE, recursive = TRUE)
 
 subclass_list <- LoadSubclassesToUse()
-ieg_panel <- LoadGeneList("IEG")
+panel_genes <- unique(c(LoadGeneList("IEG"), LoadGeneList("circadian")))
 
 fitGeneGLMM <- function(gene, cell_df, counts_vec) {
   cell_df$count <- counts_vec
   fit <- tryCatch(
     suppressWarnings(
-      glmmTMB(count ~ activity_condition + sex + (1 | sample),
+      glmmTMB(count ~ activity_condition + (1 | sample),
               offset = log(nCount_RNA),
               family = nbinom2,
               data = cell_df)),
@@ -59,13 +68,18 @@ runGeneGLMMs <- function(nuclei_subclass, subclass) {
   cell_df <- nuclei_subclass@meta.data |>
     as_tibble(rownames = "cell") |>
     filter(activity_condition %in% valid_conditions) |>
-    select(cell, sample, activity_condition, sex, nCount_RNA) |>
+    select(cell, sample, activity_condition, nCount_RNA) |>
     mutate(activity_condition = droplevels(
       factor(activity_condition,
              levels = c("SE", "EE30m", "EE6h", "KA30m", "KA6h"))))
 
   counts <- GetAssayData(nuclei_subclass, assay = "RNA", layer = "counts")
-  genes <- intersect(ieg_panel, rownames(counts))
+  genes <- intersect(panel_genes, rownames(counts))
+
+  missing_genes <- setdiff(panel_genes, rownames(counts))
+  if (length(missing_genes) > 0) {
+    message(glue("Panel genes not found in {subclass} count matrix: {paste(missing_genes, collapse = ', ')}"))
+  }
 
   map_dfr(genes, function(g) {
     res <- fitGeneGLMM(g, cell_df, counts[g, cell_df$cell])
@@ -92,5 +106,5 @@ df_glmm_all <- df_glmm_all |>
   mutate(padj = p.adjust(pvalue, method = "BH")) |>
   ungroup()
 
-write_csv(df_glmm_all, file.path(out_dir, "glmm", "IEG_NB-GLMM_animal-random-effect.csv"))
-print(glue("Gene-expression GLMM complete: {out_dir}/glmm/IEG_NB-GLMM_animal-random-effect.csv"))
+write_csv(df_glmm_all, file.path(out_dir, "glmm", "IEG-circadian_NB-GLMM_animal-random-effect.csv"))
+print(glue("Gene-expression GLMM complete: {out_dir}/glmm/IEG-circadian_NB-GLMM_animal-random-effect.csv"))

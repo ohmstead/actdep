@@ -1016,3 +1016,113 @@ si <- function(width = 800, height = 800, format = 'svg', bg = 'white') {
     dev.off()
   }
 }
+
+
+computeRRHO <- function(df1, df2, n_steps = 100) {
+  # Computes a rank-rank hypergeometric overlap (RRHO) map between two gene
+  # rankings. This is the test Plaisier et al. 2010 introduced and Piron et
+  # al. 2024, Life Science Alliance (RedRibbon paper,
+  # https://www.life-science-alliance.org/content/7/2/e202302203) describes
+  # in their Methods. Genes are ranked within each list by a signed
+  # statistic (e.g. sign(log2FC) * -log10(p)), from most down-regulated to
+  # most up-regulated. At a grid of rank-cutoff pairs (i, j), the number of
+  # genes in common between the top-i of list 1 and top-j of list 2 is
+  # tested against a hypergeometric null; the resulting -log10(p) grid is
+  # the RRHO map.
+  #
+  # Args:
+  #  df1, df2: tibbles with columns gene, signed_stat.
+  #  n_steps: number of rank-cutoff bins per axis (default 100).
+  #
+  # Returns:
+  #  A tibble with columns rank_i, rank_j, neglog10p (one row per grid cell).
+  attach_package_once("dplyr")
+  attach_package_once("tibble")
+
+  shared <- intersect(df1$gene, df2$gene)
+  stopifnot(length(shared) >= n_steps * 2)
+
+  rank1 <- setNames(rank(df1$signed_stat[match(shared, df1$gene)], ties.method = "first"), shared)
+  rank2 <- setNames(rank(df2$signed_stat[match(shared, df2$gene)], ties.method = "first"), shared)
+  N <- length(shared)
+
+  ord <- order(rank1[shared])
+  rank2_ordered <- rank2[shared][ord]
+
+  breakpoints_i <- unique(round(seq(1, N, length.out = n_steps + 1)))[-1]
+  bin2 <- pmin(pmax(ceiling(rank2_ordered / N * n_steps), 1), n_steps)
+
+  count_matrix <- matrix(NA_integer_, nrow = length(breakpoints_i), ncol = n_steps)
+  running <- integer(n_steps)
+  bp_idx <- 1
+  for (i in seq_len(N)) {
+    running[bin2[i]] <- running[bin2[i]] + 1
+    if (i == breakpoints_i[bp_idx]) {
+      count_matrix[bp_idx, ] <- cumsum(running)
+      bp_idx <- bp_idx + 1
+      if (bp_idx > length(breakpoints_i)) break
+    }
+  }
+
+  breakpoints_j <- round(seq_len(n_steps) / n_steps * N)
+  pmat <- matrix(NA_real_, nrow = length(breakpoints_i), ncol = n_steps)
+  for (a in seq_along(breakpoints_i)) {
+    i_bp <- breakpoints_i[a]
+    for (b in seq_len(n_steps)) {
+      j_bp <- breakpoints_j[b]
+      overlap <- count_matrix[a, b]
+      pmat[a, b] <- phyper(overlap - 1, j_bp, N - j_bp, i_bp, lower.tail = FALSE)
+    }
+  }
+  pmat <- pmax(pmat, 1e-300)  # floor to avoid -log10(0) = Inf at near-perfect corners
+
+  tibble(
+    rank_i = rep(breakpoints_i, times = n_steps),
+    rank_j = rep(breakpoints_j, each = length(breakpoints_i)),
+    neglog10p = -log10(as.vector(pmat))
+  )
+}
+
+
+plotRRHO <- function(df_rrho, title, x_label = "DESeq2 rank (down → up)", y_label = "NB-GLMM rank (down → up)", cap = NULL) {
+  # Plots an RRHO map (as returned by computeRRHO()) as a heatmap of
+  # -log10(p) over the rank-cutoff grid, styled after Figure 1A/1D of Piron
+  # et al. 2024, Life Science Alliance (RedRibbon paper,
+  # https://www.life-science-alliance.org/content/7/2/e202302203): a
+  # diagonal signal running from down- to up-regulation indicates the two
+  # rankings agree, while a scrambled/negative-control comparison should
+  # show no such signal.
+  #
+  # Args:
+  #  df_rrho: output of computeRRHO(), with columns rank_i, rank_j, neglog10p.
+  #  title: plot title.
+  #  x_label, y_label: axis labels. Default to the labels used for the
+  #  DESeq2-vs-NB-GLMM comparison in
+  #  manuscript_DGE_reviewer_response_06_rrho_deseq2_vs_glmm.R.
+  #  cap: upper limit for the fill scale. computeRRHO()'s hypergeometric
+  #  p-values are floored at 1e-300 (to avoid -log10(0) = Inf at the
+  #  near-perfect-overlap corner), so a handful of extreme-corner cells can
+  #  reach -log10(p) in the hundreds while the rest of the map sits in a much
+  #  lower, more informative range. Without a cap, the color scale stretches
+  #  to fit those outliers and everything else saturates into one shade.
+  #  Defaults to the 99th percentile of finite values in df_rrho, with values
+  #  above the cap squished to the top color rather than expanding the scale.
+  attach_package_once("ggplot2")
+  attach_package_once("scales")
+
+  if (is.null(cap)) {
+    finite_vals <- df_rrho$neglog10p[is.finite(df_rrho$neglog10p)]
+    cap <- if (length(finite_vals) > 0) unname(stats::quantile(finite_vals, 0.99, na.rm = TRUE)) else 1
+  }
+
+  ggplot(df_rrho, aes(x = rank_i, y = rank_j, fill = neglog10p)) +
+    geom_tile() +  # breakpoints are rank cutoffs, not evenly spaced; geom_raster()
+                    # assumes even spacing and silently shifts pixels, distorting tiles
+    scale_fill_viridis_c(name = "-log10(p)", option = "inferno",
+                         limits = c(0, cap), oob = scales::squish) +
+    labs(title = title,
+         x = x_label,
+         y = y_label) +
+    coord_fixed() +
+    theme_minimal(base_family = "Helvetica")
+}
