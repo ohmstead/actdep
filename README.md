@@ -16,25 +16,22 @@ The project is structured with the following sub-directories:
 |—reference_genomes
 
 **03-scripts**: all code for both intermediate and final analysis in this project.  
-|—figures - contains all scripts to reproduce figures
-|—R - contains all utils and scripts for preprocessing analysis that may be called in figure scripts
-|—shell - not relevant for reproducing analysis in manuscript
+|—`R` — numbered intermediate-analysis pipeline (`00_` … `08_`) plus `seq_functions.R`, the shared utility library. Run these before any figure script; see [01-documentation/analysis_workflow.md](01-documentation/analysis_workflow.md).  
+|—`figures` — one script per manuscript figure or figure supplement, named for what it produces (`Figure3CGK.R`, `Figure2_SuppFig4.R`, …). The full figure-to-script map is [01-documentation/figure_script_map.csv](01-documentation/figure_script_map.csv).  
+|—`patches` — third-party package patches required to run the analysis (see its README).  
+|—`archive` — exploratory and superseded scripts, kept for provenance. Not needed to reproduce the manuscript.  
+|—`shell` — raw-sequencing preprocessing. Not required to reproduce the analysis from the count matrices.
 
-**04-analysis**: the "working directory" of the project for intermediate processing.  
-|—DEGs  
-|—Seurats (however, .Rds objects in .gitignore)
+**04-analysis**: the "working directory" of the project for intermediate processing. Contents are gitignored; the pipeline in `03-scripts/R/` regenerates them.  
+|—`Seurats` — Seurat objects  
+|—`DEGs` — DESeq2 pseudobulk differential expression  
+|—`dge_method_comparison` — alternative DGE frameworks (limma-voom, NB-GLMM with animal random effect) and the cross-method comparisons built on them
 
-**05-results**: figures and outputs from work done in analysis.  
-|—Figure1  
-|—Figure2 
-|—Figure3  
-|—Figure4  
-|—Figure5  
-|—Figure6  
-|—SupplementaryFigure1
-|—SupplementaryFigure2
-|—SupplementaryFigure3
-|—SupplementaryTable1
+**05-results**: figures and outputs from work done in analysis. One directory per manuscript item, each holding `raw_R_plots/` (script output) alongside the assembled figure.  
+|—`Figure1` … `Figure6` — main figures  
+|—`Figure1_SuppFig1` … `Figure6_SuppFig1-2` — figure supplements, numbered as in the manuscript  
+|—`SuppItem1`, `SuppItem2` — supplementary items  
+|—`archive` — outputs of exploratory analyses that are not in the manuscript
 
 **06-reports**: master Quarto notebooks calling all figure-panel scripts or sub-notebooks.
 
@@ -56,5 +53,5 @@ To recapitulate the analysis and figures from this project, you will need to dow
     d. Upload fastq files to Trailmaker version XXX and run pipeline.
     e. Download demultiplexed raw nuclei-count matricies from Trailmaker.
 6. If skipping #5, download demultiplexed raw nuclei-count matricies from XXX.
-7. Run `SETUP.qmd` to generate minimal Seurat objects and run other analyses necessary for figure generation.
+7. Run the numbered pipeline in `03-scripts/R/` in order (`00_` through `08_`) to generate the Seurat objects, DEG tables and model fits the figure scripts read. See [01-documentation/analysis_workflow.md](01-documentation/analysis_workflow.md) for the dependency graph.
 8. Run `Olmstead_2025.qmd` to generate the manuscript in "notebook" format.

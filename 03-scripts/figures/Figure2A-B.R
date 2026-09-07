@@ -20,8 +20,8 @@ deg_sets <- list(
 deg_sets <- lapply(deg_sets, 
        function(df) 
          df |> 
-         filter(padj < 0.05 & abs(log2FoldChange.raw) > 0.585) |> 
-         pull(gene)
+           filter(classification != 'no_change') |> 
+           pull(gene)
        )
 
 

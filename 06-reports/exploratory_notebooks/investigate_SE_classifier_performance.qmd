@@ -1,0 +1,577 @@
+---
+title: "Why is the weighted IEG score a 'worse classifier' in SE than in EE30m?"
+author: "jack"
+format: 
+  html:
+    toc: true
+    toc_float: true
+    code-fold: true
+    code-tools: true
+    code-line-numbers: true
+    embed-resources: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+# The question
+
+In `Figure4_SuppFig2.R` we treat the binary active-cell call from `FindActiveCells()` (90th-percentile threshold, \>= 3 IEGs) as ground truth and ask how well the continuous `WeightedActivityScore()` recovers it. The PR curves give:
+
+| condition | AUPRC (scale = SE) | AUPRC (scale = EE30m) |
+|-----------|--------------------|-----------------------|
+| SE        | 0.850              | 0.873                 |
+| EE30m     | 0.974              | 0.979                 |
+| KA30m     | 1.000              | 1.000                 |
+
+Read naively this says "the score is a poor classifier in SE." This notebook argues that reading is wrong, and works through four candidate explanations:
+
+-   **H1 — Prevalence.** PR curves are not comparable across conditions with different positive rates. A random classifier scores AUPRC ≈ prevalence, and prevalence is low in SE by construction and ≈ 1 in KA30m. The KA30m "AUPRC = 1" is the tell.
+-   **H2 — Boundary crowding.** In SE, positives sit *at* the decision boundary (exactly 3 IEGs, each barely over threshold), so any continuous score has to resolve a distinction the binary rule itself makes arbitrarily.
+-   **H3 — Count vs. mean.** The two summaries measure different things: the binary rule counts genes over a per-gene threshold; the score averages z-scores. These disagree in specific, identifiable ways (one dominant gene vs. many weak genes).
+-   **H4 — Scale condition.** Whether we z-score against SE or EE30m only reweights genes. It should matter little, and the table above suggests it doesn't.
+
+The punchline, tested below: **H1 accounts for most of the gap, H2/H3 for the remainder, and H4 for almost none.** "AUPRC = 1" in KA30m is not a better classifier — it is a degenerate one.
+
+```{r setup}
+knitr::opts_chunk$set(message = FALSE)
+#| message: false
+#| warning: false
+
+source("03-scripts/R/seq_functions.R")
+
+library(pROC)
+library(PRROC)
+library(gt)
+library(patchwork)
+library(purrr)
+
+theme_set(theme_bw())
+
+conditions      <- c("SE", "EE30m", "KA30m")
+IEG_symbols     <- LoadGeneList("IEG")
+activity_colors <- LoadActivityColors()
+
+set.seed(42)
+```
+
+```{r load-data}
+#| message: false
+
+if (!exists("nuclei_ca1")) {
+  nuclei_ca1 <- readRDS("04-analysis/Seurats/nuclei_ca1.rds")
+}
+
+# binary reference call (identical to Figure 4D-E and Figure4_SuppFig2.R)
+if (!exists("FindActiveCells_CA1_outputs")) {
+  FindActiveCells_CA1_outputs <- FindActiveCells(
+    nuclei_ca1,
+    subclass       = "016 CA1-ProS Glut",
+    gene_list      = IEG_symbols,
+    gene_threshold = 3L
+  )
+}
+
+# continuous score, z-scored against each of the two candidate scale conditions
+if (!exists("WAS_scaleSE")) {
+  WAS_scaleSE <- WeightedActivityScore(
+    nuclei_ca1,
+    subclass        = "016 CA1-ProS Glut",
+    gene_list       = IEG_symbols,
+    scale_condition = "SE"
+  )
+}
+if (!exists("WAS_scaleEE")) {
+  WAS_scaleEE <- WeightedActivityScore(
+    nuclei_ca1,
+    subclass        = "016 CA1-ProS Glut",
+    gene_list       = IEG_symbols,
+    scale_condition = "EE30m"
+  )
+}
+
+df_active   <- FindActiveCells_CA1_outputs$df_active_cells
+thresholds  <- FindActiveCells_CA1_outputs$activation_thresholds
+gene_cols   <- names(thresholds)
+
+df <- df_active |>
+  filter(activity_condition %in% conditions) |>
+  mutate(activity_condition = factor(activity_condition, levels = conditions)) |>
+  left_join(
+    WAS_scaleSE$df_weighted_score |>
+      dplyr::select(cell, score_scaleSE = weighted_ieg_score),
+    by = "cell"
+  ) |>
+  left_join(
+    WAS_scaleEE$df_weighted_score |>
+      dplyr::select(cell, score_scaleEE = weighted_ieg_score),
+    by = "cell"
+  ) |>
+  mutate(active_ref = active_binary)
+
+glue::glue("{nrow(df)} CA1 cells across {length(conditions)} conditions; {length(gene_cols)} IEGs")
+```
+
+# H1 — Prevalence: the PR curve's baseline moves with the condition
+
+A precision-recall curve has no fixed null. A classifier that assigns random scores achieves precision equal to the positive rate at every recall, so its AUPRC is the prevalence itself. AUPRC of 0.85 against a baseline of 0.15 and AUPRC of 0.97 against a baseline of 0.90 are *not* the same claim about a classifier.
+
+Prevalence is not incidental here — it is baked into the design. Thresholds are the 90th percentile of **SE** expression, so by construction only \~10% of SE cells clear any given gene's bar. The whole point of the EE30m/KA30m conditions is that they blow past it.
+
+```{r prevalence}
+prevalence <- df |>
+  group_by(activity_condition) |>
+  summarise(
+    n_cells    = n(),
+    n_active   = sum(active_ref),
+    n_inactive = sum(!active_ref),
+    prevalence = mean(active_ref),
+    .groups = "drop"
+  )
+
+prevalence |>
+  gt() |>
+  tab_header(title = "Positive-class prevalence by condition",
+             subtitle = "Binary reference: 90th pct (SE-derived), >= 3 IEGs") |>
+  fmt_number(columns = c(n_cells, n_active, n_inactive), decimals = 0, use_seps = TRUE) |>
+  fmt_percent(columns = prevalence, decimals = 1)
+```
+
+## Prevalence-aware metrics
+
+Three things worth putting side by side:
+
+-   **AUPRC** — what the figure shows; prevalence-dependent.
+-   **Normalised AUPRC** = (AUPRC − prevalence) / (1 − prevalence) — how far the classifier gets from the random baseline toward perfection. Comparable across prevalences.
+-   **ROC-AUC** — prevalence-invariant by construction. If the SE "problem" is prevalence, ROC-AUC should be flat across conditions while AUPRC is not.
+
+```{r metric-helpers}
+pr_auc <- function(scores, labels) {
+  if (sum(labels) < 2 || sum(!labels) < 2) return(NA_real_)
+  PRROC::pr.curve(scores.class0 = scores[labels],
+                  scores.class1 = scores[!labels])$auc.integral
+}
+
+roc_auc <- function(scores, labels) {
+  if (sum(labels) < 2 || sum(!labels) < 2) return(NA_real_)
+  as.numeric(pROC::auc(pROC::roc(labels, scores, quiet = TRUE)))
+}
+
+metrics <- df |>
+  group_by(activity_condition) |>
+  summarise(
+    prevalence = mean(active_ref),
+    auprc      = pr_auc(score_scaleEE, active_ref),
+    roc        = roc_auc(score_scaleEE, active_ref),
+    .groups = "drop"
+  ) |>
+  mutate(auprc_normalised = (auprc - prevalence) / (1 - prevalence))
+
+metrics |>
+  gt() |>
+  tab_header(title = "AUPRC is prevalence-bound; ROC-AUC and normalised AUPRC are not",
+             subtitle = "Score z-scored against EE30m") |>
+  cols_label(prevalence = "Prevalence (= random-classifier AUPRC)",
+             auprc = "AUPRC", roc = "ROC-AUC",
+             auprc_normalised = "Normalised AUPRC") |>
+  fmt_number(columns = c(auprc, roc, auprc_normalised), decimals = 3) |>
+  fmt_percent(columns = prevalence, decimals = 1)
+```
+
+**Read the KA30m row first.** If prevalence is near 1, essentially every cell is a positive, precision is \~1 no matter how the score ranks cells, and AUPRC = 1 is unavoidable. Normalised AUPRC divides by (1 − prevalence), which is near zero there, so that column is numerically unstable for KA30m — treat it as undefined rather than meaningful, and lean on ROC-AUC for that condition.
+
+## PR curves with their baselines drawn in
+
+The same curves as the figure, but with each condition's random-classifier floor as a dashed line. The visual gap to *its own* baseline is the honest comparison.
+
+```{r pr-curves-with-baseline}
+#| fig-width: 11
+#| fig-height: 4.5
+
+pr_curve_df <- function(d, cond, score_col) {
+  s <- d[[score_col]]
+  pr <- PRROC::pr.curve(scores.class0 = s[d$active_ref],
+                        scores.class1 = s[!d$active_ref],
+                        curve = TRUE)
+  as_tibble(pr$curve) |>
+    setNames(c("recall", "precision", "threshold")) |>
+    mutate(condition = cond, auprc = pr$auc.integral)
+}
+
+pr_all <- purrr::map_dfr(conditions, \(cond) {
+  pr_curve_df(filter(df, activity_condition == cond), cond, "score_scaleEE")
+}) |>
+  mutate(condition = factor(condition, levels = conditions)) |>
+  left_join(prevalence |> dplyr::select(condition = activity_condition, prevalence),
+            by = "condition")
+
+pr_labels <- pr_all |>
+  distinct(condition, auprc, prevalence) |>
+  mutate(lab = glue::glue("{condition}: AUPRC {round(auprc, 3)} vs. baseline {round(prevalence, 3)}"))
+
+ggplot(pr_all) +
+  aes(x = recall, y = precision, color = condition) +
+  geom_hline(aes(yintercept = prevalence, color = condition),
+             linetype = "dashed", linewidth = 0.6) +
+  geom_line(linewidth = 0.9) +
+  scale_color_manual(values = activity_colors[conditions], guide = "none") +
+  scale_x_continuous(labels = scales::percent) +
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+  facet_wrap(~condition, nrow = 1) +
+  labs(
+    x = "Recall", y = "Precision",
+    title = "PR curves against their own random-classifier baselines",
+    subtitle = "Dashed line = prevalence. The distance above it is what the score earns.",
+    caption = paste(pr_labels$lab, collapse = "   |   ")
+  ) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+## The decisive test: match the prevalence
+
+If prevalence is the explanation, then artificially lowering EE30m and KA30m to SE's positive rate — by subsampling positives, leaving the score untouched — should drag their AUPRCs down toward SE's. Nothing about the classifier changes; only the class balance does.
+
+```{r prevalence-matched}
+#| fig-width: 7
+#| fig-height: 4.5
+
+target_prev <- min(prevalence$prevalence)
+n_reps      <- 50
+
+subsample_to_prevalence <- function(d, target, score_col) {
+  pos <- which(d$active_ref)
+  neg <- which(!d$active_ref)
+  # keep all negatives, thin the positives down to the target rate
+  n_pos_keep <- floor(length(neg) * target / (1 - target))
+  if (n_pos_keep < 2 || n_pos_keep > length(pos)) return(NA_real_)
+  keep <- c(sample(pos, n_pos_keep), neg)
+  pr_auc(d[[score_col]][keep], d$active_ref[keep])
+}
+
+matched <- map_dfr(conditions, \(cond) {
+  d <- filter(df, activity_condition == cond)
+  tibble(
+    condition   = cond,
+    rep         = seq_len(n_reps),
+    auprc_matched = map_dbl(seq_len(n_reps),
+                            \(i) subsample_to_prevalence(d, target_prev, "score_scaleEE"))
+  )
+}) |>
+  mutate(condition = factor(condition, levels = conditions))
+
+matched_summary <- matched |>
+  group_by(condition) |>
+  summarise(
+    auprc_matched_mean = mean(auprc_matched, na.rm = TRUE),
+    auprc_matched_sd   = sd(auprc_matched, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  left_join(metrics |> dplyr::select(condition = activity_condition, auprc_observed = auprc),
+            by = "condition")
+
+matched_summary |>
+  gt() |>
+  tab_header(
+    title = glue::glue("AUPRC after subsampling every condition to {round(target_prev * 100, 1)}% prevalence"),
+    subtitle = glue::glue("{n_reps} subsamples; the score itself is unchanged")
+  ) |>
+  fmt_number(columns = where(is.numeric), decimals = 3)
+
+ggplot(matched) +
+  aes(x = condition, y = auprc_matched, fill = condition) +
+  geom_boxplot(alpha = 0.6, outlier.size = 0.7) +
+  geom_point(data = matched_summary,
+             aes(x = condition, y = auprc_observed),
+             shape = 4, size = 4, stroke = 1.2, inherit.aes = FALSE) +
+  scale_fill_manual(values = activity_colors[conditions], guide = "none") +
+  labs(
+    x = NULL, y = "AUPRC at matched prevalence",
+    title = "Equalising prevalence collapses most of the between-condition gap",
+    subtitle = "Boxes = prevalence-matched AUPRC; X = originally reported AUPRC"
+  )
+```
+
+If the boxes land far closer together than the X marks, H1 is carrying the explanation. Whatever separation *survives* matching is real, and H2/H3 are about that residue.
+
+# H2 — In SE, the positives sit on the decision boundary
+
+The binary rule is a step function on a count. A cell with 3 IEGs a hair over threshold is a positive; a cell with 2 IEGs far over is a negative. In EE30m/KA30m, active cells clear the bar with room to spare, so almost any sensible continuous score orders them correctly. In SE, the positives are *by construction* the marginal cells — they are the right tail of the very distribution that defined the threshold.
+
+```{r n-genes-distribution}
+#| fig-width: 10
+#| fig-height: 4
+
+df |>
+  count(activity_condition, num_upregd_genes) |>
+  group_by(activity_condition) |>
+  mutate(frac = n / sum(n)) |>
+  ungroup() |>
+  ggplot() +
+  aes(x = num_upregd_genes, y = frac, fill = num_upregd_genes >= 3) +
+  geom_col() +
+  geom_vline(xintercept = 2.5, linetype = "dashed") +
+  scale_fill_manual(values = c("FALSE" = "gray70", "TRUE" = "#D81B60"),
+                    labels = c("FALSE" = "Inactive", "TRUE" = "Active"),
+                    name = NULL) +
+  scale_y_continuous(labels = scales::percent) +
+  facet_wrap(~activity_condition, nrow = 1) +
+  labs(
+    x = "Number of IEGs above their SE 90th-percentile threshold",
+    y = "Fraction of cells",
+    title = "Where each condition sits relative to the >= 3 IEG cut",
+    subtitle = "SE positives cluster immediately to the right of the cut; KA30m clears it entirely"
+  ) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+```{r boundary-fraction}
+df |>
+  group_by(activity_condition) |>
+  summarise(
+    n_active          = sum(active_ref),
+    frac_active_at_3  = sum(active_ref & num_upregd_genes == 3) / pmax(sum(active_ref), 1),
+    frac_inactive_at_2 = sum(!active_ref & num_upregd_genes == 2) / pmax(sum(!active_ref), 1),
+    median_n_active   = median(num_upregd_genes[active_ref]),
+    .groups = "drop"
+  ) |>
+  gt() |>
+  tab_header(title = "How marginal are the positives?",
+             subtitle = "Cells with exactly 3 IEGs over threshold are one gene away from being negative") |>
+  cols_label(frac_active_at_3 = "Active cells with exactly 3",
+             frac_inactive_at_2 = "Inactive cells with exactly 2",
+             median_n_active = "Median IEG count among actives") |>
+  fmt_percent(columns = starts_with("frac"), decimals = 1) |>
+  fmt_number(columns = c(n_active, median_n_active), decimals = 0)
+```
+
+The score-vs-count relationship makes the same point continuously. The classifier's job is to place a cutoff on the x-axis that reproduces the y-axis split at 2/3 genes.
+
+```{r score-vs-count}
+#| fig-width: 11
+#| fig-height: 4.5
+
+ggplot(df) +
+  aes(x = score_scaleEE, y = num_upregd_genes, color = active_ref) +
+  geom_hline(yintercept = 2.5, linetype = "dashed") +
+  geom_jitter(height = 0.25, width = 0, alpha = 0.25, size = 0.6) +
+  scale_color_manual(values = c("FALSE" = "gray60", "TRUE" = "#D81B60"),
+                     labels = c("FALSE" = "Inactive", "TRUE" = "Active"),
+                     name = "Binary call") +
+  facet_wrap(~activity_condition, nrow = 1) +
+  labs(
+    x = "Weighted IEG score (mean z, scaled to EE30m)",
+    y = "IEGs over threshold",
+    title = "The continuous score vs. the count it is being asked to reproduce",
+    subtitle = "Vertical overlap between the 2- and 3-gene rows is exactly what costs precision"
+  ) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+```{r score-count-correlation}
+df |>
+  group_by(activity_condition) |>
+  summarise(
+    spearman_score_vs_count = cor(score_scaleEE, num_upregd_genes, method = "spearman"),
+    .groups = "drop"
+  ) |>
+  gt() |>
+  tab_header(title = "Rank agreement between the score and the underlying IEG count") |>
+  fmt_number(columns = spearman_score_vs_count, decimals = 3)
+```
+
+# H3 — The two summaries genuinely measure different things
+
+Neither quantity is truth. The binary rule asks *how many* IEGs are elevated; the score asks *how elevated* the panel is on average. Two cell types break the correspondence:
+
+-   **False positives:** one or two IEGs enormously high (e.g. only `Fos`), pulling the mean up while the count stays below 3.
+-   **False negatives:** many IEGs mildly elevated — three of them just over threshold — but no single gene high enough to lift the mean.
+
+We can label these directly. Pick the score cutoff that maximises F1 within each condition (the most generous possible reading of the score-as-classifier), then inspect who is misassigned.
+
+```{r discordance}
+#| fig-width: 10
+#| fig-height: 4
+
+best_f1_cut <- function(scores, labels) {
+  cand <- quantile(scores, probs = seq(0.01, 0.99, by = 0.01), names = FALSE)
+  f1 <- map_dbl(cand, \(k) {
+    pred <- scores >= k
+    tp <- sum(pred & labels); fp <- sum(pred & !labels); fn <- sum(!pred & labels)
+    if (tp == 0) return(0)
+    2 * tp / (2 * tp + fp + fn)
+  })
+  cand[which.max(f1)]
+}
+
+df_disc <- df |>
+  group_by(activity_condition) |>
+  mutate(
+    cutoff = best_f1_cut(score_scaleEE, active_ref),
+    pred   = score_scaleEE >= cutoff,
+    call   = case_when(
+       pred &  active_ref ~ "True positive",
+      !pred & !active_ref ~ "True negative",
+       pred & !active_ref ~ "False positive",
+      !pred &  active_ref ~ "False negative"
+    )
+  ) |>
+  ungroup()
+
+df_disc |>
+  count(activity_condition, call) |>
+  group_by(activity_condition) |>
+  mutate(frac = n / sum(n)) |>
+  ungroup() |>
+  pivot_wider(id_cols = activity_condition, names_from = call, values_from = frac,
+              values_fill = 0) |>
+  gt() |>
+  tab_header(title = "Confusion at each condition's best-F1 cutoff",
+             subtitle = "Fraction of that condition's cells") |>
+  fmt_percent(columns = -activity_condition, decimals = 1)
+```
+
+Now the gene-level anatomy of the errors. For each cell, compare the *concentration* of IEG signal (how much the single top gene dominates) against the *breadth* (how many genes are over threshold).
+
+```{r error-anatomy}
+#| fig-width: 10
+#| fig-height: 4.5
+
+# WeightedActivityScore() already returns the per-gene z-scores it averaged;
+# pull those rather than recomputing, so this matches the score exactly.
+z_cols <- paste0(gene_cols, "_z")
+
+z_mat <- WAS_scaleEE$df_weighted_score |>
+  dplyr::select(cell, all_of(z_cols)) |>
+  # align to df's row order
+  right_join(dplyr::select(df_disc, cell), by = "cell") |>
+  dplyr::select(all_of(z_cols)) |>
+  as.matrix()
+
+stopifnot(nrow(z_mat) == nrow(df_disc))
+
+df_anatomy <- df_disc |>
+  mutate(
+    top_gene       = gene_cols[max.col(z_mat, ties.method = "first")],
+    max_z          = apply(z_mat, 1, max),
+    mean_z         = rowMeans(z_mat),
+    # how much of the total signal the single strongest gene accounts for
+    concentration  = max_z / pmax(rowSums(pmax(z_mat, 0)), .Machine$double.eps)
+  )
+
+ggplot(filter(df_anatomy, call %in% c("False positive", "False negative"))) +
+  aes(x = concentration, fill = call) +
+  geom_density(alpha = 0.5, color = NA) +
+  scale_fill_manual(values = c("False positive" = "#D81B60", "False negative" = "#1E88E5"),
+                    name = NULL) +
+  facet_wrap(~activity_condition, nrow = 1, scales = "free_y") +
+  labs(
+    x = "Signal concentration (top gene's share of total positive z)",
+    y = "Density",
+    title = "Anatomy of the disagreements",
+    subtitle = "False positives should skew concentrated (one loud gene); false negatives diffuse (many quiet ones)"
+  ) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+```{r top-gene-of-false-positives}
+df_anatomy |>
+  filter(call == "False positive") |>
+  count(activity_condition, top_gene) |>
+  group_by(activity_condition) |>
+  slice_max(n, n = 5) |>
+  ungroup() |>
+  gt(groupname_col = "activity_condition") |>
+  tab_header(title = "Which IEG most often drives a false positive",
+             subtitle = "Cells the score calls active but the >= 3-gene rule does not")
+```
+
+A related check: are the thresholds themselves degenerate for sparse IEGs? If a gene's SE 90th percentile is 0, then "over threshold" collapses to "detected at all," which makes the binary rule noisier in exactly the condition where counts are lowest.
+
+```{r threshold-table}
+tibble(gene = names(thresholds), threshold_90th_SE = as.numeric(thresholds)) |>
+  left_join(
+    df |>
+      filter(activity_condition == "SE") |>
+      dplyr::select(all_of(gene_cols)) |>
+      pivot_longer(everything(), names_to = "gene", values_to = "expr") |>
+      group_by(gene) |>
+      summarise(frac_zero_in_SE = mean(expr == 0), .groups = "drop"),
+    by = "gene"
+  ) |>
+  arrange(desc(frac_zero_in_SE)) |>
+  gt() |>
+  tab_header(title = "Per-gene SE thresholds and sparsity",
+             subtitle = "A threshold of 0 means the binary rule reduces to detection") |>
+  fmt_number(columns = threshold_90th_SE, decimals = 3) |>
+  fmt_percent(columns = frac_zero_in_SE, decimals = 1)
+```
+
+# H4 — The scaling condition barely matters
+
+`WeightedActivityScore()` z-scores each gene against a chosen condition. Because the transform is affine *per gene*, it cannot change any single gene's cell ranking — it can only change how genes are weighted relative to each other in the mean. So the composite ranking shifts a little, and the metrics should move a little.
+
+```{r scale-comparison}
+#| fig-width: 9
+#| fig-height: 4
+
+scale_compare <- bind_rows(
+  df |> group_by(activity_condition) |>
+    summarise(auprc = pr_auc(score_scaleSE, active_ref),
+              roc   = roc_auc(score_scaleSE, active_ref), .groups = "drop") |>
+    mutate(scale_condition = "SE"),
+  df |> group_by(activity_condition) |>
+    summarise(auprc = pr_auc(score_scaleEE, active_ref),
+              roc   = roc_auc(score_scaleEE, active_ref), .groups = "drop") |>
+    mutate(scale_condition = "EE30m")
+)
+
+scale_compare |>
+  pivot_wider(id_cols = activity_condition, names_from = scale_condition,
+              values_from = c(auprc, roc)) |>
+  gt() |>
+  tab_header(title = "Metrics under both scaling choices") |>
+  fmt_number(columns = where(is.numeric), decimals = 3)
+
+ggplot(df) +
+  aes(x = score_scaleSE, y = score_scaleEE, color = active_ref) +
+  geom_point(alpha = 0.2, size = 0.6) +
+  scale_color_manual(values = c("FALSE" = "gray60", "TRUE" = "#D81B60"),
+                     labels = c("FALSE" = "Inactive", "TRUE" = "Active"), name = "Binary call") +
+  facet_wrap(~activity_condition, nrow = 1) +
+  labs(
+    x = "Score (z-scored to SE)", y = "Score (z-scored to EE30m)",
+    title = "The two scaling choices produce near-monotone versions of each other"
+  ) +
+  theme(strip.text = element_text(face = "bold"))
+```
+
+```{r scale-rank-agreement}
+df |>
+  group_by(activity_condition) |>
+  summarise(spearman_between_scalings = cor(score_scaleSE, score_scaleEE, method = "spearman"),
+            .groups = "drop") |>
+  gt() |>
+  tab_header(title = "Rank correlation between the two scalings")
+```
+
+# What to conclude, and what to put in the figure
+
+Assuming the chunks above behave as predicted:
+
+1.  **Do not compare AUPRC across conditions.** It is bounded below by prevalence, and prevalence differs \~5-fold here by design. The KA30m value of exactly 1.000 should be read as a warning that the comparison is degenerate, not as a triumph.
+2.  **ROC-AUC is the comparable number** across conditions, and the prevalence-matched AUPRC is the honest within-PR-framework comparison.
+3.  **The residual SE difficulty is real but expected.** SE positives are marginal cells sitting one gene away from the cut, and the count-based rule and mean-based score necessarily disagree there. That is a property of the binary definition, not a defect of the continuous score — which is the point the supplementary figure is making.
+
+For the figure itself, the most defensible presentation is to keep the PR panel but draw each condition's prevalence baseline, and to report ROC-AUC alongside AUPRC in the caption. If a single headline number is wanted, use ROC-AUC.
+
+```{r summary-table}
+metrics |>
+  left_join(matched_summary |> dplyr::select(activity_condition = condition, auprc_matched_mean),
+            by = "activity_condition") |>
+  gt() |>
+  tab_header(title = "Summary: the same classifier, four ways of scoring it") |>
+  cols_label(prevalence = "Prevalence", auprc = "AUPRC (reported)",
+             roc = "ROC-AUC", auprc_normalised = "Normalised AUPRC",
+             auprc_matched_mean = "AUPRC @ matched prevalence") |>
+  fmt_number(columns = c(auprc, roc, auprc_normalised, auprc_matched_mean), decimals = 3) |>
+  fmt_percent(columns = prevalence, decimals = 1)
+```

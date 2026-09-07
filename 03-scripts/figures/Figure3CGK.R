@@ -95,7 +95,7 @@ for (gigaclass_str in names(gigaclasses)) {
   plots_tau[[paste(gigaclass_str, 'ERG', sep = "_")]] <- p
 }
 
-# InteractiveComplexHeatmap::htShiny(plots_tau[[2]])
+# InteractiveComplexHeatmap::htShiny(plots_tau$glia_ERG, output_ui_float = T)
 
 
 # save ----------------------------------------

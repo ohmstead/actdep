@@ -21,7 +21,7 @@ for (gigaclass_str in names(gigaclasses)) {
   
   
   # read in df_expression ----------------------------------------------------
-  print("Loading ERGs/LRGs (defined in classify_ERG-LRG.R)...")
+  print("Loading ERGs/LRGs (defined in 03_classify_ERG-LRG_deseq2.R)...")
   load_dir <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
   
   df_expression <- read_csv(glue("{load_dir}/0_df_expression_{gigaclass_str}.csv"),show_col_types = F)

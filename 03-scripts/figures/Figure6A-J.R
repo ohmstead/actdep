@@ -9,7 +9,6 @@ library(circlize)
 
 source('03-scripts/R/seq_functions.R')
 
-if (!exists('nuclei')) {nuclei <- LoadDataset("Dec2024")}
 zt_colors <- LoadZTColors()
 activity_colors <- LoadActivityColors()
 
@@ -23,13 +22,19 @@ subclass_list <- subclass_list <- c(
   '327 Oligo NN'
 )
 
-nuclei <- LoadDataset('Dec2024')
-seurat_subsets <- list(
-  CA1   = nuclei |> subset(subclass_name == subclass_list[1]  & activity_condition %in% c('SE', 'EE30m')),
-  DG    = nuclei |> subset(subclass_name == subclass_list[2]  & activity_condition %in% c('SE', 'EE30m')),
-  Astro = nuclei |> subset(subclass_name == subclass_list[3] & activity_condition %in% c('SE', 'EE30m')),
-  Oligo = nuclei |> subset(subclass_name == subclass_list[4] & activity_condition %in% c('SE', 'EE30m'))
-)
+if (!exists('seurat_subsets')) {
+  message("Subsetting nuclei by subclass and activity condition...")
+  
+  if (!exists('nuclei')) {nuclei <- LoadDataset("Dec2024")}
+
+  seurat_subsets <- list(
+    CA1   = nuclei |> subset(subclass_name == subclass_list[1]  & activity_condition %in% c('SE', 'EE30m')),
+    DG    = nuclei |> subset(subclass_name == subclass_list[2]  & activity_condition %in% c('SE', 'EE30m')),
+    Astro = nuclei |> subset(subclass_name == subclass_list[3] & activity_condition %in% c('SE', 'EE30m')),
+    Oligo = nuclei |> subset(subclass_name == subclass_list[4] & activity_condition %in% c('SE', 'EE30m'))
+  )
+}
+rm(nuclei); gc()  # no longer needed
 
 dds_subsets <- list()
 
@@ -301,7 +306,8 @@ for (subclass in names(dds_subsets)) {
 
 # Interaction hm ----------------------------------------
 gene_lists <- list(
-  CA1 = c('Cecr2' ,'Daglb', 'Enoph1', 'Poc1b', 'Zfp420', 'Fcho2', 'Gm5820', 'Itpkb', 'Trmt61a', 'Zfp523'),
+  # CA1 = c('Gm5820', 'Daglb', 'Enoph1', 'Zfp523', 'Trmt61a', 'Itpkb' ,'Zfp420', 'Cecr2', 'Poc1b', 'Fcho2'),
+  CA1 = c('Trmt61a', 'Enoph1', 'Zfp523', 'Daglb', 'Gm5820', 'Itpkb' ,'Zfp420', 'Cecr2', 'Poc1b', 'Fcho2'),
   DG = c('Kcnn2', 'Napepld')
 )
 

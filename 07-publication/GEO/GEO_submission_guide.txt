@@ -1,0 +1,137 @@
+==================================================================
+GEO SUBMISSION - STEP BY STEP (notes to future me)
+==================================================================
+Last done: ACT-DEPP snRNA-seq, Parse Biosciences SPLiT-seq, June 2026.
+Official instructions (RE-CHECK these every time - GEO changes them):
+  https://www.ncbi.nlm.nih.gov/geo/info/seq.html
+
+GEO wants three things:
+  1. A filled-in metadata spreadsheet
+  2. Processed data files (the quantitative results)
+  3. Raw data files (the FASTQs)
+
+
+------------------------------------------------------------------
+ONE-TIME SETUP (already done, but if on a new machine/account)
+------------------------------------------------------------------
+- My NCBI account linked to a GEO submitter profile:
+    https://www.ncbi.nlm.nih.gov/geo/submitter/
+- Personal FTP upload space + login from:
+    https://www.ncbi.nlm.nih.gov/geo/info/submissionftp.html
+  Host: ftp-private.ncbi.nlm.nih.gov   User: geoftp
+  Your space: /uploads/<you>_<random-code>/
+
+
+------------------------------------------------------------------
+STEP 1 - Download a FRESH template
+------------------------------------------------------------------
+Grab the latest from the seq.html page above. Do not reuse an old
+template; the fields and rules change year to year.
+
+
+------------------------------------------------------------------
+STEP 2 - Fill the "Metadata" tab
+------------------------------------------------------------------
+STUDY section:
+  title, abstract, experimental design, contributors,
+  and the names of any study-wide supplementary files.
+
+SAMPLES section (one row per library):
+  Required: library name (UNIQUE), title (UNIQUE), library strategy,
+  organism, tissue/cell type, molecule, single/paired-end,
+  instrument model, and the raw file name(s) for that library.
+  Single-cell / Parse: one sublibrary = one row. List its R1 and R2.
+
+PROTOCOLS section:
+  growth, treatment, extract (nucleus isolation), library
+  construction (kit + chemistry + version), data processing steps
+  (pipeline + version + aligner + genome), genome build, and
+  processed-file format.
+  >> Get exact software versions from the RUN LOGS, not the paper.
+     For Parse: split-pipe_*.log and run_proc_def.json hold the
+     split-pipe version, STAR/samtools versions, and genome build.
+
+PAIRED-END EXPERIMENTS section (bottom of the tab):
+  one row per sequencing run = R1, R2. Index files (I1/I2) go in
+  the file-name-3 / file-name-4 columns only if you have them.
+
+
+------------------------------------------------------------------
+STEP 3 - Checksums (optional, but worth it for huge FASTQs)
+------------------------------------------------------------------
+From the folder holding the files:
+  md5sum *.fastq.gz count_matrix.mtx *.csv *.rds | awk '{print $2"\t"$1}'
+Paste filename + checksum into the "MD5 Checksums" tab
+(raw files on the left, processed files on the right).
+DO NOT upload a separate checksum .txt file - the tab is the only place.
+
+
+------------------------------------------------------------------
+STEP 4 - Stage the upload folder  (THE RULES THAT BIT ME)
+------------------------------------------------------------------
+- ONE folder per dataset, containing ONLY raw + processed data files.
+- NO .zip / .rar / .tar archives. UNZIP everything first. GEO rejects zips.
+- Single-cell: keep raw FASTQs multiplexed (one set per sublibrary);
+  processed data must be cell-level (MEX .mtx/.tsv, H5, or RDS).
+- File names: letters, numbers, hyphen, underscore only.
+  No sensitive info in names - they become public.
+- Folder and metadata must match EXACTLY: every file in the folder is
+  listed in the metadata, and every listed file is in the folder.
+- A readme.txt explaining each processed file is allowed and helpful.
+  (List it in the metadata too.)
+- SCRUB SECRETS before uploading. The Trailmaker settings file contained
+  an auth token - do NOT upload pipeline settings/log files with tokens
+  or keys. Also never upload: the metadata spreadsheet, or checksum .txt.
+
+
+------------------------------------------------------------------
+STEP 5 - FTP the folder (NOT the spreadsheet)
+------------------------------------------------------------------
+Tool that worked: lftp.
+
+  lftp -u geoftp sftp://ftp-private.ncbi.nlm.nih.gov
+  cd /uploads/<you>_<code>/
+  mkdir new_geo_submission        # one subfolder per GEO accession dataset
+  cd new_geo_submission
+  lcd /path/to/local/folder       # set the LOCAL source folder
+  mirror -R -c ./ .               # -R = upload, -c = resume if cut off
+
+Handy lftp notes:
+- Interrupted? Re-run the same "mirror -R -c". It resends only the
+  missing/incomplete files.
+- Exclude something: mirror -R -c --exclude-glob '*.zip' ./ .
+  (--exclude uses regex; --exclude-glob uses wildcards.)
+- Spot a bad partial file: compare remote "ls -l" to local "!ls -l";
+  a short file is incomplete. Delete with: rm <name>  (or mrm <glob>).
+- Plain OpenSSH sftp can't take multiple globs on one put line
+  (it treats the 2nd as the destination). Use one pattern per put,
+  or use lftp's mput which does accept several.
+
+
+------------------------------------------------------------------
+STEP 6 - Submit the metadata = the real "GO" button
+------------------------------------------------------------------
+FTP alone does NOTHING. Upload the filled spreadsheet here:
+  https://submit.ncbi.nlm.nih.gov/geo/submission/meta/
+One spreadsheet per dataset/data type.
+
+
+------------------------------------------------------------------
+STEP 7 - Wait
+------------------------------------------------------------------
+- GSE accession usually issued within ~5 business days.
+- A curator emails with any questions - answer promptly.
+- Data can stay private until publication; reviewers get anonymous access.
+
+
+==================================================================
+30-SECOND GOTCHA CHECKLIST
+==================================================================
+[ ] No zips - everything unzipped
+[ ] Spreadsheet via the web form, NEVER by FTP
+[ ] Checksums in the tab, not a separate file
+[ ] Folder contents == metadata file list, exactly
+[ ] Software versions pulled from run logs
+[ ] No credentials/tokens in any uploaded file
+[ ] Submitted the metadata (the FTP upload is not the submission)
+==================================================================
