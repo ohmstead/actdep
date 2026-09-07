@@ -41,7 +41,7 @@ MakeHMobject <- function(mat, plot_title) {
   return(hm)
 }
 
-save_path <- glue("05-results/LION/raw_R_plots/supertype_coexpression")
+save_path <- glue("05-results/Figure4/raw_R_plots/supertype_coexpression")
 SaveHMobject <- function(hm, save_path, plot_title) {
   if (!exists('SAVE_PLOTS')) {return()} else { if (SAVE_PLOTS == F) {return()}}
   # png

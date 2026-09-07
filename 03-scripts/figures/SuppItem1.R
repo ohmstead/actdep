@@ -11,7 +11,7 @@ df_meta <- LoadMeta()
 subclass_list <- LoadSubclassesToUse()
 
 # seurat_meta.rds is missing age/hemisphere for the ZT12_30m replicates, so
-# backfill those from the documentation csv the same way SuppTable1.R does.
+# backfill those from the documentation csv the same way Figure1_SuppFig1.R does.
 df_metadata_csv <- read_csv(
   "01-documentation/sample_experimental_metadata_Dec2024.csv",
   show_col_types = FALSE

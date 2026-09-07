@@ -1112,7 +1112,7 @@ plotRRHO <- function(df_rrho, title, x_label = "DESeq2 rank (down \u2192 up)", y
   #  title: plot title.
   #  x_label, y_label: axis labels. Default to the labels used for the
   #  DESeq2-vs-NB-GLMM comparison in the reviewer-response RRHO scripts
-  #  (manuscript_DGE_reviewer_response_06_rrho_EE30m_vs_SE.R and _07_EE6h).
+  #  (Figure2_SuppFig4.R and Figure2_SuppFig5.R).
   #  cap: upper limit for the fill scale. A few extreme-overlap cells sit
   #  orders of magnitude above the rest of the map; without a cap the color
   #  scale stretches to fit them and everything else collapses into one shade.
@@ -1183,7 +1183,7 @@ FitSubclassGLMM <- function(genes, subclass_fname, group1, group2,
   #
   #   count ~ activity_condition + (1 | sample), offset = log(nCount_RNA)
   #
-  # This is the model manuscript_DGE_reviewer_response_03_glmm_gene_expression.R
+  # This is the model 07_dge_glmm_animal_random_effect.R
   # uses on the IEG panel, applied here to a larger gene set so the DESeq2
   # ranking can be compared against it. It benchmarks at ~2.8 sec/gene, hence
   # the parallelisation and the cache -- ~2000 genes on 8 cores is ~12 min.
@@ -1634,21 +1634,27 @@ RRHOCompare <- function(deseq, other, other_label, out_stem, rrho_dir,
 
 
 SubclassCacheDir <- function(create = FALSE) {
-# Resolves the per-subclass Seurat cache written by
-# manuscript_DGE_reviewer_response_00_cache_subclasses.R.
+# Resolves the per-subclass Seurat cache written by 04_cache_subclasses.R.
 #
-# The full cache is ~2.7 GB and the boot volume does not have room for it,
-# so it lives on the jack2 external volume. Falls back to the in-project
-# path only when jack2 is not mounted (e.g. a partial local cache).
-  vol_dir   <- "/Volumes/jack2/actdep/04-analysis/reviewer_response/subclass_cache"
-  local_dir <- "04-analysis/reviewer_response/subclass_cache"
+# The full cache is ~2.7 GB, which does not fit on every boot volume. Set the
+# ACTDEP_CACHE_ROOT environment variable to an existing directory (e.g. an
+# external disk) to keep the cache there; the project-relative path under
+# 04-analysis/ is used otherwise.
+  rel_path   <- "04-analysis/dge_method_comparison/subclass_cache"
+  cache_root <- Sys.getenv("ACTDEP_CACHE_ROOT", unset = "")
 
-  if (dir.exists(dirname(vol_dir))) {
-    if (create) dir.create(vol_dir, showWarnings = FALSE, recursive = TRUE)
-    return(vol_dir)
+  if (nzchar(cache_root)) {
+    if (dir.exists(cache_root)) {
+      cache_dir <- file.path(cache_root, rel_path)
+      if (create) dir.create(cache_dir, showWarnings = FALSE, recursive = TRUE)
+      return(cache_dir)
+    }
+    warning(glue::glue(
+      "ACTDEP_CACHE_ROOT is set to '{cache_root}', which does not exist; ",
+      "falling back to the in-project cache at {rel_path}"
+    ))
   }
 
-  warning(glue::glue("jack2 not mounted; falling back to local cache at {local_dir}"))
-  if (create) dir.create(local_dir, showWarnings = FALSE, recursive = TRUE)
-  return(local_dir)
+  if (create) dir.create(rel_path, showWarnings = FALSE, recursive = TRUE)
+  return(rel_path)
 }

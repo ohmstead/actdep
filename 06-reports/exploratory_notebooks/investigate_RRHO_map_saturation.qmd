@@ -17,8 +17,9 @@ editor_options:
 
 Two reviewer-response scripts — at the time of this investigation split by
 method as `…_06_rrho_deseq2_vs_glmm.R` and `…_07_rrho_deseq2_vs_voom.R`, since
-reorganised by timepoint into `…_06_rrho_EE30m_vs_SE.R` and
-`…_07_rrho_EE6h_vs_SE.R` — ran the same RRHO code (`computeRRHO()` /
+reorganised by timepoint and now living at
+`03-scripts/figures/Figure2_SuppFig4.R` (EE30m vs SE) and
+`03-scripts/figures/Figure2_SuppFig5.R` (EE6h vs SE) — ran the same RRHO code (`computeRRHO()` /
 `plotRRHO()` in `seq_functions.R`) on the same subclass and contrast
 (`016 CA1-ProS Glut`, EE30m vs. SE) and produced maps that looked like they
 came from different experiments:
@@ -90,8 +91,8 @@ group1    <- "EE30m"
 group2    <- "SE"
 
 deseq_dir <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
-voom_dir  <- "04-analysis/reviewer_response/voom"
-rrho_dir  <- "04-analysis/reviewer_response/rrho"
+voom_dir  <- "04-analysis/dge_method_comparison/voom"
+rrho_dir  <- "04-analysis/dge_method_comparison/rrho"
 
 set.seed(42)
 ```

@@ -1,11 +1,11 @@
-# Reviewer response (d), DG panel: forest plot of IEG effect sizes with 95%
+# Reviewer response (d), CA1 panel: forest plot of IEG effect sizes with 95%
 # CIs across all four DGE methods, in a single 2x2 contrast grid.
 # Run these first: R/04_cache_subclasses.R, R/05_dge_pseudobulk_voom.R,
 # R/07_dge_glmm_animal_random_effect.R
 #
 # Companion to archive/forest_plots_all_subclasses.R, which loops over every subclass x contrast
 # and emits one page per combination. This script instead pins the subclass to
-# 037 DG Glut and lays the four stimulus x timepoint contrasts out as a
+# 016 CA1-ProS Glut and lays the four stimulus x timepoint contrasts out as a
 # 2x2 grid on one page (columns = stimulus EE/KA, rows = timepoint 30m/6h), so
 # the reader can compare method agreement across contrasts at a glance.
 #
@@ -19,12 +19,12 @@
 # criterion differs from archive/forest_plots_all_subclasses.R. That script drops a fit when the CI
 # width is >= 10x |log2FoldChange|, which works when scanning every subclass
 # (including small ones whose fits diverge to CIs of +/- millions). Applied to
-# just the 15 IEGs in DG it misfires: a gene with a genuinely null effect has a
+# just the 15 IEGs in CA1 it misfires: a gene with a genuinely null effect has a
 # tiny |log2FoldChange| in the denominator, so a perfectly healthy CI of width
 # ~1 yields a huge ratio and gets cut. That silently removes the null GLMM
 # results and makes the method look more concordant than it is. Here the cut is
 # an absolute CI width instead, which still catches real divergence without
-# penalising near-zero effects. Across all DG IEG fits the widest CI is ~5.2,
+# penalising near-zero effects. Across all CA1 IEG fits the widest CI is ~5.2,
 # so nothing is currently dropped -- the filter is purely defensive.
 
 library(tidyverse)
@@ -38,11 +38,11 @@ dir.create(plot_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Intermediate tables stay under 04-analysis; the figure itself is a
 # manuscript supplement and belongs in 05-results.
-fig_dir <- "05-results/Figure2_SuppFig3/raw_R_plots"
+fig_dir <- "05-results/Figure2_SuppFig2/raw_R_plots"
 dir.create(fig_dir, showWarnings = FALSE, recursive = TRUE)
 
-subclass <- "037 DG Glut"
-subclass_label <- "DG Glut"
+subclass <- "016 CA1-ProS Glut"
+subclass_label <- "CA1-ProS Glut"
 log2FC_threshold <- 0.585
 ieg_genes <- LoadGeneList("IEG")
 gene_order <- sort(ieg_genes)
@@ -138,7 +138,7 @@ df_forest <- map_dfr(contrast_grid$contrast, collectForestData) |>
          stimulus = factor(stimulus, levels = c("EE", "KA")),
          timepoint = factor(timepoint, levels = c("30 min", "6 h")))
 
-write_csv(df_forest, file.path(plot_dir, "0_forest_plot_data_DG.csv"))
+write_csv(df_forest, file.path(plot_dir, "0_forest_plot_data_CA1.csv"))
 
 
 # ============================================================================ #
@@ -182,8 +182,8 @@ p <- ggplot(df_forest, aes(x = log2FoldChange, y = gene, color = method)) +
 print(p)
 
 if (exists("SAVE_PLOTS") && SAVE_PLOTS) {
-  ggsave(file.path(fig_dir, "IEG_forest_plots_DG_2x2.svg"), p,
+  ggsave(file.path(fig_dir, "IEG_forest_plots_CA1_2x2.svg"), p,
          width = 10, height = 9, bg = "white")
-  ggsave(file.path(fig_dir, "IEG_forest_plots_DG_2x2.png"), p,
+  ggsave(file.path(fig_dir, "IEG_forest_plots_CA1_2x2.png"), p,
          width = 10, height = 9, dpi = 300, bg = "white")
 }
