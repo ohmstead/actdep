@@ -1030,12 +1030,25 @@ computeRRHO <- function(df1, df2, n_steps = 100) {
   # tested against a hypergeometric null; the resulting -log10(p) grid is
   # the RRHO map.
   #
+  # The hypergeometric tail is taken on the log scale (phyper(log.p = TRUE)),
+  # which is not optional. -log10(p) on an RRHO map grows roughly linearly in
+  # the number of genes, so for a genome-wide list (N ~ 20,000) most of the
+  # grid falls below the smallest representable double (~1e-308). Asking
+  # phyper() for a linear-scale probability underflows those cells to 0 and
+  # flattens the map to one value. That is what made the genome-wide
+  # DESeq2-vs-voom map (77% of cells clipped) look unrelated to the
+  # 2000-gene DESeq2-vs-NB-GLMM map (12% clipped) when, normalised, the two
+  # agree at Spearman rho = 0.996 -- see
+  # 06-reports/exploratory_notebooks/investigate_RRHO_map_saturation.qmd.
+  #
   # Args:
   #  df1, df2: tibbles with columns gene, signed_stat.
   #  n_steps: number of rank-cutoff bins per axis (default 100).
   #
   # Returns:
-  #  A tibble with columns rank_i, rank_j, neglog10p (one row per grid cell).
+  #  A tibble with columns rank_i, rank_j, overlap, neglog10p (one row per
+  #  grid cell). neglog10p is unbounded; values in the thousands are normal
+  #  for genome-wide lists and are not an error.
   attach_package_once("dplyr")
   attach_package_once("tibble")
 
@@ -1065,26 +1078,27 @@ computeRRHO <- function(df1, df2, n_steps = 100) {
   }
 
   breakpoints_j <- round(seq_len(n_steps) / n_steps * N)
-  pmat <- matrix(NA_real_, nrow = length(breakpoints_i), ncol = n_steps)
-  for (a in seq_along(breakpoints_i)) {
-    i_bp <- breakpoints_i[a]
-    for (b in seq_len(n_steps)) {
-      j_bp <- breakpoints_j[b]
-      overlap <- count_matrix[a, b]
-      pmat[a, b] <- phyper(overlap - 1, j_bp, N - j_bp, i_bp, lower.tail = FALSE)
-    }
-  }
-  pmat <- pmax(pmat, 1e-300)  # floor to avoid -log10(0) = Inf at near-perfect corners
+
+  # expand.grid() varies `a` fastest, matching the column-major layout of
+  # count_matrix, so the row order here is the same as the old as.vector(pmat).
+  grid <- expand.grid(a = seq_along(breakpoints_i), b = seq_len(n_steps))
+  i_bp <- breakpoints_i[grid$a]
+  j_bp <- breakpoints_j[grid$b]
+  overlap <- count_matrix[cbind(grid$a, grid$b)]
+
+  logp <- phyper(overlap - 1, j_bp, N - j_bp, i_bp,
+                 lower.tail = FALSE, log.p = TRUE)
 
   tibble(
-    rank_i = rep(breakpoints_i, times = n_steps),
-    rank_j = rep(breakpoints_j, each = length(breakpoints_i)),
-    neglog10p = -log10(as.vector(pmat))
+    rank_i = i_bp,
+    rank_j = j_bp,
+    overlap = overlap,
+    neglog10p = -logp / log(10)
   )
 }
 
 
-plotRRHO <- function(df_rrho, title, x_label = "DESeq2 rank (down → up)", y_label = "NB-GLMM rank (down → up)", cap = NULL) {
+plotRRHO <- function(df_rrho, title, x_label = "DESeq2 rank (down \u2192 up)", y_label = "NB-GLMM rank (down \u2192 up)", cap = NULL) {
   # Plots an RRHO map (as returned by computeRRHO()) as a heatmap of
   # -log10(p) over the rank-cutoff grid, styled after Figure 1A/1D of Piron
   # et al. 2024, Life Science Alliance (RedRibbon paper,
@@ -1097,16 +1111,18 @@ plotRRHO <- function(df_rrho, title, x_label = "DESeq2 rank (down → up)", y_la
   #  df_rrho: output of computeRRHO(), with columns rank_i, rank_j, neglog10p.
   #  title: plot title.
   #  x_label, y_label: axis labels. Default to the labels used for the
-  #  DESeq2-vs-NB-GLMM comparison in
-  #  manuscript_DGE_reviewer_response_06_rrho_deseq2_vs_glmm.R.
-  #  cap: upper limit for the fill scale. computeRRHO()'s hypergeometric
-  #  p-values are floored at 1e-300 (to avoid -log10(0) = Inf at the
-  #  near-perfect-overlap corner), so a handful of extreme-corner cells can
-  #  reach -log10(p) in the hundreds while the rest of the map sits in a much
-  #  lower, more informative range. Without a cap, the color scale stretches
-  #  to fit those outliers and everything else saturates into one shade.
+  #  DESeq2-vs-NB-GLMM comparison in the reviewer-response RRHO scripts
+  #  (manuscript_DGE_reviewer_response_06_rrho_EE30m_vs_SE.R and _07_EE6h).
+  #  cap: upper limit for the fill scale. A few extreme-overlap cells sit
+  #  orders of magnitude above the rest of the map; without a cap the color
+  #  scale stretches to fit them and everything else collapses into one shade.
   #  Defaults to the 99th percentile of finite values in df_rrho, with values
   #  above the cap squished to the top color rather than expanding the scale.
+  #
+  # NOTE: -log10(p) scales with the number of genes in the map, so brightness
+  # is not comparable between maps built on different gene sets. Compare maps
+  # only at matched N, and report quadrant statistics (see
+  # redRibbonQuadrants()) rather than reading effect size off the color.
   attach_package_once("ggplot2")
   attach_package_once("scales")
 
@@ -1115,14 +1131,524 @@ plotRRHO <- function(df_rrho, title, x_label = "DESeq2 rank (down → up)", y_la
     cap <- if (length(finite_vals) > 0) unname(stats::quantile(finite_vals, 0.99, na.rm = TRUE)) else 1
   }
 
-  ggplot(df_rrho, aes(x = rank_i, y = rank_j, fill = neglog10p)) +
-    geom_tile() +  # breakpoints are rank cutoffs, not evenly spaced; geom_raster()
-                    # assumes even spacing and silently shifts pixels, distorting tiles
+  # rank_i / rank_j are the UPPER rank cutoff of each cell, and the cutoffs are
+  # not evenly spaced (round(seq(...)) alternates step sizes, e.g. 19/20 for
+  # N = 1972). geom_tile() sizes tiles from the smallest observed gap and
+  # geom_raster() assumes a regular grid, so both leave white seams wherever a
+  # cell is wider than the minimum. Draw explicit rectangles from each cell's
+  # true lower edge to its upper edge instead: exactly contiguous, no seams.
+  LowerEdges <- function(upper) {
+    u <- sort(unique(upper))
+    setNames(c(0, utils::head(u, -1)), as.character(u))
+  }
+  lo_i <- LowerEdges(df_rrho$rank_i)
+  lo_j <- LowerEdges(df_rrho$rank_j)
+
+  df_rrho$xmin <- lo_i[as.character(df_rrho$rank_i)]
+  df_rrho$ymin <- lo_j[as.character(df_rrho$rank_j)]
+
+  ggplot(df_rrho, aes(xmin = xmin, xmax = rank_i, ymin = ymin, ymax = rank_j,
+                      fill = neglog10p)) +
+    geom_rect() +
+    geom_vline(xintercept = 1000, linetype = 'dotted', color = "grey95", alpha = 0.3, size = 0.5) +
+    geom_hline(yintercept = 1000, linetype = 'dotted', color = "grey95", alpha = 0.3, size = 0.5) +
     scale_fill_viridis_c(name = "-log10(p)", option = "inferno",
                          limits = c(0, cap), oob = scales::squish) +
     labs(title = title,
          x = x_label,
          y = y_label) +
     coord_fixed() +
-    theme_minimal(base_family = "Helvetica")
+    theme_minimal(base_family = "Arial")
+}
+
+
+RRHORankStat <- function(log2fc, pvalue) {
+  # The signed statistic every RRHO in this project ranks on: direction from
+  # the fold change, magnitude from the p-value, so genes sort from most
+  # confidently down-regulated, through the null genes near zero, to most
+  # confidently up-regulated.
+  #
+  # The pmax() floor only guards against an exact zero p-value; it is inert on
+  # our data (every statistic in every list is distinct). Note the map itself
+  # is computed in log space by computeRRHO() -- this floor is about the
+  # ranking statistic, not the hypergeometric tail.
+  sign(log2fc) * -log10(pmax(pvalue, 1e-300))
+}
+
+
+FitSubclassGLMM <- function(genes, subclass_fname, group1, group2,
+                            cache_path = NULL, n_cores = NULL, batch_size = 100) {
+  # Fits a per-gene negative-binomial GLMM with an animal random effect to
+  # single-cell counts for one subclass x contrast:
+  #
+  #   count ~ activity_condition + (1 | sample), offset = log(nCount_RNA)
+  #
+  # This is the model manuscript_DGE_reviewer_response_03_glmm_gene_expression.R
+  # uses on the IEG panel, applied here to a larger gene set so the DESeq2
+  # ranking can be compared against it. It benchmarks at ~2.8 sec/gene, hence
+  # the parallelisation and the cache -- ~2000 genes on 8 cores is ~12 min.
+  #
+  # Reads the per-subclass Seurat cache, which lives on the jack2 volume (see
+  # SubclassCacheDir()); errors with a clear message if it is not mounted.
+  #
+  # Args:
+  #  genes: genes to fit. Names absent from the counts matrix are warned about
+  #   and skipped rather than erroring the subset.
+  #  subclass_fname: ShrinkSubclassName() output, e.g. "016_CA1-ProS_Glut".
+  #  group1, group2: activity conditions; group2 is the reference level, so a
+  #   positive log2FoldChange means higher in group1.
+  #  cache_path: optional CSV read from / written to. Fits are expensive.
+  #  n_cores: defaults to min(8, detectCores() - 1).
+  #  batch_size: genes per parallel batch. Only affects how often progress is
+  #   reported (parLapply blocks until a batch finishes), not throughput.
+  #
+  # Returns:
+  #  A tibble with columns gene, log2FoldChange, pvalue. Genes whose fit failed
+  #  are present with NA in both -- the caller decides what to do with them,
+  #  because which genes fail is itself informative (failures concentrate at
+  #  low abundance; see ThinStratifiedGenes()).
+  attach_package_once("dplyr")
+  attach_package_once("tibble")
+  attach_package_once("tidyr")
+
+  if (!is.null(cache_path) && file.exists(cache_path)) {
+    message(glue::glue("Reusing cached NB-GLMM fits: {cache_path}"))
+    return(readr::read_csv(cache_path, show_col_types = FALSE))
+  }
+
+  attach_package_once("Seurat")
+  attach_package_once("glmmTMB")
+  attach_package_once("parallel")
+
+  seurat_path <- file.path(SubclassCacheDir(), glue::glue("{subclass_fname}.Rds"))
+  if (!file.exists(seurat_path)) {
+    stop(glue::glue("{seurat_path} not found -- the subclass cache lives on the ",
+                    "jack2 volume, which is not mounted. Mount it and re-run."))
+  }
+
+  if (is.null(n_cores)) {
+    n_cores <- if (.Platform$OS.type == "windows") max(1, min(4, detectCores() - 1)) else max(1, min(8, detectCores() - 1))
+  }
+
+  obj <- readRDS(seurat_path)
+  obj <- subset(obj, activity_condition %in% c(group1, group2))
+
+  cell_df <- obj@meta.data |>
+    tibble::as_tibble(rownames = "cell") |>
+    select(cell, sample, activity_condition, nCount_RNA) |>
+    mutate(activity_condition = droplevels(factor(activity_condition, levels = c(group2, group1))))
+
+  counts <- GetAssayData(obj, assay = "RNA", layer = "counts")
+
+  absent <- setdiff(genes, rownames(counts))
+  if (length(absent) > 0) {
+    warning(glue::glue("{length(absent)} genes absent from the counts matrix and skipped: ",
+                       "{paste(utils::head(absent, 10), collapse = ', ')}",
+                       "{if (length(absent) > 10) ' ...' else ''}"))
+    genes <- intersect(genes, rownames(counts))
+  }
+
+  counts_sub <- as.matrix(counts[genes, cell_df$cell, drop = FALSE])
+  rm(obj, counts)
+  gc()
+
+  fitGene <- function(gene) {
+    df <- cell_df
+    df$count <- counts_sub[gene, df$cell]
+    fit <- tryCatch(
+      suppressWarnings(
+        glmmTMB(count ~ activity_condition + (1 | sample),
+                offset = log(nCount_RNA), family = nbinom2, data = df)),
+      error = function(e) NULL
+    )
+    if (is.null(fit)) return(tibble(gene = gene, log2FoldChange = NA_real_, pvalue = NA_real_))
+
+    co <- summary(fit)$coefficients$cond
+    term <- grep("^activity_condition", rownames(co), value = TRUE)
+    if (length(term) == 0) return(tibble(gene = gene, log2FoldChange = NA_real_, pvalue = NA_real_))
+
+    tibble(gene = gene,
+           log2FoldChange = co[term, "Estimate"] / log(2),
+           pvalue = co[term, "Pr(>|z|)"])
+  }
+
+  n_genes <- length(genes)
+  message(glue::glue("Fitting NB-GLMM for {n_genes} genes on {n_cores} cores: ",
+                     "{subclass_fname} {group1} vs {group2}"))
+  t0 <- Sys.time()
+
+  cl <- makeCluster(n_cores)
+  on.exit(try(stopCluster(cl), silent = TRUE), add = TRUE)
+  clusterEvalQ(cl, { library(glmmTMB); library(tibble) })
+  clusterExport(cl, c("cell_df", "counts_sub"), envir = environment())
+
+  n_done <- 0
+  results <- list()
+  for (batch in split(genes, ceiling(seq_along(genes) / batch_size))) {
+    results <- c(results, parLapply(cl, batch, fitGene))
+    n_done <- n_done + length(batch)
+    elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+    message(glue::glue("  [{n_done}/{n_genes}] genes fit, {round(elapsed / 60, 1)} min elapsed, ",
+                       "~{round((elapsed / n_done) * (n_genes - n_done) / 60, 1)} min remaining"))
+  }
+
+  message(glue::glue("GLMM fits complete in {round(difftime(Sys.time(), t0, units = 'mins'), 1)} min"))
+
+  out <- bind_rows(results)
+  if (!is.null(cache_path)) {
+    dir.create(dirname(cache_path), showWarnings = FALSE, recursive = TRUE)
+    readr::write_csv(out, cache_path)
+  }
+  out
+}
+
+
+SelectStratifiedGenes <- function(deseq_df,
+                                  eligible_genes = NULL,
+                                  n_strata = 10,
+                                  n_per_stratum = 200,
+                                  oversample = 1.5,
+                                  force_include = LoadGeneList("IEG"),
+                                  seed = 42) {
+  # Draws an abundance-stratified gene set for method-comparison analyses
+  # (RRHO, rank concordance) where a per-gene model makes a full-transcriptome
+  # run infeasible.
+  #
+  # Why not "top N by expression": that is what the reviewer-response RRHO
+  # scripts originally did, and it turned out to sample only the top ~11% of
+  # the abundance range
+  # (median baseMean 2238 vs 47 for the rest, 81% of all reads, zero of the 15
+  # IEGs). It also lands on the easiest genes: DESeq2-vs-voom rank concordance
+  # in this subclass runs 0.997 in the top abundance decile but 0.955 in the
+  # bottom, so a top-N set overstates agreement (0.997 vs 0.986 genome-wide).
+  # An equal-count draw per abundance decile gives uniform precision across
+  # the range, recovers each decile's true rho to within ~0.006 at 200 genes
+  # per stratum, and pools to 0.987 -- essentially the genome-wide value.
+  #
+  # Stratification is on DESeq2 baseMean rather than the per-cell SCT mean
+  # because (a) it is the abundance measure the DE comparison is actually
+  # about, (b) it is on disk for every gene so the draw is reproducible
+  # without mounting the Seurat cache, and (c) the per-cell mean rewards
+  # broadly-detected genes over sparsely-but-strongly induced ones, which is
+  # exactly why every IEG fell out of the original set.
+  #
+  # Args:
+  #  deseq_df: DESeq2 results with at least columns gene, baseMean.
+  #  eligible_genes: optional vector to intersect with first -- use it to
+  #   require that a gene is testable by every method being compared (e.g.
+  #   present in the limma-voom table too).
+  #  n_strata: number of equal-count abundance strata (default 10 = deciles).
+  #  n_per_stratum: genes wanted per stratum after any downstream model
+  #   failures are dropped.
+  #  oversample: draw this multiple of n_per_stratum so convergence failures
+  #   can be discarded without re-biasing the set. Model failures are NOT
+  #   random -- they concentrate at low abundance -- so silently dropping them
+  #   would pull the set back toward the high-abundance end.
+  #  force_include: genes always kept regardless of the draw. Defaults to the
+  #   15-gene IEG panel from LoadGeneList("IEG"): the manuscript is about
+  #   activity-dependent expression, and a stratified draw caught only 2 of
+  #   the 15 by chance.
+  #  seed: RNG seed, so the selection is reproducible.
+  #
+  # Returns:
+  #  A tibble with columns gene, baseMean, stratum, forced. Rows are the
+  #  OVERSAMPLED draw -- thin to n_per_stratum per stratum after fitting,
+  #  keeping forced genes unconditionally.
+  attach_package_once("dplyr")
+  attach_package_once("tibble")
+
+  stopifnot(all(c("gene", "baseMean") %in% names(deseq_df)))
+
+  pool <- deseq_df |>
+    filter(!is.na(baseMean)) |>
+    distinct(gene, .keep_all = TRUE)
+
+  if (!is.null(eligible_genes)) {
+    pool <- pool |> filter(gene %in% eligible_genes)
+  }
+
+  pool <- pool |>
+    select(gene, baseMean) |>
+    mutate(stratum = ntile(baseMean, n_strata))
+
+  missing_forced <- setdiff(force_include, pool$gene)
+  if (length(missing_forced) > 0) {
+    warning(glue::glue(
+      "force_include genes absent from the eligible pool and therefore dropped: ",
+      "{paste(missing_forced, collapse = ', ')}"))
+  }
+
+  set.seed(seed)
+  n_draw <- ceiling(n_per_stratum * oversample)
+
+  drawn <- pool |>
+    group_by(stratum) |>
+    slice_sample(n = n_draw) |>  # silently returns all rows if a stratum is smaller
+    # draw_order records the random order so ThinStratifiedGenes() can drop the
+    # surplus without reintroducing an abundance bias within the stratum
+    mutate(draw_order = row_number()) |>
+    ungroup()
+
+  forced <- pool |> filter(gene %in% force_include, !gene %in% drawn$gene)
+
+  # forced is a property of the gene, not of how it entered: a force_include
+  # gene that happened to come up in the random draw must not then be cut by
+  # the stratum quota in ThinStratifiedGenes().
+  bind_rows(drawn, forced |> mutate(draw_order = NA_integer_)) |>
+    mutate(forced = gene %in% force_include) |>
+    arrange(stratum, draw_order)
+}
+
+
+ThinStratifiedGenes <- function(selection, converged_genes, n_per_stratum = 200) {
+  # Cuts an oversampled SelectStratifiedGenes() draw back to n_per_stratum per
+  # stratum after a per-gene model has been fit, keeping only genes that
+  # actually converged.
+  #
+  # The thinning goes by draw_order, not by abundance, so the surviving set is
+  # still a uniform random sample within each stratum. Forced genes (the IEG
+  # panel) are kept unconditionally and do not consume stratum quota.
+  #
+  # Also reports the per-stratum convergence rate, which is a result in its own
+  # right: model failures concentrate at low abundance, so a stratum that
+  # cannot reach its quota is telling you the comparison is not assessable
+  # there rather than that the methods agree.
+  #
+  # Args:
+  #  selection: the tibble returned by SelectStratifiedGenes().
+  #  converged_genes: character vector of genes whose model fit successfully.
+  #  n_per_stratum: target genes per stratum.
+  #
+  # Returns:
+  #  list(genes = character vector to analyse,
+  #       report = per-stratum tibble of drawn / converged / kept counts).
+  attach_package_once("dplyr")
+
+  ok <- selection |> filter(gene %in% converged_genes)
+
+  kept <- bind_rows(
+    ok |> filter(forced),
+    ok |> filter(!forced) |>
+      group_by(stratum) |>
+      arrange(draw_order, .by_group = TRUE) |>
+      slice_head(n = n_per_stratum) |>
+      ungroup()
+  ) |>
+    distinct(gene, .keep_all = TRUE)
+
+  report <- selection |>
+    group_by(stratum) |>
+    summarise(drawn = dplyr::n(),
+              converged = sum(gene %in% converged_genes),
+              .groups = "drop") |>
+    mutate(convergence_rate = converged / drawn) |>
+    left_join(kept |> count(stratum, name = "kept"), by = "stratum") |>
+    mutate(kept = tidyr::replace_na(kept, 0L),
+           short_of_quota = kept < n_per_stratum)
+
+  list(genes = kept$gene, report = report)
+}
+
+
+redRibbonQuadrants <- function(df1, df2, cache_path = NULL, permutation = TRUE,
+                               n_permutations = 96, overwrite = FALSE) {
+  # Locates the minimal-p-value coordinate in each quadrant of an RRHO map
+  # using RedRibbon's evolutionary algorithm (Piron et al. 2024, Life Science
+  # Alliance, https://www.life-science-alliance.org/content/7/2/e202302203),
+  # and rescores that coordinate on the log scale.
+  #
+  # The EA and the permutation scheme are the reason to reach for RedRibbon at
+  # all -- they are step-size free and give an adjusted p-value that a raw
+  # hypergeometric grid cannot. But two platform facts, both established in
+  # 06-reports/exploratory_notebooks/investigate_RRHO_map_saturation.qmd,
+  # shape how it has to be used here:
+  #
+  #  1. RedRibbon's defence against underflow is to accumulate in C
+  #     `long double`, which the paper quotes as bottoming out at 3.36e-4932
+  #     rather than 2.23e-308. That is the x86 80-bit extended format. On
+  #     Apple Silicon `long double` IS `double` (8 bytes), so RedRibbon
+  #     saturates at -log10(p) = 307.65 exactly as base R does, and reports
+  #     pvalue = 0 / log_pvalue = Inf for lists as concordant as ours. We keep
+  #     the coordinates it finds and recompute the p-value there with
+  #     phyper(log.p = TRUE), which has no such ceiling.
+  #
+  #  2. The EA seeds from the C library's own RNG, which set.seed() cannot
+  #     reach, so the coordinates move between runs. Pass cache_path to pin a
+  #     single run for anything that ends up in a figure legend.
+  #
+  # Requires the patched RedRibbon build: upstream v1.4-1 segfaults on every
+  # entry point on macOS (glibc vs. BSD qsort_r argument order). See
+  # 03-scripts/patches/README.md.
+  #
+  # Args:
+  #  df1, df2: tibbles with columns gene, signed_stat (as for computeRRHO()).
+  #  cache_path: optional CSV to read from / write to, pinning one EA run.
+  #  permutation: compute permutation-adjusted p-values (slow-ish; ~12 s for
+  #   20,000 genes).
+  #  n_permutations: permutations for the adjusted p-value (RedRibbon default
+  #   96, which floors the resolution of permutation_padj at ~1/96).
+  #  overwrite: recompute and rewrite even if cache_path exists.
+  #
+  # Returns:
+  #  A tibble, one row per quadrant, with the coordinate (i, j), the overlap
+  #  there, RedRibbon's own p-values (kept for the record, degenerate on
+  #  arm64), the permutation-adjusted p-value, and the log-space neglog10p.
+  attach_package_once("dplyr")
+  attach_package_once("tibble")
+  attach_package_once("readr")
+
+  if (!is.null(cache_path) && file.exists(cache_path) && !overwrite) {
+    message(glue::glue("Reusing pinned RedRibbon quadrant run: {cache_path}"))
+    return(readr::read_csv(cache_path, show_col_types = FALSE))
+  }
+
+  # Called namespace-qualified rather than attached: RedRibbon Depends on
+  # data.table, which would mask dplyr's between()/first()/last().
+  if (!requireNamespace("RedRibbon", quietly = TRUE)) {
+    stop("RedRibbon is not installed. See 03-scripts/patches/README.md -- ",
+         "the upstream build segfaults on macOS and needs the qsort_r patch.")
+  }
+
+  df <- df1 |>
+    inner_join(df2, by = "gene", suffix = c(".x", ".y")) |>
+    transmute(id = gene, a = signed_stat.x, b = signed_stat.y) |>
+    as.data.frame()
+  N <- nrow(df)
+
+  rr <- RedRibbon::RedRibbon(df, enrichment_mode = "hyper-two-tailed")
+  quad <- RedRibbon::quadrants(rr, algorithm = "ea", permutation = permutation,
+                               niter = n_permutations, whole = FALSE)
+
+  out <- bind_rows(lapply(names(quad), function(nm) {
+    q <- quad[[nm]]
+    tibble(
+      quadrant = nm,
+      n_genes  = N,
+      i = q$i,
+      j = q$j,
+      overlap = q$count,
+      # RedRibbon's own p-values, retained so the degeneracy is visible in the
+      # output rather than silently papered over.
+      redribbon_pvalue     = q$pvalue,
+      redribbon_log_pvalue = q$log_pvalue,
+      permutation_padj     = q$padj %||% NA_real_,
+      # the usable magnitude
+      neglog10p = -phyper(q$count - 1, q$j, N - q$j, q$i,
+                          lower.tail = FALSE, log.p = TRUE) / log(10)
+    )
+  }))
+
+  if (!is.null(cache_path)) {
+    dir.create(dirname(cache_path), showWarnings = FALSE, recursive = TRUE)
+    readr::write_csv(out, cache_path)
+    message(glue::glue("Pinned RedRibbon quadrant run written to {cache_path}"))
+  }
+
+  out
+}
+
+
+RRHOCompare <- function(deseq, other, other_label, out_stem, rrho_dir,
+                        x_label = "DESeq2 rank (down → up)", seed = 17,
+                        n_steps = 100, permutation = TRUE) {
+  # One complete RRHO comparison of DESeq2 against another method: the real
+  # map, a scrambled negative control on the same genes, RedRibbon quadrant
+  # statistics for both, and rank concordance. Everything is written to
+  # rrho_dir under out_stem so the four comparisons in this project (two
+  # timepoints x two methods) produce parallel, predictably-named outputs.
+  #
+  # Args:
+  #  deseq, other: tibbles with columns gene, signed_stat (see RRHORankStat()),
+  #   and optionally log2fc -- when both carry it, the concordance table also
+  #   reports spearman_log2fc. Reduced to their shared genes.
+  #  other_label: method name for titles and the concordance table, e.g.
+  #   "limma-voom".
+  #  out_stem: filename stem, e.g. "016_CA1-ProS_Glut__EE30m_vs_SE__voom".
+  #  rrho_dir: output directory.
+  #  seed: for the scramble, so the negative control is reproducible.
+  #  permutation: pass FALSE to skip RedRibbon's permutation-adjusted p-values
+  #   (the slow part, ~12 s at 20,000 genes).
+  #
+  # Returns:
+  #  A list with the two maps, the two ggplots, the two quadrant tables, and a
+  #  one-row concordance tibble.
+  attach_package_once("dplyr")
+  attach_package_once("readr")
+
+  shared <- intersect(deseq$gene, other$gene)
+  deseq <- deseq |> filter(gene %in% shared)
+  other <- other |> filter(gene %in% shared)
+  n_genes <- length(shared)
+
+  y_label <- glue::glue("{other_label} rank (down → up)")
+
+  map_real <- computeRRHO(deseq, other, n_steps = n_steps)
+  readr::write_csv(map_real, file.path(rrho_dir, glue::glue("{out_stem}__RRHO.csv")))
+
+  set.seed(seed)
+  other_scrambled <- other |> mutate(signed_stat = sample(signed_stat))
+
+  map_scrambled <- computeRRHO(deseq, other_scrambled, n_steps = n_steps)
+  readr::write_csv(map_scrambled, file.path(rrho_dir, glue::glue("{out_stem}__RRHO_scrambled.csv")))
+
+  p_real <- plotRRHO(map_real,
+                     glue::glue("DESeq2 vs. {other_label} ({n_genes} genes)"),
+                     x_label = x_label, y_label = y_label)
+  p_scrambled <- plotRRHO(map_scrambled,
+                          glue::glue("Negative control: DESeq2 vs. scrambled {other_label}"),
+                          x_label = x_label, y_label = y_label)
+
+  quad_real <- redRibbonQuadrants(
+    deseq, other, permutation = permutation,
+    cache_path = file.path(rrho_dir, glue::glue("{out_stem}__RRHO_quadrants.csv")))
+  quad_scrambled <- redRibbonQuadrants(
+    deseq, other_scrambled, permutation = permutation,
+    cache_path = file.path(rrho_dir, glue::glue("{out_stem}__RRHO_quadrants_scrambled.csv")))
+
+  j <- inner_join(deseq, other, by = "gene", suffix = c(".d", ".o"))
+  concordance <- tibble::tibble(
+    comparison = glue::glue("DESeq2 ~ {other_label}"),
+    n = nrow(j),
+    # Spearman on the signed statistic is the scalar summary of the map above:
+    # it is the same ranking the RRHO grid is built from. Note it is driven
+    # substantially by up/down direction agreement -- spearman_log2fc is the
+    # stricter number, and sign_agreement is inflated by the two methods
+    # sharing an input matrix (they agree on the sign of null genes far more
+    # often than the 0.5 independence would give).
+    spearman = cor(j$signed_stat.d, j$signed_stat.o, method = "spearman"),
+    spearman_log2fc = if (all(c("log2fc.d", "log2fc.o") %in% names(j))) {
+      cor(j$log2fc.d, j$log2fc.o, method = "spearman")
+    } else NA_real_,
+    sign_agreement = mean(sign(j$signed_stat.d) == sign(j$signed_stat.o)),
+    # quadrant magnitudes, log-space rescored (see redRibbonQuadrants())
+    upup_neglog10p = quad_real$neglog10p[match("upup", quad_real$quadrant)],
+    downdown_neglog10p = quad_real$neglog10p[match("downdown", quad_real$quadrant)],
+    control_max_neglog10p = max(quad_scrambled$neglog10p)
+  )
+
+  list(map = map_real, map_scrambled = map_scrambled,
+       plot = p_real, plot_scrambled = p_scrambled,
+       quadrants = quad_real, quadrants_scrambled = quad_scrambled,
+       concordance = concordance)
+}
+
+
+SubclassCacheDir <- function(create = FALSE) {
+# Resolves the per-subclass Seurat cache written by
+# manuscript_DGE_reviewer_response_00_cache_subclasses.R.
+#
+# The full cache is ~2.7 GB and the boot volume does not have room for it,
+# so it lives on the jack2 external volume. Falls back to the in-project
+# path only when jack2 is not mounted (e.g. a partial local cache).
+  vol_dir   <- "/Volumes/jack2/actdep/04-analysis/reviewer_response/subclass_cache"
+  local_dir <- "04-analysis/reviewer_response/subclass_cache"
+
+  if (dir.exists(dirname(vol_dir))) {
+    if (create) dir.create(vol_dir, showWarnings = FALSE, recursive = TRUE)
+    return(vol_dir)
+  }
+
+  warning(glue::glue("jack2 not mounted; falling back to local cache at {local_dir}"))
+  if (create) dir.create(local_dir, showWarnings = FALSE, recursive = TRUE)
+  return(local_dir)
 }
