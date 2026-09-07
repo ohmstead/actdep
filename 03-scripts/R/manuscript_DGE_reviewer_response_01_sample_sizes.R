@@ -22,7 +22,7 @@ library(lme4)
 source("03-scripts/R/seq_functions.R")
 
 out_dir <- "04-analysis/reviewer_response"
-cache_dir <- file.path(out_dir, "subclass_cache")
+cache_dir <- SubclassCacheDir()
 
 subclass_list <- LoadSubclassesToUse()
 ieg_panel <- LoadGeneList("IEG")

@@ -2,27 +2,19 @@
 # plus cross-method concordance against the existing DESeq2 pseudobulk results.
 # Run manuscript_DGE_reviewer_response_00_cache_subclasses.R first.
 #
-# Same unit of analysis as the DESeq2 pseudobulk models (animal-level counts),
-# with sex included as a covariate. All contrasts from GetSubclassContrasts()
-# are tested. voom results include 95% CIs on logFC for the forest plots.
+# Same unit of analysis as the DESeq2 pseudobulk models (animal-level counts) 
+# All contrasts from GetSubclassContrasts() are tested. voom results include 
+# 95% CIs on logFC for the forest plots.
 #
-# NOTE: an earlier version of this script also ran edgeR-QLF as a second
-# complementary framework. Dropped in favor of limma-voom alone: voom's
-# topTable(confint=TRUE) reports a logFC standard error/CI directly, which
-# is what the reviewer's forest-plot request needs; edgeR-QLF's glmQLFTest
-# doesn't expose that without extra derivation. voom's mean-variance
-# weighting also suits the pseudobulk library-size variation across
-# subclasses (n=2-15 animals per condition) well.
 
 library(Seurat)
 library(tidyverse)
-library(edgeR)
 library(limma)
 
 source("03-scripts/R/seq_functions.R")
 
 out_dir <- "04-analysis/reviewer_response"
-cache_dir <- file.path(out_dir, "subclass_cache")
+cache_dir <- SubclassCacheDir()
 deseq_dir <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
 dir.create(file.path(out_dir, "voom"), showWarnings = FALSE, recursive = TRUE)
 
@@ -42,7 +34,7 @@ buildPseudobulk <- function(nuclei_subclass) {
 
   sample_meta <- nuclei_subclass@meta.data |>
     as_tibble() |>
-    distinct(sample, activity_condition, sex) |>
+    distinct(sample, activity_condition) |>
     mutate(sample = str_replace_all(sample, "_", "-")) |>
     column_to_rownames("sample")
   sample_meta <- sample_meta[colnames(counts), ]
@@ -52,8 +44,7 @@ buildPseudobulk <- function(nuclei_subclass) {
 
 runVoom <- function(pb, subclass_fname, df_contrasts) {
   condition <- droplevels(factor(pb$meta$activity_condition))
-  sex <- factor(pb$meta$sex)
-  design <- model.matrix(~ 0 + condition + sex)
+  design <- model.matrix(~ 0 + condition)
   colnames(design) <- sub("^condition", "", colnames(design))
 
   y <- DGEList(counts = pb$counts, group = condition)

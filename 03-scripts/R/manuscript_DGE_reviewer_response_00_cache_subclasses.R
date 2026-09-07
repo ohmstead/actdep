@@ -15,8 +15,7 @@ library(tidyverse)
 source("03-scripts/R/seq_functions.R")
 
 out_dir <- "04-analysis/reviewer_response"
-cache_dir <- file.path(out_dir, "subclass_cache")
-dir.create(cache_dir, showWarnings = FALSE, recursive = TRUE)
+cache_dir <- SubclassCacheDir(create = TRUE)
 
 nuclei <- LoadDataset("Dec2024")
 subclass_list <- LoadSubclassesToUse(nuclei)

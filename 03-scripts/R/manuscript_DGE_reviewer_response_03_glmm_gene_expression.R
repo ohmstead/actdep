@@ -29,7 +29,7 @@ library(broom.mixed)
 source("03-scripts/R/seq_functions.R")
 
 out_dir <- "04-analysis/reviewer_response"
-cache_dir <- file.path(out_dir, "subclass_cache")
+cache_dir <- SubclassCacheDir()
 dir.create(file.path(out_dir, "glmm"), showWarnings = FALSE, recursive = TRUE)
 
 subclass_list <- LoadSubclassesToUse()
