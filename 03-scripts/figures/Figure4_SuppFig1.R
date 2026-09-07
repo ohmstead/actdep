@@ -1,21 +1,16 @@
-## ----SuppFig_ActiveCellSensitivity
+## ----Figure4_SuppFig1
 # Reviewer response: sensitivity analysis for the "active cell" definition used in Figure 4.
 #
 # The main analysis (Fig 4) defines an active cell as one with >= 3 IEGs expressed
 # above their 90th-percentile threshold in the SE condition, computed via FindActiveCells().
 #
-# PART I:  Parameter sweep (consistent with FindActiveCells approach)
+# This script: parameter sweep (consistent with the FindActiveCells approach)
 #   - Percentile cutoff:  80, 85, 90, 95%
 #   - Min. IEGs required: 2, 3, 4
 #   Output: gt tables + heatmap of fraction active per supertype × condition × params
 #
-# PART II: Continuous IEG activity score (mean log-normalised SCT expression across
-#          the IEG panel — analogous to AUCell / ssGSEA module scoring)
-#   Concordance with the binary call (90th pct, ≥3 IEGs):
-#   (a) ROC curve + AUC per condition
-#   (b) PR  curve + AUPRC per condition
-#   (c) Per-supertype ROC-AUC across conditions
-#   (d) Continuous score distribution (active vs. inactive cells) per supertype
+# The companion concordance analysis (continuous IEG activity score vs. the binary
+# call: ROC/PR curves and score distributions) lives in Figure4_SuppFig2.R.
 
 library(gt)
 library(gtExtras)
@@ -23,16 +18,15 @@ library(gtExtras)
 source("03-scripts/R/seq_functions.R")
 
 if (!exists("nuclei_ca1")) {
-  nuclei <- LoadDataset("Dec2024")
-  nuclei_ca1 <- subset(nuclei, subclass_name == "016 CA1-ProS Glut")
-  rm(nuclei)  # free up memory; not needed for this analysis
+  # nuclei <- LoadDataset("Dec2024")
+  # nuclei_ca1 <- subset(nuclei, subclass_name == "016 CA1-ProS Glut")
+  # rm(nuclei)  # free up memory; not needed for this analysis
+  nuclei_ca1 <- readRDS("04-analysis/Seurats/nuclei_ca1.rds")
 }
 
 supertype_colors <- LoadAllenColors("supertype")
-activity_colors  <- LoadActivityColors()
 
-SAVE_PLOTS <- TRUE
-save_dir   <- "05-results/SuppFigure_ActiveCellSensitivity/raw_R_plots"
+SAVE_PLOTS <- FALSE
 
 # ── Shared parameters ────────────────────────────────────────────────────────
 
@@ -104,7 +98,7 @@ compute_thresholds_p <- function(se_long_df, gene_cols_order, p) {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PART I – Parameter sweep
+# Parameter sweep
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Pre-compute n_upregd for each percentile.
@@ -305,13 +299,15 @@ p_sensitivity_heatmap <- ggplot(df_heatmap) +
   ) +
   facet_wrap(~activity_condition, nrow = 1) +
   labs(
-    x       = NULL, y = NULL,
-    title   = "Fraction of active CA1 cells across parameter sets",
-    caption = "Bold outline = parameter set used in Figure 4 (90th pct, ≥3 IEGs)"
+    # title   = "Fraction of active CA1 cells across parameter sets",
+    x = NULL, 
+    y = NULL
   ) +
   theme(
-    axis.text.x     = element_text(angle = 45, hjust = 1, size = 8),
-    axis.text.y     = element_text(color = ca1_supertype_colors_all[rev(supertype_order_all)]),
+    # plot.title      = element_text(size = 12),
+    strip.text.x.top = element_text(size = 12, face = "bold"),
+    axis.text.x     = element_text(angle = 45, hjust = 1, size = 10),
+    axis.text.y     = element_text(color = ca1_supertype_colors_all[rev(supertype_order_all)], size = 12),
     strip.text      = element_text(face = "bold"),
     panel.grid      = element_blank(),
     legend.position = "right"
@@ -320,230 +316,11 @@ p_sensitivity_heatmap <- ggplot(df_heatmap) +
 print(p_sensitivity_heatmap)
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PART II – Continuous IEG activity score & concordance
-# ═══════════════════════════════════════════════════════════════════════════════
-# Continuous score: mean log-normalised SCT expression across all IEG panel genes
-# per cell. Derived from the same expression matrix used by FindActiveCells, so
-# the data are identical. Analogous to AUCell / ssGSEA module scoring.
-#
-# The reference binary call (active_binary from FindActiveCells: 90th pct, ≥3 IEGs)
-# is used as the "ground truth"; the continuous score is the predictor.
-# Concordance is quantified via:
-#   (a) ROC curve + AUC per condition
-#   (b) PR  curve + AUPRC per condition
-#   (c) Per-supertype ROC-AUC across conditions
-#   (d) Score distributions for active vs. inactive cells per supertype
-
-library(pROC)    # ROC / AUC
-library(PRROC)   # precision-recall curves
-
-df_continuous <- df_active |>
-  mutate(
-    active_ref = active_binary,                         # reference: 90th pct, ≥3 IEGs
-    ieg_score  = rowMeans(dplyr::pick(all_of(gene_cols)))  # continuous IEG module score
-  )
-
-# (a) Per-condition ROC curves ────────────────────────────────────────────────
-
-roc_df_list <- list()
-for (cond in conditions) {
-  d       <- filter(df_continuous, activity_condition == cond)
-  r       <- pROC::roc(d$active_ref, d$ieg_score, quiet = TRUE)
-  auc_val <- as.numeric(pROC::auc(r))
-  roc_df_list[[cond]] <- tibble(
-    fpr             = 1 - r$specificities,
-    tpr             = r$sensitivities,
-    auc             = auc_val,
-    condition       = cond,
-    condition_label = paste0(cond, "  (AUC = ", round(auc_val, 3), ")")
-  )
-}
-roc_df <- bind_rows(roc_df_list) |>
-  mutate(condition = factor(condition, levels = conditions))
-
-cond_roc_labels <- roc_df |>
-  distinct(condition, condition_label) |>
-  arrange(match(condition, conditions)) |>
-  pull(condition_label)
-
-p_roc <- ggplot(roc_df) +
-  aes(x = fpr, y = tpr, color = condition, group = condition) +
-  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray60") +
-  geom_line(linewidth = 0.9) +
-  scale_color_manual(
-    values = activity_colors[conditions],
-    labels = cond_roc_labels,
-    name   = NULL
-  ) +
-  scale_x_continuous(labels = scales::percent, expand = c(0.01, 0)) +
-  scale_y_continuous(labels = scales::percent, expand = c(0.01, 0)) +
-  labs(
-    x        = "False positive rate",
-    y        = "True positive rate",
-    title    = "ROC: continuous IEG score vs. binary active call",
-    subtitle = "Binary reference: 90th pct threshold, ≥3 IEGs"
-  ) +
-  theme(legend.position = c(0.65, 0.2))
-
-print(p_roc)
-
-# (b) Per-condition PR curves ─────────────────────────────────────────────────
-
-pr_df_list <- list()
-for (cond in conditions) {
-  d  <- filter(df_continuous, activity_condition == cond)
-  pr <- PRROC::pr.curve(
-    scores.class0 = d$ieg_score[d$active_ref],
-    scores.class1 = d$ieg_score[!d$active_ref],
-    curve = TRUE
-  )
-  pr_df_list[[cond]] <- as_tibble(pr$curve) |>
-    setNames(c("recall", "precision", "threshold")) |>
-    mutate(
-      condition       = cond,
-      auprc           = pr$auc.integral,
-      condition_label = paste0(cond, "  (AUPRC = ", round(pr$auc.integral, 3), ")")
-    )
-}
-pr_df <- bind_rows(pr_df_list) |>
-  mutate(condition = factor(condition, levels = conditions))
-
-cond_pr_labels <- pr_df |>
-  distinct(condition, condition_label) |>
-  arrange(match(condition, conditions)) |>
-  pull(condition_label)
-
-p_pr <- ggplot(pr_df) +
-  aes(x = recall, y = precision, color = condition, group = condition) +
-  geom_line(linewidth = 0.9) +
-  scale_color_manual(
-    values = activity_colors[conditions],
-    labels = cond_pr_labels,
-    name   = NULL
-  ) +
-  scale_x_continuous(labels = scales::percent, expand = c(0.01, 0)) +
-  scale_y_continuous(labels = scales::percent, limits = c(0, 1), expand = c(0.01, 0)) +
-  labs(
-    x        = "Recall",
-    y        = "Precision",
-    title    = "PR curve: continuous IEG score vs. binary active call",
-    subtitle = "Binary reference: 90th pct threshold, ≥3 IEGs"
-  ) +
-  theme(legend.position = c(0.55, 0.55))
-
-print(p_pr)
-
-# (c) Per-supertype ROC-AUC across conditions ─────────────────────────────────
-
-roc_stype_list <- list()
-for (cond in conditions) {
-  # Per-supertype
-  for (stype in supertype_order) {
-    d <- filter(df_continuous, activity_condition == cond, supertype_label == stype)
-    if (nrow(d) < 10 || sum(d$active_ref) < 5 || sum(!d$active_ref) < 5) next
-    auc_val <- tryCatch(
-      as.numeric(pROC::auc(pROC::roc(d$active_ref, d$ieg_score, quiet = TRUE))),
-      error = \(e) NA_real_
-    )
-    roc_stype_list[[paste0(cond, "_", stype)]] <- tibble(
-      condition       = cond,
-      supertype_label = stype,
-      auc_roc         = auc_val,
-      n_cells         = nrow(d)
-    )
-  }
-  # Combined (all supertypes pooled)
-  d_all <- filter(df_continuous, activity_condition == cond)
-  if (sum(d_all$active_ref) >= 5 && sum(!d_all$active_ref) >= 5) {
-    auc_val_all <- tryCatch(
-      as.numeric(pROC::auc(pROC::roc(d_all$active_ref, d_all$ieg_score, quiet = TRUE))),
-      error = \(e) NA_real_
-    )
-    roc_stype_list[[paste0(cond, "_All")]] <- tibble(
-      condition       = cond,
-      supertype_label = "All CA1",
-      auc_roc         = auc_val_all,
-      n_cells         = nrow(d_all)
-    )
-  }
-}
-roc_stype_df <- bind_rows(roc_stype_list) |>
-  mutate(
-    supertype_label = factor(supertype_label, levels = supertype_order_all),
-    condition       = factor(condition, levels = conditions)
-  )
-
-p_auc_supertype <- ggplot(roc_stype_df) +
-  aes(x = condition, y = auc_roc, color = supertype_label, group = supertype_label,
-      linewidth = supertype_label == "All CA1") +
-  geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray60") +
-  geom_line(alpha = 0.8) +
-  geom_point(size = 2.5) +
-  scale_linewidth_manual(values = c("TRUE" = 1.4, "FALSE" = 0.6), guide = "none") +
-  scale_color_manual(
-    values = ca1_supertype_colors_all[supertype_order_all],
-    name   = NULL
-  ) +
-  scale_y_continuous(
-    limits = c(0.4, 1.0),
-    labels = scales::number_format(accuracy = 0.01)
-  ) +
-  labs(
-    x     = NULL,
-    y     = "ROC-AUC",
-    title = "Per-supertype ROC-AUC: continuous IEG score vs. binary call"
-  ) +
-  theme(
-    axis.text.x     = element_text(angle = 30, hjust = 1),
-    legend.position = "right"
-  )
-
-print(p_auc_supertype)
-
-# (d) Continuous score distribution by binary call ────────────────────────────
-
-df_continuous_with_all <- bind_rows(
-  df_continuous,
-  df_continuous |> mutate(supertype_label = "All CA1")
-) |>
-  mutate(supertype_label = factor(supertype_label, levels = supertype_order_all))
-
-p_score_dist <- ggplot(df_continuous_with_all) +
-  aes(x = activity_condition, y = ieg_score,
-      fill = active_ref, color = active_ref) +
-  geom_violin(alpha = 0.5, scale = "width",
-              position = position_dodge(0.8)) +
-  geom_boxplot(width = 0.2, alpha = 0.9, outlier.shape = NA,
-              #  position = position_dodge(0.8),
-               color = "black") +
-  scale_fill_manual(
-    values = c("FALSE" = "gray70", "TRUE" = "#D81B60"),
-    labels = c("FALSE" = "Inactive", "TRUE" = "Active"),
-    name   = "Binary call\n(90th pct, ≥3 IEGs)"
-  ) +
-  scale_color_manual(
-    values = c("FALSE" = "gray70", "TRUE" = "#D81B60"),
-    guide  = "none"
-  ) +
-  labs(
-    x     = NULL,
-    y     = "Mean IEG expression (SCT log-normalised)",
-    title = "Continuous IEG activity score by binary call group"
-  ) +
-  facet_wrap(~supertype_label, nrow = 1, scales = "free_x") +
-  theme(
-    axis.text.x     = element_text(angle = 30, hjust = 1),
-    strip.text      = element_text(face = "bold"),
-    legend.position = "right"
-  )
-
-print(p_score_dist)
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # Save
 # ═══════════════════════════════════════════════════════════════════════════════
 
 if (SAVE_PLOTS) {
+  save_dir   <- "05-results/SuppItem2/raw_R_plots"
   dir.create(save_dir, showWarnings = FALSE, recursive = TRUE)
 
   for (cond in conditions) {
@@ -552,7 +329,8 @@ if (SAVE_PLOTS) {
     gtsave(tables[[cond]],
            filename = file.path(save_dir, paste0("sensitivity_table_", cond, ".pdf")))
   }
-
+  
+  save_dir   <- "05-results/Figure4_SuppFig1/raw_R_plots"
   ggsave(plot = p_sensitivity_heatmap,
          path = save_dir, filename = "sensitivity_heatmap.png",
          width = 14, height = 4, dpi = 300)
@@ -560,37 +338,7 @@ if (SAVE_PLOTS) {
          path = save_dir, filename = "sensitivity_heatmap.svg",
          width = 14, height = 4)
 
-  ggsave(plot = p_roc,
-         path = save_dir, filename = "IEG_score_ROC.png",
-         width = 5, height = 5, dpi = 300)
-  ggsave(plot = p_roc,
-         path = save_dir, filename = "IEG_score_ROC.svg",
-         width = 5, height = 5)
-
-  ggsave(plot = p_pr,
-         path = save_dir, filename = "IEG_score_PR.png",
-         width = 5, height = 5, dpi = 300)
-  ggsave(plot = p_pr,
-         path = save_dir, filename = "IEG_score_PR.svg",
-         width = 5, height = 5)
-
-  ggsave(plot = p_auc_supertype,
-         path = save_dir, filename = "IEG_score_AUC_supertype.png",
-         width = 6, height = 4, dpi = 300)
-  ggsave(plot = p_auc_supertype,
-         path = save_dir, filename = "IEG_score_AUC_supertype.svg",
-         width = 6, height = 4)
-
-  ggsave(plot = p_score_dist,
-         path = save_dir, filename = "IEG_score_dist.png",
-         width = 12, height = 6, dpi = 300)
-  ggsave(plot = p_score_dist,
-         path = save_dir, filename = "IEG_score_dist.svg",
-         width = 12, height = 6)
-
   print("Sensitivity analyses saved.")
 } else {
   print("Rendered without saving.")
 }
-
-## ----
