@@ -1,0 +1,594 @@
+---
+title: "Why does the DESeq2-vs-voom RRHO map look nothing like the DESeq2-vs-GLMM one?"
+author: "jack"
+format:
+  html:
+    toc: true
+    toc_float: true
+    code-fold: true
+    code-tools: true
+    code-line-numbers: true
+    embed-resources: true
+editor_options:
+  chunk_output_type: inline
+---
+
+# The question
+
+Two reviewer-response scripts — at the time of this investigation split by
+method as `…_06_rrho_deseq2_vs_glmm.R` and `…_07_rrho_deseq2_vs_voom.R`, since
+reorganised by timepoint into `…_06_rrho_EE30m_vs_SE.R` and
+`…_07_rrho_EE6h_vs_SE.R` — ran the same RRHO code (`computeRRHO()` /
+`plotRRHO()` in `seq_functions.R`) on the same subclass and contrast
+(`016 CA1-ProS Glut`, EE30m vs. SE) and produced maps that looked like they
+came from different experiments:
+
+- **DESeq2 vs. NB-GLMM**: the textbook diagonal ribbon of Piron et al. 2024
+  Fig 1A.
+- **DESeq2 vs. limma-voom**: a nearly uniform bright block filling the whole
+  panel.
+
+The suspicious clue, found in testing, is that **feeding `computeRRHO()` two
+copies of the identical vector also produces the uniform bright block** — the
+voom map looks like the degenerate case, not like the honest-agreement case.
+This notebook works through five candidate explanations:
+
+- **H1 — The two comparisons really do differ in concordance.** DESeq2 and voom
+  share the same pseudobulk counts and might agree so much more tightly than
+  DESeq2 and the single-cell NB-GLMM that the maps legitimately differ.
+- **H2 — Ties and degenerate statistics.** `sign(lfc) * -log10(p)` collapses to
+  0 whenever the shrunken LFC is exactly 0, and `ties.method = "first"` would
+  then rank a large tied block by input (alphabetical) order.
+- **H3 — Gene-set size.** Script 06 restricts to the top 2,000 genes by
+  expression (because the GLMM had to be fit gene-by-gene); script 07 uses all
+  ~20,000. Hypergeometric $-\log_{10} p$ grows roughly linearly in $N$.
+- **H4 — Numerical underflow.** `computeRRHO()` floors p-values at `1e-300`
+  before taking $-\log_{10}$. If most of the map is below that floor, the map
+  is *clipped*, not computed.
+- **H5 — The colour scale.** `plotRRHO()` caps the fill at the 99th percentile
+  of the map and squishes everything above it to the top colour.
+
+::: {.callout-note}
+## This documents a bug that has since been fixed
+
+`computeRRHO()` now takes the hypergeometric tail on the log scale and no
+longer floors p-values. The gene set has since moved on twice: first to a
+matched top-2000 set for both maps, then to the abundance-stratified 2,015-gene
+set the scripts use today (`SelectStratifiedGenes()`), because top-2000-by-
+expression turned out to sample only the top ~11% of the abundance range. This
+notebook deliberately stays on the original top-2000 inputs, which are still on
+disk, since they are what the diagnosis was made against; the sections below
+reconstruct the old arithmetic explicitly with `ClipAsBefore()` rather than
+relying on the shipped helper still being broken.
+:::
+
+**Punchline, tested below: H4 is the answer, driven by H3.** The two maps are
+the *same shape* — normalised, their cell values correlate at Spearman
+$\rho = 0.996$. At $N \approx 20{,}000$, **77% of the DESeq2-vs-voom map falls
+below the `1e-300` floor and is clipped to a single value**, versus 12% of the
+$N \approx 2{,}000$ GLMM map. H5 then paints that clipped plateau as one flat
+colour. H1 and H2 are rejected outright. Critically, **this is not a bug in our
+custom code**: the reference `RedRibbon` implementation reproduces the same flat
+block on this machine, for a platform reason documented in the last section.
+
+```{r setup}
+#| message: false
+#| warning: false
+
+source("03-scripts/R/seq_functions.R")
+
+library(RedRibbon)
+library(purrr)
+library(gt)
+library(patchwork)
+
+theme_set(theme_bw(base_size = 10))
+
+subclass  <- "016 CA1-ProS Glut"
+sc_fname  <- ShrinkSubclassName(subclass)
+group1    <- "EE30m"
+group2    <- "SE"
+
+deseq_dir <- "04-analysis/DEGs/Dec2024_activity_condition_pseudobulk"
+voom_dir  <- "04-analysis/reviewer_response/voom"
+rrho_dir  <- "04-analysis/reviewer_response/rrho"
+
+set.seed(42)
+```
+
+```{r load-rankings}
+#| message: false
+
+# The signed statistic both scripts rank on, reproduced verbatim.
+SignedStat <- function(lfc, p) sign(lfc) * -log10(pmax(p, 1e-300))
+
+deseq <- read_csv(file.path(deseq_dir, glue("{sc_fname}__{group1}_vs_{group2}.csv")),
+                  show_col_types = FALSE) |>
+  drop_na(log2FoldChange.shrink, pvalue) |>
+  transmute(gene, signed_stat = SignedStat(log2FoldChange.shrink, pvalue))
+
+voom <- read_csv(file.path(voom_dir, glue("{sc_fname}__{group1}_vs_{group2}.csv")),
+                 show_col_types = FALSE) |>
+  drop_na(log2FoldChange, pvalue) |>
+  transmute(gene, signed_stat = SignedStat(log2FoldChange, pvalue))
+
+# The GLMM was only ever fit on the top 2000 genes by mean expression.
+glmm <- read_csv(file.path(rrho_dir, glue("{sc_fname}__{group1}_vs_{group2}__NB-GLMM_top2000genes.csv")),
+                 show_col_types = FALSE) |>
+  drop_na(log2FoldChange, pvalue) |>
+  transmute(gene, signed_stat = SignedStat(log2FoldChange, pvalue))
+
+top2000 <- glmm$gene
+
+tibble(
+  list        = c("DESeq2", "limma-voom", "NB-GLMM"),
+  n_genes     = c(nrow(deseq), nrow(voom), nrow(glmm)),
+  shared_with_deseq = c(NA, length(intersect(deseq$gene, voom$gene)),
+                            length(intersect(deseq$gene, glmm$gene)))
+) |> gt() |> tab_header("Gene counts going into each map")
+```
+
+Right away the asymmetry is visible: the voom map is built on **`r length(intersect(deseq$gene, voom$gene))`**
+genes and the GLMM map on **`r length(intersect(deseq$gene, glmm$gene))`**. Hold
+that thought for H3.
+
+---
+
+# H1 — Do the two comparisons actually differ in concordance?
+
+If DESeq2 and voom agreed far more tightly than DESeq2 and the GLMM, a
+qualitatively different map would be honest. Compare the rank agreement
+directly, and — because H3 is looming — also compare them **on the same 2,000
+genes**, so gene-set size is held fixed.
+
+```{r h1-concordance}
+Concordance <- function(x, y, label) {
+  j <- inner_join(x, y, by = "gene", suffix = c(".x", ".y"))
+  tibble(comparison = label,
+         n = nrow(j),
+         spearman = cor(j$signed_stat.x, j$signed_stat.y, method = "spearman"),
+         pearson  = cor(j$signed_stat.x, j$signed_stat.y, method = "pearson"),
+         sign_agreement = mean(sign(j$signed_stat.x) == sign(j$signed_stat.y)))
+}
+
+bind_rows(
+  Concordance(deseq, voom, "DESeq2 ~ voom (all genes)"),
+  Concordance(deseq, glmm, "DESeq2 ~ NB-GLMM (top 2000)"),
+  Concordance(filter(deseq, gene %in% top2000),
+              filter(voom,  gene %in% top2000), "DESeq2 ~ voom (top 2000)")
+) |>
+  gt() |>
+  fmt_number(c(spearman, pearson, sign_agreement), decimals = 3) |>
+  tab_header("H1: rank concordance of the two comparisons")
+```
+
+**H1 is rejected.** DESeq2-vs-voom ($\rho = 0.986$) and DESeq2-vs-GLMM
+($\rho = 0.982$) agree with DESeq2 to within 0.004 of each other. Two rankings
+that concordant cannot legitimately produce maps as different as the ones on
+disk. Whatever is happening is downstream of the data.
+
+---
+
+# H2 — Ties and degenerate statistics
+
+`computeRRHO()` ranks with `ties.method = "first"`, which breaks ties by input
+order. `apeglm`-shrunk LFCs can be driven to (near) zero, and `sign(0) = 0`
+would send a whole block of genes to `signed_stat = 0`, ranked alphabetically.
+
+```{r h2-ties}
+TieProfile <- function(x, label) {
+  tibble(list = label,
+         n = nrow(x),
+         n_exactly_zero = sum(x$signed_stat == 0),
+         n_distinct_values = dplyr::n_distinct(x$signed_stat),
+         largest_tied_block = max(table(x$signed_stat)))
+}
+
+bind_rows(TieProfile(deseq, "DESeq2"),
+          TieProfile(voom,  "limma-voom"),
+          TieProfile(glmm,  "NB-GLMM")) |>
+  gt() |> tab_header("H2: tie structure of the signed statistic")
+```
+
+**H2 is rejected.** Every statistic is distinct in every list; the largest tied
+block is a single gene and nothing is exactly zero. `ties.method` never fires.
+
+---
+
+# H3 & H4 — Gene-set size and the `1e-300` floor
+
+These two have to be tested together, because H3 is the *cause* and H4 is the
+*mechanism*. The relevant line in `computeRRHO()` is:
+
+```r
+pmat <- pmax(pmat, 1e-300)  # floor to avoid -log10(0) = Inf
+```
+
+`phyper()` in R returns a probability on the linear scale, so anything smaller
+than `~1e-308` has already underflowed to `0` before this line ever runs. The
+floor turns those zeros into `1e-300`, i.e. a hard ceiling at
+$-\log_{10} p = 300$. The question is what fraction of each map hits it.
+
+```{r h34-saturation}
+#| message: false
+
+#' Reconstruct what `computeRRHO()` produced before the fix.
+#'
+#' The current helper returns each cell's overlap count alongside a log-scale
+#' p-value, so the old numbers can be recovered exactly: take the same
+#' hypergeometric tail on the *linear* scale (which underflows to 0 below
+#' ~1e-308) and floor it at 1e-300, as the old `pmax(pmat, 1e-300)` line did.
+ClipAsBefore <- function(m, n_genes) {
+  p <- phyper(m$overlap - 1, m$rank_j, n_genes - m$rank_j, m$rank_i,
+              lower.tail = FALSE)
+  m$neglog10p <- -log10(pmax(p, 1e-300))
+  m
+}
+
+# Log-space maps from the fixed helper; the linear/clipped versions are derived
+# from them, so both views describe the same grid and the same overlaps.
+maps_log <- list(
+  "DESeq2 ~ voom (N = 19,932)"  = computeRRHO(deseq, voom),
+  "DESeq2 ~ voom (top 2000)"    = computeRRHO(filter(deseq, gene %in% top2000),
+                                              filter(voom,  gene %in% top2000)),
+  "DESeq2 ~ NB-GLMM (top 2000)" = computeRRHO(filter(deseq, gene %in% top2000), glmm),
+  "DESeq2 ~ DESeq2 (identical)" = computeRRHO(deseq, deseq)
+)
+map_N <- c(19932L, 1972L, 1972L, 20167L)
+maps_stock <- map2(maps_log, map_N, ClipAsBefore)
+
+SaturationProfile <- function(m, label, n_genes) {
+  tibble(map = label,
+         n_genes = n_genes,
+         median = median(m$neglog10p),
+         q99 = unname(quantile(m$neglog10p, 0.99)),
+         max = max(m$neglog10p),
+         frac_clipped = mean(m$neglog10p >= 299.9))
+}
+
+pmap(list(maps_stock, names(maps_stock), map_N), SaturationProfile) |>
+  list_rbind() |>
+  gt() |>
+  fmt_number(c(median, q99, max), decimals = 1) |>
+  fmt_number(frac_clipped, decimals = 3) |>
+  tab_header("H3/H4: how much of each map is pinned at the 1e-300 floor")
+```
+
+This is the whole story in one table.
+
+- The DESeq2-vs-voom map has **`r scales::percent(mean(maps_stock[[1]]$neglog10p >= 299.9), 0.1)` of its cells clipped** to exactly 300, and its **median is 300** — over half the panel is a single value.
+- The DESeq2-vs-GLMM map clips only `r scales::percent(mean(maps_stock[[3]]$neglog10p >= 299.9), 0.1)`, with a median of `r round(median(maps_stock[[3]]$neglog10p), 1)`.
+- **Restricting voom to the same 2,000 genes reproduces the GLMM map's profile almost exactly** (median `r round(median(maps_stock[[2]]$neglog10p), 1)` vs `r round(median(maps_stock[[3]]$neglog10p), 1)`, clipped `r scales::percent(mean(maps_stock[[2]]$neglog10p >= 299.9), 0.1)` vs `r scales::percent(mean(maps_stock[[3]]$neglog10p >= 299.9), 0.1)`). The gene set, not the method, is what differs.
+- Two **identical** DESeq2 lists at $N = 20{,}167$ clip `r scales::percent(mean(maps_stock[[4]]$neglog10p >= 299.9), 0.1)` — indistinguishable from the voom map. That is exactly the observation that prompted this notebook: past the floor, "perfect agreement" and "very good agreement" are the same picture.
+
+## Where the transition happens
+
+Clipping is a function of $N$, not of which methods are being compared. Take the
+*same* DESeq2/voom pair and shrink it to random subsets of increasing size:
+
+```{r h34-nsweep}
+#| fig-width: 7
+#| fig-height: 3.2
+
+shared <- intersect(deseq$gene, voom$gene)
+
+sweep <- map_dfr(c(500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, length(shared)), function(n) {
+  s <- sample(shared, n)
+  m <- computeRRHO(filter(deseq, gene %in% s), filter(voom, gene %in% s)) |>
+    ClipAsBefore(n)
+  tibble(N = n, frac_clipped = mean(m$neglog10p >= 299.9), median = median(m$neglog10p))
+})
+
+ggplot(sweep, aes(N, frac_clipped)) +
+  geom_line(colour = "grey40") + geom_point(size = 2) +
+  geom_vline(xintercept = c(1972, 19932), linetype = "dashed", colour = "firebrick") +
+  annotate("text", x = 1972, y = 0.72, label = "GLMM map", hjust = -0.1, size = 3, colour = "firebrick") +
+  annotate("text", x = 19932, y = 0.20, label = "voom map", hjust = 1.1, size = 3, colour = "firebrick") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(x = "genes in the map (N)", y = "cells clipped at 1e-300",
+       title = "The same DESeq2/voom comparison, subsampled to different N",
+       subtitle = "Clipping is driven by list length, not by which methods are compared")
+```
+
+Below ~1,500 genes nothing clips at all. The two maps we are comparing sit on
+opposite sides of the transition purely because the GLMM was too expensive to
+fit genome-wide.
+
+---
+
+# H5 — The colour scale turns clipping into a flat block
+
+`plotRRHO()` sets `cap = quantile(neglog10p, 0.99)` and `oob = scales::squish`.
+For the voom map the 99th percentile *is* 300 — the floor — so the scale spans
+0–300 while 77% of cells sit at the top of it. Everything saturates to one
+colour.
+
+```{r h5-plots}
+#| fig-width: 10
+#| fig-height: 4.4
+#| message: false
+
+plotRRHO(maps_stock[[1]], "DESeq2 vs. limma-voom (N = 19,932)",
+         y_label = "limma-voom rank (down → up)") +
+plotRRHO(maps_stock[[3]], "DESeq2 vs. NB-GLMM (N = 1,972)")
+```
+
+H5 is real but **secondary**: it is what converts the clipped plateau into a
+visually uniform block. It is not the root cause — the information was already
+destroyed by the time `plotRRHO()` saw the data. Uncapping the scale would not
+help, because the clipped cells genuinely hold the same number.
+
+## Proof the two maps are the same shape
+
+Look at the same maps in **log space**, where nothing underflows — this is what
+the fixed `computeRRHO()` returns, and `maps_log` above already holds it.
+`phyper(..., log.p = TRUE)` works internally with `lgamma()` and hands back the
+log directly, so no linear-scale probability is ever formed. Normalise each map
+to its own maximum and correlate them cell by cell.
+
+```{r logspace-map}
+#| message: false
+
+log_voom   <- maps_log[["DESeq2 ~ voom (N = 19,932)"]]
+log_voom2k <- maps_log[["DESeq2 ~ voom (top 2000)"]]
+log_glmm   <- maps_log[["DESeq2 ~ NB-GLMM (top 2000)"]]
+log_ident  <- maps_log[["DESeq2 ~ DESeq2 (identical)"]]
+
+tibble(
+  map = c("DESeq2 ~ voom (N = 19,932)", "DESeq2 ~ voom (top 2000)",
+          "DESeq2 ~ NB-GLMM (top 2000)", "DESeq2 ~ DESeq2 (identical)"),
+  true_max_neglog10p = c(max(log_voom$neglog10p), max(log_voom2k$neglog10p),
+                         max(log_glmm$neglog10p), max(log_ident$neglog10p)),
+  true_median = c(median(log_voom$neglog10p), median(log_voom2k$neglog10p),
+                  median(log_glmm$neglog10p), median(log_ident$neglog10p))
+) |>
+  gt() |> fmt_number(c(true_max_neglog10p, true_median), decimals = 0) |>
+  tab_header("True map values once nothing underflows",
+             subtitle = "The pre-fix code could not represent anything past 300")
+```
+
+The DESeq2-vs-voom map really reaches $-\log_{10} p \approx `r round(max(log_voom$neglog10p))`$
+— about **`r round(max(log_voom$neglog10p) / 300)`× past the representable
+ceiling**. Its median is `r round(median(log_voom$neglog10p))`, so the "flat
+block" is a range spanning thousands of orders of magnitude, flattened to one
+number.
+
+```{r shape-correlation}
+Normalise <- function(m) m$neglog10p / max(m$neglog10p)
+
+tibble(
+  pair = c("voom N=19,932  vs  GLMM N=1,972",
+           "voom N=1,972   vs  GLMM N=1,972",
+           "voom N=19,932  vs  identical N=20,167"),
+  spearman_of_normalised_maps = c(
+    cor(Normalise(log_voom),   Normalise(log_glmm), method = "spearman"),
+    cor(Normalise(log_voom2k), Normalise(log_glmm), method = "spearman"),
+    cor(Normalise(log_voom),   Normalise(log_ident), method = "spearman"))
+) |> gt() |> fmt_number(2, decimals = 4) |>
+  tab_header("Cell-by-cell shape agreement of the log-space maps")
+```
+
+Normalised, the DESeq2-vs-voom and DESeq2-vs-GLMM maps agree at Spearman
+$\rho = `r round(cor(Normalise(log_voom), Normalise(log_glmm), method = "spearman"), 3)`$.
+**They were never different maps.** And the voom map's shape agrees with the
+*identical-vectors* map at
+$\rho = `r round(cor(Normalise(log_voom), Normalise(log_ident), method = "spearman"), 4)`$,
+which is precisely the "identical vectors look the same as voom" observation —
+above the floor, both are one flat plateau.
+
+```{r logspace-plots}
+#| fig-width: 10
+#| fig-height: 4.4
+
+# plotRRHO() straight from seq_functions.R -- no local reimplementation needed
+# now that the helper computes in log space. Note the two colour scales are
+# each auto-capped at their own 99th percentile, so these panels show the
+# *shape* only; they are at different N and must not be compared by brightness.
+plotRRHO(log_voom, "DESeq2 vs. limma-voom, N = 19,932 (log space)",
+         y_label = "limma-voom rank (down → up)") +
+plotRRHO(log_glmm, "DESeq2 vs. NB-GLMM, N = 1,972 (log space)",
+         y_label = "NB-GLMM rank (down → up)")
+```
+
+The ribbon is back. Same data, same grid, same statistic — only the arithmetic
+changed.
+
+---
+
+# Cross-check against `RedRibbon` itself
+
+None of the above should depend on our helper functions, so run the reference
+implementation from Piron et al. 2024
+([LSA 7:e202302203](https://www.life-science-alliance.org/content/7/2/e202302203))
+directly. `RedRibbon` takes a `data.frame` with columns `id`, `a`, `b`, locates
+the minimal p-value per quadrant with its evolutionary algorithm, and plots the
+level map itself.
+
+::: {.callout-important}
+## The installed `RedRibbon` had to be patched to run at all on this machine
+
+Before this notebook could use the package, *every* `RedRibbon` C entry point —
+including the package's own vignette example — died with
+`segfault from C stack overflow` on macOS.
+
+The bundled `ale` C library calls `qsort_r()` with the **glibc** argument order
+(`base, n, size, compar, arg`). macOS/BSD `qsort_r()` takes
+`base, n, size, thunk, compar`, with the thunk passed to the comparator *first*.
+So on macOS the closure pointer lands in the comparator slot and libc calls a
+struct on the stack as a function. Everything routes through
+`rrho_init()` → `sort_q_indirect()`, so nothing worked, at any list length.
+
+The fix is a portability shim, saved at
+`03-scripts/patches/RedRibbon_qsort_r_macos.patch` with instructions in
+`03-scripts/patches/README.md`. It has been applied to the installed package.
+Worth reporting upstream at <https://github.com/antpiron/RedRibbon/issues>.
+:::
+
+```{r redribbon-maps}
+#| fig-width: 11
+#| fig-height: 5
+#| message: false
+
+AsRedRibbon <- function(x, y) {
+  inner_join(x, y, by = "gene", suffix = c(".x", ".y")) |>
+    transmute(id = gene, a = signed_stat.x, b = signed_stat.y) |>
+    as.data.frame()
+}
+
+rr_voom <- RedRibbon(AsRedRibbon(deseq, voom), enrichment_mode = "hyper-two-tailed")
+rr_glmm <- RedRibbon(AsRedRibbon(filter(deseq, gene %in% top2000), glmm),
+                     enrichment_mode = "hyper-two-tailed")
+
+q_voom <- quadrants(rr_voom, algorithm = "ea", permutation = TRUE, whole = FALSE)
+q_glmm <- quadrants(rr_glmm, algorithm = "ea", permutation = TRUE, whole = FALSE)
+
+(ggRedRibbon(rr_voom, quadrants = q_voom, labels = c("DESeq2", "limma-voom"),
+             base_size = 12, repel.force = 250) + coord_fixed(clip = "off")) |
+(ggRedRibbon(rr_glmm, quadrants = q_glmm, labels = c("DESeq2", "NB-GLMM"),
+             base_size = 12, repel.force = 250) + coord_fixed(clip = "off"))
+```
+
+**`RedRibbon` reproduces both appearances exactly**: a saturated block at
+$N \approx 20{,}000$ and the clean ribbon at $N \approx 2{,}000$. The behaviour
+we were chasing is not a defect in `computeRRHO()`.
+
+## Why `RedRibbon` saturates here too: `long double` on Apple Silicon
+
+The paper's stated defence against underflow is to accumulate in C `long
+double`, quoting a smallest representable value of `3.36e-4932` "instead of
+`2.23e-308`". That figure is the **x86 80-bit extended** format. On Apple
+Silicon, `long double` is simply `double`:
+
+```{r longdouble}
+tibble(quantity = c("sizeof(long double) on this machine",
+                    "LDBL_MIN on this machine",
+                    "-log10(LDBL_MIN)",
+                    "RedRibbon map plateau observed below"),
+       value = c("8 bytes (i.e. == double)",
+                 format(.Machine$double.xmin, digits = 6),
+                 sprintf("%.2f", -log10(.Machine$double.xmin)),
+                 "307.65")) |>
+  gt() |> tab_header("RedRibbon's long-double trick is a no-op on arm64 macOS")
+```
+
+`ale`'s `mylogl()` falls back to `logl(LDBL_MIN)` whenever a p-value underflows
+to zero, which on this platform pins the map at $-\log_{10} p = 307.65$ — the
+*same* wall as base R. The consequence shows up in the quadrant statistics:
+
+```{r redribbon-quadrants}
+imap(list("DESeq2 ~ voom (N = 19,932)" = q_voom,
+          "DESeq2 ~ NB-GLMM (N = 1,972)" = q_glmm),
+     function(q, nm) {
+       imap(q, ~ tibble(map = nm, quadrant = .y, pvalue = .x$pvalue,
+                        log_pvalue = .x$log_pvalue, padj = .x$padj,
+                        n_genes = .x$count)) |> list_rbind()
+     }) |> list_rbind() |>
+  gt() |> tab_header("RedRibbon quadrant statistics on this machine",
+                     subtitle = "pvalue = 0 and log_pvalue = Inf: the minimal p-value underflowed")
+```
+
+Both quadrants of both maps report `pvalue = 0` and `log_pvalue = Inf`. On this
+hardware `RedRibbon` cannot report a usable minimum p-value or
+permutation-adjusted p-value for lists this concordant, regardless of $N$.
+
+::: {.callout-note}
+## The quadrant coordinates are not reproducible run to run
+
+`quadrants(algorithm = "ea")` seeds its evolutionary algorithm from the C
+library's own RNG (`getrandom()`), which `set.seed()` does not reach. The
+`i`/`j` coordinates and overlap counts below therefore shift between runs — on
+a saturated map especially, where a wide plateau of coordinates is tied at the
+numerical floor and the EA has nothing to discriminate between them. Anything
+quoted in a figure legend should be pinned to a single stored run.
+:::
+
+We can still recover the number, because `RedRibbon` reports the *coordinate* it
+found and the overlap count there. Rescore that coordinate with
+`phyper(log.p = TRUE)`:
+
+```{r rescore}
+Rescore <- function(rr, q, N, label) {
+  imap(q, function(qd, nm) {
+    tibble(map = label, quadrant = nm, i = qd$i, j = qd$j, overlap = qd$count,
+           neglog10p = -phyper(qd$count - 1, qd$j, N - qd$j, qd$i,
+                               lower.tail = FALSE, log.p = TRUE) / log(10))
+  }) |> list_rbind()
+}
+
+bind_rows(
+  Rescore(rr_voom, q_voom, nrow(rr_voom$data), "DESeq2 ~ voom (N = 19,932)"),
+  Rescore(rr_glmm, q_glmm, nrow(rr_glmm$data), "DESeq2 ~ NB-GLMM (N = 1,972)")
+) |>
+  gt() |> fmt_number(neglog10p, decimals = 0) |>
+  tab_header("RedRibbon's quadrant coordinates, rescored in log space",
+             subtitle = "Same coordinates; finite p-values")
+```
+
+---
+
+# Conclusions and what to change
+
+**Diagnosis.** The DESeq2-vs-voom and DESeq2-vs-GLMM maps are the same map. The
+rankings agree with DESeq2 essentially equally well ($\rho = 0.986$ vs
+$0.982$), and the normalised map surfaces correlate at $\rho = 0.996$. The
+visual difference is entirely a numerical artifact:
+
+1. Script 06 was restricted to 2,000 genes (the GLMM is ~2.8 s/gene, so
+   genome-wide was ~15 h); script 07 uses all ~20,000. **(H3)**
+2. Hypergeometric p-values scale with $N$, so at $N \approx 20{,}000$ most of
+   the map falls below `1e-308` and underflows to zero before
+   `pmax(pmat, 1e-300)` ever runs. 77% of the voom map is one clipped value;
+   only 12% of the GLMM map is. **(H4)**
+3. `plotRRHO()`'s 99th-percentile cap then equals the floor itself, so the
+   plateau paints as one flat colour. **(H5)**
+
+H1 (real difference in concordance) and H2 (ties) are ruled out by the tables
+above. And because two identical lists at $N = 20{,}000$ clip 77.5% of their
+map, the degenerate case and the true case are indistinguishable once you are
+past the wall — which is exactly what was noticed in testing.
+
+**Changes made.**
+
+- **`computeRRHO()` now computes in log space.** The `pmax(pmat, 1e-300)` line
+  is gone and the tail is taken with `phyper(..., log.p = TRUE)`, which has no
+  ceiling. The helper also returns the per-cell `overlap` count, which is what
+  lets this notebook reconstruct the old behaviour above.
+- **`plotRRHO()` draws explicit rectangles.** The rank cutoffs are unevenly
+  spaced (`round(seq(...))` alternates 19/20 for $N = 1972$), so `geom_tile()`
+  sized every tile from the smallest gap and left white seams. It now draws
+  each cell from its true lower edge to its upper edge, and its docstring warns
+  that brightness scales with $N$.
+- **Both scripts build their headline map on the same top-2000 gene set.**
+  Script 07's top-2000 map is now the primary panel, matched to script 06's;
+  the genome-wide map is kept as a clearly-labelled secondary. Script 07 also
+  emits a combined two-panel figure on one shared colour scale
+  (`RRHO_top2000_deseq2_vs_voom_and_glmm.pdf`) and a rank-concordance table.
+- **Script 06 reuses its cached NB-GLMM fits.** Refitting needs the Seurat
+  subclass cache on the `jack2` volume and ~12 min of compute; the CSV on disk
+  is now reused when present.
+- **`redRibbonQuadrants()` wraps RedRibbon's EA and permutation scheme**, and
+  rescores the coordinates it returns with `phyper(log.p = TRUE)` instead of
+  reporting `log_pvalue = Inf`. Runs are pinned to CSV, since the EA is not
+  seedable from R. On an x86 host the package's own numbers would be fine up
+  to $-\log_{10} p \approx 4932$ and the rescoring would be redundant.
+
+**What the corrected analysis says.** At matched $N = 1{,}972$:
+
+| comparison | Spearman ρ | up/up $-\log_{10} p$ | down/down $-\log_{10} p$ |
+|---|---|---|---|
+| DESeq2 ~ limma-voom | 0.997 | 448 | 436 |
+| DESeq2 ~ NB-GLMM | 0.982 | 325 | 352 |
+
+with every quadrant of both scrambled negative controls at
+$-\log_{10} p < 4.1$ and permutation-adjusted $p \approx 1$. The genome-wide
+DESeq2-vs-voom map reaches $-\log_{10} p \approx 4{,}019$, which is a statement
+about having ten times as many genes and **not** about agreeing ten times
+better — that is why the two panels are now drawn at matched $N$.
+
+**One caveat to carry forward:** brightness on an RRHO map is not an effect
+size. Quote the quadrant table, not the colour.
+
+**Scientific bottom line, unchanged by any of this:** DESeq2, limma-voom, and
+the NB-GLMM rank genes for `016 CA1-ProS Glut` EE30m vs. SE almost identically.
+The reviewer's concern is answered in the affirmative; the figure just needs to
+be drawn on a scale that can show it.

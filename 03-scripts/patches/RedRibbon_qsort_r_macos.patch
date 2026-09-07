@@ -1,0 +1,107 @@
+diff --git a/src/ale-1.4/src/sort.c b/src/ale-1.4/src/sort.c
+index 978cd13..85428b9 100644
+--- a/src/ale-1.4/src/sort.c
++++ b/src/ale-1.4/src/sort.c
+@@ -1,6 +1,38 @@
+ #define _GNU_SOURCE
+ #include <stdlib.h>
+ 
++
++/* ---------------------------------------------------------------------------
++ * Portability shim: glibc and BSD/macOS disagree about qsort_r's signature.
++ *   glibc: qsort_r(base, n, sz, int (*cmp)(const void*, const void*, void*), void *arg)
++ *   BSD:   qsort_r(base, n, sz, void *thunk, int (*cmp)(void*, const void*, const void*))
++ * ale was written against the glibc order, so on macOS the closure pointer is
++ * called as if it were the comparator -> immediate EXC_BAD_ACCESS.
++ * ------------------------------------------------------------------------- */
++#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__)
++struct ale_qsort_r_ctx
++{
++  int (*compar)(const void *, const void *, void *);
++  void *arg;
++};
++
++static int
++ale_qsort_r_trampoline(void *thunk, const void *p1, const void *p2)
++{
++  struct ale_qsort_r_ctx *ctx = thunk;
++  return ctx->compar(p1, p2, ctx->arg);
++}
++
++#define ALE_QSORT_R(base, nmemb, size, cmp, argp)                       \
++  do {                                                                  \
++    struct ale_qsort_r_ctx ale__ctx = { .compar = (cmp), .arg = (argp) }; \
++    qsort_r((base), (nmemb), (size), &ale__ctx, ale_qsort_r_trampoline); \
++  } while (0)
++#else
++#define ALE_QSORT_R(base, nmemb, size, cmp, argp)       \
++  qsort_r((base), (nmemb), (size), (cmp), (argp))
++#endif
++
+ #include "ale/sort.h"
+ #include <stdio.h>
+ 
+@@ -95,7 +127,7 @@ sort_q_indirect(size_t *index, void *base, size_t nmemb, size_t size,
+   for (size_t i = 0 ; i < nmemb ; i++)
+     index[i] = i;
+   
+-  qsort_r(index, nmemb, sizeof(size_t),
+-          indirect_compar, (void*) &closure);
++  ALE_QSORT_R(index, nmemb, sizeof(size_t),
++	      indirect_compar, (void*) &closure);
+ 
+ }
+diff --git a/src/ale-1.4/src/stats/base.c b/src/ale-1.4/src/stats/base.c
+index e386a23..decf7d3 100644
+--- a/src/ale-1.4/src/stats/base.c
++++ b/src/ale-1.4/src/stats/base.c
+@@ -8,6 +8,38 @@
+ #include "ale/algebra.h"
+ #include "ale/sort.h"
+ 
++/* ---------------------------------------------------------------------------
++ * Portability shim: glibc and BSD/macOS disagree about qsort_r's signature.
++ *   glibc: qsort_r(base, n, sz, int (*cmp)(const void*, const void*, void*), void *arg)
++ *   BSD:   qsort_r(base, n, sz, void *thunk, int (*cmp)(void*, const void*, const void*))
++ * ale was written against the glibc order, so on macOS the closure pointer is
++ * called as if it were the comparator -> immediate EXC_BAD_ACCESS.
++ * ------------------------------------------------------------------------- */
++#if defined(__APPLE__) || defined(__FreeBSD__) || defined(__NetBSD__)
++struct ale_qsort_r_ctx
++{
++  int (*compar)(const void *, const void *, void *);
++  void *arg;
++};
++
++static int
++ale_qsort_r_trampoline(void *thunk, const void *p1, const void *p2)
++{
++  struct ale_qsort_r_ctx *ctx = thunk;
++  return ctx->compar(p1, p2, ctx->arg);
++}
++
++#define ALE_QSORT_R(base, nmemb, size, cmp, argp)                       \
++  do {                                                                  \
++    struct ale_qsort_r_ctx ale__ctx = { .compar = (cmp), .arg = (argp) }; \
++    qsort_r((base), (nmemb), (size), &ale__ctx, ale_qsort_r_trampoline); \
++  } while (0)
++#else
++#define ALE_QSORT_R(base, nmemb, size, cmp, argp)       \
++  qsort_r((base), (nmemb), (size), (cmp), (argp))
++#endif
++
++
+ #define GENERIC_FUNC(SUFFIX,TYPE)					\
+   TYPE									\
+   stats_mean##SUFFIX(size_t n, const TYPE x[n])				\
+@@ -324,8 +356,8 @@
+     for (size_t i = 0 ; i < n ; i++)					\
+       index[i] = i;							\
+ 									\
+-    qsort_r(index, n, sizeof(index[0]),					\
+-	    indirect_compar_double##SUFFIX, (void*) p);			\
++    ALE_QSORT_R(index, n, sizeof(index[0]),				\
++		indirect_compar_double##SUFFIX, (void*) p);		\
+ 									\
+     for (ssize_t i = n-1 ; i >= 0  ; i--)				\
+       {									\
